@@ -6,11 +6,12 @@ import {
   type Score,
   type TopicId,
 } from "../assessment-data";
-import { calculateScore, type Answer } from "../scoring";
+import { calculateScore, type Answer, type CategoryScore, type QuestionResult } from "../scoring";
 import { getFirebaseDb, shouldUseFirestore } from "./firebase-client";
 
 export type DashboardGrade = "A" | "B" | "C" | "D";
 export type LowQuestion = { id: string; number: string; title: string; score: number };
+export type DashboardQuestionResult = QuestionResult & { explanation: string };
 export type DashboardRecord = {
   id: string;
   institution: string;
@@ -22,6 +23,8 @@ export type DashboardRecord = {
   grade: DashboardGrade;
   createdAt: string;
   lowQuestions: LowQuestion[];
+  categoryScores: CategoryScore[];
+  questionResults: DashboardQuestionResult[];
 };
 
 export type DashboardResult = {
@@ -92,6 +95,11 @@ function firestoreRecord(id: string, raw: Record<string, unknown>): DashboardRec
         title: question.title,
         score: question.score ?? 0,
       })),
+    categoryScores: summary.categories,
+    questionResults: summary.questionResults.map((question) => ({
+      ...question,
+      explanation: answers[question.id]?.explanation ?? "",
+    })),
   };
 }
 
