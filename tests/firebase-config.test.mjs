@@ -54,6 +54,10 @@ test("Dashboard ใช้ข้อมูลจริงจาก Firestore แ�
   assert.match(dashboardSource, /setRecords\(payload\.records\)/);
   assert.match(dashboardSource, /ระบบเชื่อมต่อ Firestore แล้ว แต่ยังไม่มีผลประเมิน/);
   assert.match(dashboardSource, /ไม่สามารถดึงข้อมูลจริงได้/);
+  assert.match(dashboardSource, /ดาวน์โหลดข้อมูลรวม/);
+  assert.match(dashboardSource, /เลือกข้อมูลแต่ละส่วน/);
+  assert.match(dashboardRepositorySource, /categoryScores: summary\.categories/);
+  assert.match(dashboardRepositorySource, /questionResults: summary\.questionResults/);
 });
 
 test("ผู้ประเมินสาธารณะบันทึกผลแบบ atomic โดยไม่ต้องมีสิทธิ์อ่าน Firestore", () => {
