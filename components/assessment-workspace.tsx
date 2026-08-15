@@ -7,7 +7,6 @@ import {
   getGradeLabel,
   getTopic,
   provinces,
-  rubricVersion,
   schoolRespondentRoles,
   schoolTopicsList,
   type AgencyType,
@@ -280,7 +279,6 @@ function AssessmentView(props: ViewProps) {
           <p className="eyebrow">เครื่องมือประเมินตนเองตามสภาพจริง</p>
           <h1>ช่วยให้เห็นช่องว่างความเสี่ยง ก่อนนำไปวางแผนพัฒนา</h1>
           <p className="intro-copy">เลือกแบบที่เกี่ยวข้องเพียงหนึ่งเรื่องต่อครั้ง อ่านเกณฑ์แต่ละระดับ แล้วเลือกคำตอบที่ใกล้เคียงกับการดำเนินงานจริงมากที่สุด</p>
-          <span className="draft-badge">ร่างเกณฑ์ {rubricVersion}</span>
         </div>
         <figure className="hero-figure">
           <picture>
