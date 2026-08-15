@@ -27,7 +27,10 @@ export type DashboardRecord = {
 export type DashboardResult = {
   source: "live" | "empty" | "unavailable";
   records: DashboardRecord[];
+  error?: string;
 };
+
+export type DashboardListener = (result: DashboardResult) => void;
 
 function isTopicId(value: unknown): value is TopicId {
   return ["bus", "trip", "moto", "agency"].includes(value as TopicId);
@@ -92,32 +95,54 @@ function firestoreRecord(id: string, raw: Record<string, unknown>): DashboardRec
   };
 }
 
-async function loadFromFirestore(): Promise<DashboardResult> {
-  const { collection, getDocs, limit, orderBy, query } = await import("firebase/firestore");
+async function subscribeToFirestore(listener: DashboardListener): Promise<() => void> {
+  const { collection, onSnapshot, orderBy, query } = await import("firebase/firestore");
   const db = await getFirebaseDb();
-  if (!db) return { source: "unavailable", records: [] };
+  if (!db) {
+    listener({
+      source: "unavailable",
+      records: [],
+      error: "ยังไม่ได้ตั้งค่าการเชื่อมต่อ Firebase สำหรับ Dashboard",
+    });
+    return () => undefined;
+  }
 
-  // รุ่นนำร่องอ่านผลล่าสุดไม่เกิน 500 รายการ แล้วรวมผลในเบราว์เซอร์เพื่อลดระบบฝั่งเซิร์ฟเวอร์
-  const snapshot = await getDocs(query(
+  // รุ่นนำร่องอ่านผลที่ยืนยันทั้งหมดเพื่อให้ KPI ตรงกับข้อมูลจริง และ subscribe เพื่ออัปเดตหน้าจอเมื่อมีผลใหม่
+  // เมื่อข้อมูลมีหลักหมื่นรายการ ควรย้ายการรวมผลไปยัง aggregate collection ที่เขียนด้วย trusted backend
+  const submissionsQuery = query(
     collection(db, "submissions"),
     orderBy("createdAt", "desc"),
-    limit(500),
-  ));
-  const records = snapshot.docs
-    .map((document) => firestoreRecord(document.id, document.data()))
-    .filter((record): record is DashboardRecord => record !== null);
-  return { source: records.length ? "live" : "empty", records };
+  );
+
+  return onSnapshot(
+    submissionsQuery,
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((document) => firestoreRecord(document.id, document.data()))
+        .filter((record): record is DashboardRecord => record !== null);
+      listener({ source: records.length ? "live" : "empty", records });
+    },
+    () => listener({
+      source: "unavailable",
+      records: [],
+      error: "ไม่สามารถอ่านข้อมูลจาก Firestore ได้ กรุณาตรวจสิทธิ์เข้าสู่ระบบแล้วลองใหม่",
+    }),
+  );
 }
 
 export const dashboardRepository = {
-  async load(): Promise<DashboardResult> {
+  async subscribe(listener: DashboardListener): Promise<() => void> {
     try {
-      if (shouldUseFirestore()) return await loadFromFirestore();
+      if (shouldUseFirestore()) return await subscribeToFirestore(listener);
       const response = await fetch("/api/dashboard");
-      if (!response.ok) return { source: "unavailable", records: [] };
-      return await response.json() as DashboardResult;
+      if (!response.ok) {
+        listener({ source: "unavailable", records: [], error: "อ่านข้อมูล Dashboard ไม่สำเร็จ" });
+        return () => undefined;
+      }
+      listener(await response.json() as DashboardResult);
     } catch {
-      return { source: "unavailable", records: [] };
+      listener({ source: "unavailable", records: [], error: "เชื่อมต่อแหล่งข้อมูล Dashboard ไม่สำเร็จ" });
     }
+    return () => undefined;
   },
 };
