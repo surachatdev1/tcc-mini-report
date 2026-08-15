@@ -40,6 +40,11 @@ export async function GET() {
         grade: summary.grade,
         createdAt: row.createdAt,
         lowQuestions,
+        categoryScores: summary.categories,
+        questionResults: summary.questionResults.map((question) => ({
+          ...question,
+          explanation: answers[question.id]?.explanation ?? "",
+        })),
       };
     });
 
