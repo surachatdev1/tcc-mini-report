@@ -6,6 +6,7 @@ import {
   dashboardRepository,
   type DashboardGrade as Grade,
   type DashboardRecord,
+  type DashboardResult,
 } from "@/lib/integrations/dashboard-repository";
 
 const topicOptions: Array<{ id: "all" | TopicId; label: string }> = [
@@ -16,42 +17,6 @@ const topicOptions: Array<{ id: "all" | TopicId; label: string }> = [
   { id: "agency", label: "บทบาทหน่วยงานกำกับ" },
 ];
 
-const gapLabels = {
-  bus: ["การตรวจสภาพรถและอุปกรณ์ความปลอดภัย", "การตรวจสอบประวัติและคุณสมบัติผู้ขับรถ"],
-  trip: ["การประเมินความเสี่ยงและแผนฉุกเฉินก่อนเดินทาง", "การซักซ้อมหน้าที่ครูผู้ควบคุม"],
-  moto: ["การสวมหมวกนิรภัยของนักเรียน", "มาตรการติดตามพฤติกรรมเสี่ยงหน้าโรงเรียน"],
-  agency: ["การใช้ข้อมูลอุบัติเหตุวางแผนร่วมกัน", "ระบบติดตามผลและรายงานความก้าวหน้า"],
-} satisfies Record<TopicId, string[]>;
-
-function gradeFromScore(score: number): Grade {
-  if (score >= 85) return "A";
-  if (score >= 70) return "B";
-  if (score >= 50) return "C";
-  return "D";
-}
-
-// ชุดข้อมูลนี้ใช้แสดงรูปแบบ Dashboard เมื่อฐานข้อมูลเดโมยังว่าง และมีป้ายกำกับชัดเจนว่าไม่ใช่ผลจริง
-const demoRecords: DashboardRecord[] = provinces.flatMap((province, index) => {
-  const topics: TopicId[] = ["bus", "trip", "moto", "agency"];
-  return topics.slice(0, index % 3 === 0 ? 2 : index % 3 === 1 ? 3 : 4).map((topicId, topicIndex) => {
-    const score = 46 + ((index * 9 + topicIndex * 13) % 48);
-    const label = topicOptions.find((item) => item.id === topicId)?.label ?? topicId;
-    const gaps = score < 70 ? gapLabels[topicId] : score < 85 ? gapLabels[topicId].slice(0, 1) : [];
-    return {
-      id: `demo-${index}-${topicId}`,
-      institution: topicId === "agency" ? `หน่วยงานตัวอย่าง ${province}` : `โรงเรียนตัวอย่าง ${index + 1}`,
-      province,
-      topicId,
-      topicLabel: label,
-      agencyType: topicId === "agency" ? "demo-agency" : null,
-      score,
-      grade: gradeFromScore(score),
-      createdAt: new Date(2026, 7, 14 - index, 9 + topicIndex).toISOString(),
-      lowQuestions: gaps.map((title, gapIndex) => ({ id: `${topicId}-${gapIndex}`, number: `${gapIndex + 1}`, title, score: gapIndex })),
-    };
-  });
-});
-
 function average(records: DashboardRecord[]) {
   return records.length ? records.reduce((sum, item) => sum + item.score, 0) / records.length : 0;
 }
@@ -61,27 +26,44 @@ function formatDate(value: string) {
 }
 
 export function DashboardWorkspace() {
-  const [records, setRecords] = useState<DashboardRecord[]>(demoRecords);
-  const [source, setSource] = useState<"loading" | "live" | "demo">("loading");
+  const [records, setRecords] = useState<DashboardRecord[]>([]);
+  const [source, setSource] = useState<"loading" | DashboardResult["source"]>("loading");
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [province, setProvince] = useState("all");
   const [topicId, setTopicId] = useState<"all" | TopicId>("all");
 
+  function reloadDashboard() {
+    setSource("loading");
+    setLoadError("");
+    setRecords([]);
+    setReloadKey((value) => value + 1);
+  }
+
   useEffect(() => {
     let active = true;
-    dashboardRepository.load()
-      .then((payload) => {
-        if (!active) return;
-        if (payload.source === "live" && payload.records?.length) {
-          setRecords(payload.records);
-          setSource("live");
-        } else {
-          setRecords(demoRecords);
-          setSource("demo");
-        }
-      })
-      .catch(() => active && setSource("demo"));
-    return () => { active = false; };
-  }, []);
+    let unsubscribe = () => undefined;
+
+    void dashboardRepository.subscribe((payload) => {
+      if (!active) return;
+      setRecords(payload.records);
+      setSource(payload.source);
+      setLoadError(payload.error ?? "");
+    }).then((stop) => {
+      if (active) unsubscribe = stop;
+      else stop();
+    }).catch(() => {
+      if (!active) return;
+      setRecords([]);
+      setSource("unavailable");
+      setLoadError("เชื่อมต่อข้อมูล Dashboard ไม่สำเร็จ");
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [reloadKey]);
 
   const filtered = useMemo(() => records.filter((record) =>
     (province === "all" || record.province === province) &&
@@ -123,15 +105,18 @@ export function DashboardWorkspace() {
     .slice(0, 6), [filtered]);
 
   return (
-    <main className="page-shell dashboard-shell">
+    <main className="page-shell dashboard-shell" aria-busy={source === "loading"}>
       <div className="dashboard-head">
         <div>
           <p className="eyebrow">ภาพรวมเพื่อการพัฒนาและติดตามผล</p>
           <h1>Dashboard ความปลอดภัยในการเดินทาง</h1>
           <p>ดูผลตามจังหวัด ประเภทการประเมิน และประเด็นที่ควรเร่งสนับสนุน</p>
         </div>
-        <span className={`data-badge ${source === "live" ? "live" : "demo"}`}>
-          {source === "loading" ? "กำลังตรวจสอบข้อมูล" : source === "live" ? "ข้อมูลจากระบบจริง" : "ข้อมูลสาธิต"}
+        <span className={`data-badge ${source}`}>
+          {source === "loading" && "กำลังโหลดข้อมูลจริง"}
+          {source === "live" && "ข้อมูลจาก Firestore"}
+          {source === "empty" && "ยังไม่มีผลประเมิน"}
+          {source === "unavailable" && "เชื่อมต่อข้อมูลไม่สำเร็จ"}
         </span>
       </div>
 
@@ -139,6 +124,19 @@ export function DashboardWorkspace() {
         <strong>หลักการอ่านผล:</strong> คะแนนใช้สะท้อนช่องว่างเพื่อจัดทำแผนพัฒนา ไม่ใช้ลงโทษหรือตัดงบประมาณ
         และยังไม่แสดง “อัตราการส่งครบ” จนกว่าจะมีรายชื่อหน่วยงานเป้าหมายประจำรอบประเมิน
       </section>
+
+      {source === "unavailable" ? (
+        <section className="dashboard-load-state error" role="alert">
+          <div><strong>ไม่สามารถดึงข้อมูลจริงได้</strong><span>{loadError || "กรุณาตรวจสอบการเข้าสู่ระบบและการตั้งค่า Firestore"}</span></div>
+          <button type="button" className="btn btn-secondary" onClick={reloadDashboard}>ลองโหลดอีกครั้ง</button>
+        </section>
+      ) : null}
+
+      {source === "empty" ? (
+        <section className="dashboard-load-state empty" role="status">
+          <div><strong>ระบบเชื่อมต่อ Firestore แล้ว แต่ยังไม่มีผลประเมิน</strong><span>เมื่อมีผู้ส่งแบบประเมิน รายการและตัวเลขสรุปจะปรากฏในหน้านี้โดยอัตโนมัติ</span></div>
+        </section>
+      ) : null}
 
       <section className="filter-bar" aria-label="ตัวกรองข้อมูล">
         <label className="field">
@@ -198,7 +196,10 @@ export function DashboardWorkspace() {
         <div className="table-scroll">
           <table>
             <thead><tr><th>จังหวัด</th><th>จำนวนองค์กร</th><th>ผลประเมิน</th><th>คะแนนเฉลี่ย</th><th>ระดับ D</th></tr></thead>
-            <tbody>{provinceSummaries.map((item) => <tr key={item.province}><td><strong>{item.province}</strong></td><td>{item.organizations}</td><td>{item.count}</td><td>{item.average.toFixed(1)}</td><td>{item.urgent}</td></tr>)}</tbody>
+            <tbody>
+              {provinceSummaries.map((item) => <tr key={item.province}><td><strong>{item.province}</strong></td><td>{item.organizations}</td><td>{item.count}</td><td>{item.average.toFixed(1)}</td><td>{item.urgent}</td></tr>)}
+              {!provinceSummaries.length ? <tr><td colSpan={5} className="table-empty">ยังไม่มีข้อมูลตามตัวกรองนี้</td></tr> : null}
+            </tbody>
           </table>
         </div>
       </section>
