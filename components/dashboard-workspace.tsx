@@ -8,6 +8,10 @@ import {
   type DashboardRecord,
   type DashboardResult,
 } from "@/lib/integrations/dashboard-repository";
+import {
+  downloadDashboardExcel,
+  type DashboardExportScope,
+} from "@/lib/exports/dashboard-excel";
 
 const topicOptions: Array<{ id: "all" | TopicId; label: string }> = [
   { id: "all", label: "ทุกแบบประเมิน" },
@@ -15,6 +19,17 @@ const topicOptions: Array<{ id: "all" | TopicId; label: string }> = [
   { id: "trip", label: "ทัศนศึกษา / นอกสถานศึกษา" },
   { id: "moto", label: "รถจักรยานยนต์และหมวกนิรภัย" },
   { id: "agency", label: "บทบาทหน่วยงานกำกับ" },
+];
+
+const exportOptions: Array<{ id: Exclude<DashboardExportScope, "all">; label: string }> = [
+  { id: "overview", label: "ภาพรวมและ KPI" },
+  { id: "provinces", label: "สรุปตามจังหวัด" },
+  { id: "topics", label: "สรุปตามแบบประเมิน" },
+  { id: "grades", label: "การกระจายระดับ A–D" },
+  { id: "gaps", label: "ประเด็นที่ควรเร่งพัฒนา" },
+  { id: "assessments", label: "รายการผลประเมิน" },
+  { id: "categories", label: "คะแนนแยกตามหมวด" },
+  { id: "questions", label: "รายละเอียดคะแนนรายข้อ" },
 ];
 
 function average(records: DashboardRecord[]) {
@@ -32,6 +47,9 @@ export function DashboardWorkspace() {
   const [reloadKey, setReloadKey] = useState(0);
   const [province, setProvince] = useState("all");
   const [topicId, setTopicId] = useState<"all" | TopicId>("all");
+  const [exportScope, setExportScope] = useState<Exclude<DashboardExportScope, "all">>("provinces");
+  const [exportState, setExportState] = useState<"idle" | "working" | "done" | "error">("idle");
+  const [exportMessage, setExportMessage] = useState("");
 
   function reloadDashboard() {
     setSource("loading");
@@ -104,6 +122,27 @@ export function DashboardWorkspace() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 6), [filtered]);
 
+  async function exportExcel(scope: DashboardExportScope) {
+    if (!filtered.length || exportState === "working") return;
+    setExportState("working");
+    setExportMessage("กำลังสร้างไฟล์ Excel…");
+    try {
+      await downloadDashboardExcel({
+        scope,
+        records: filtered,
+        provinceLabel: province === "all" ? "ทุกจังหวัด" : province,
+        topicLabel: topicOptions.find((option) => option.id === topicId)?.label ?? "ทุกแบบประเมิน",
+      });
+      setExportState("done");
+      setExportMessage("ดาวน์โหลดไฟล์ Excel เรียบร้อยแล้ว");
+    } catch {
+      setExportState("error");
+      setExportMessage("สร้างไฟล์ Excel ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
+  }
+
+  const exportDisabled = source !== "live" || !filtered.length || exportState === "working";
+
   return (
     <main className="page-shell dashboard-shell" aria-busy={source === "loading"}>
       <div className="dashboard-head">
@@ -152,6 +191,31 @@ export function DashboardWorkspace() {
             {topicOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
+      </section>
+
+      <section className="export-panel" aria-labelledby="export-title">
+        <div className="excel-mark" aria-hidden="true"><span>X</span></div>
+        <div className="export-copy">
+          <h2 id="export-title">ส่งออกข้อมูลเป็น Excel</h2>
+          <p>ไฟล์ใช้ข้อมูลจริงตามตัวกรองด้านบน และไม่รวมชื่อผู้ประเมินหรือข้อมูลส่วนบุคคล</p>
+        </div>
+        <div className="export-actions">
+          <button type="button" className="btn btn-primary export-all-button" disabled={exportDisabled} onClick={() => void exportExcel("all")}>
+            <span aria-hidden="true">↓</span> ดาวน์โหลดข้อมูลรวม
+          </button>
+          <div className="export-section-control">
+            <label htmlFor="export-section">เลือกข้อมูลแต่ละส่วน</label>
+            <div>
+              <select id="export-section" value={exportScope} onChange={(event) => setExportScope(event.target.value as Exclude<DashboardExportScope, "all">)}>
+                {exportOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+              </select>
+              <button type="button" className="btn btn-secondary" disabled={exportDisabled} onClick={() => void exportExcel(exportScope)}>
+                <span aria-hidden="true">↓</span> ดาวน์โหลดส่วนนี้
+              </button>
+            </div>
+          </div>
+        </div>
+        <p className={`export-status ${exportState}`} aria-live="polite">{exportMessage || (filtered.length ? `พร้อมส่งออก ${filtered.length} รายการตามตัวกรอง` : "ยังไม่มีข้อมูลสำหรับส่งออก")}</p>
       </section>
 
       <section className="kpi-grid" aria-label="ตัวเลขสรุป">
