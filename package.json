@@ -1,0 +1,53 @@
+{
+  "name": "tcc-safe-travel-assessment",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "install:ci": "bash scripts/install-ci.sh",
+    "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite",
+    "build": "bash scripts/build-verified.sh",
+    "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
+    "test": "npm run build && npm run firebase:build && node --test tests/rendered-html.test.mjs tests/rubric-integrity.test.mjs tests/firebase-config.test.mjs tests/school-directory.test.mjs && node --test --experimental-strip-types tests/scoring.test.ts",
+    "schools:import": "node scripts/import-school-directory.mjs",
+    "firebase:build": "vite --config vite.firebase.config.ts build",
+    "firebase:serve": "npm run firebase:build && firebase emulators:start --only hosting,firestore",
+    "firebase:deploy": "node scripts/validate-firebase-env.mjs && npm run firebase:build && firebase deploy --only hosting,firestore:rules,firestore:indexes",
+    "firebase:smoke": "node scripts/firebase-smoke-test.mjs",
+    "firebase:release": "npm run lint && npm test && npm run firebase:deploy && npm run firebase:smoke",
+    "validate:artifact": "bash scripts/validate-artifact.sh",
+    "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern firebase-dist",
+    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
+  },
+  "dependencies": {
+    "@fontsource/sarabun": "^5.3.0",
+    "drizzle-orm": "0.45.2",
+    "firebase": "^12.17.1",
+    "next": "16.2.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.37.1",
+    "@tailwindcss/postcss": "4.2.1",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "@vitejs/plugin-rsc": "0.5.26",
+    "drizzle-kit": "0.31.10",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.6",
+    "firebase-tools": "^15.27.0",
+    "react-server-dom-webpack": "19.2.6",
+    "tailwindcss": "4.2.1",
+    "typescript": "5.9.3",
+    "vinext": "0.0.50",
+    "vite": "8.0.13",
+    "wrangler": "4.92.0"
+  },
+  "type": "module",
+  "displayName": "ระบบประเมินการเดินทางที่ปลอดภัยของเด็กนักเรียน"
+}

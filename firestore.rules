@@ -1,0 +1,207 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isGoogleUser() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
+    function validProvince(value) {
+      return value in [
+        'กรุงเทพมหานคร', 'กาญจนบุรี', 'พระนครศรีอยุธยา', 'ประจวบคีรีขันธ์',
+        'ขอนแก่น', 'สุรินทร์', 'เชียงใหม่', 'น่าน', 'ลำปาง', 'ภูเก็ต', 'ปัตตานี', 'สงขลา'
+      ];
+    }
+
+    function validRole(value) {
+      return value in [
+        'ผู้บริหารสถานศึกษา', 'ครู / ผู้รับผิดชอบความปลอดภัย',
+        'ผู้ประสานงานกิจการนักเรียน', 'เจ้าหน้าที่สถานศึกษา',
+        'ผู้บริหารหน่วยงาน', 'ผู้รับผิดชอบนโยบายหรือแผนงาน',
+        'เจ้าหน้าที่ผู้ประเมิน', 'ผู้ประสานงานระดับพื้นที่'
+      ];
+    }
+
+    function validAnswer(answer) {
+      return answer is map
+        && answer.keys().hasAll(['score', 'explanation'])
+        && answer.keys().hasOnly(['score', 'explanation'])
+        && answer.score is int
+        && answer.score >= 0
+        && answer.score <= 3
+        && answer.explanation is string
+        && answer.explanation.size() <= 500;
+    }
+
+    function exactAnswerKeys(answers, keys) {
+      return answers.keys().hasAll(keys) && answers.keys().hasOnly(keys);
+    }
+
+    function validBusAnswers(answers) {
+      return exactAnswerKeys(answers, [
+          'bus-driver-1', 'bus-driver-2', 'bus-driver-3',
+          'bus-vehicle-1', 'bus-vehicle-2', 'bus-vehicle-3',
+          'bus-management-1', 'bus-management-2', 'bus-management-3'
+        ])
+        && validAnswer(answers['bus-driver-1'])
+        && validAnswer(answers['bus-driver-2'])
+        && validAnswer(answers['bus-driver-3'])
+        && validAnswer(answers['bus-vehicle-1'])
+        && validAnswer(answers['bus-vehicle-2'])
+        && validAnswer(answers['bus-vehicle-3'])
+        && validAnswer(answers['bus-management-1'])
+        && validAnswer(answers['bus-management-2'])
+        && validAnswer(answers['bus-management-3']);
+    }
+
+    function validTripAnswers(answers) {
+      return exactAnswerKeys(answers, [
+          'trip-driver-1', 'trip-driver-2', 'trip-driver-3',
+          'trip-vehicle-1', 'trip-vehicle-2', 'trip-vehicle-3',
+          'trip-school-1', 'trip-school-2', 'trip-school-3',
+          'trip-support-1', 'trip-support-2', 'trip-support-3'
+        ])
+        && validAnswer(answers['trip-driver-1'])
+        && validAnswer(answers['trip-driver-2'])
+        && validAnswer(answers['trip-driver-3'])
+        && validAnswer(answers['trip-vehicle-1'])
+        && validAnswer(answers['trip-vehicle-2'])
+        && validAnswer(answers['trip-vehicle-3'])
+        && validAnswer(answers['trip-school-1'])
+        && validAnswer(answers['trip-school-2'])
+        && validAnswer(answers['trip-school-3'])
+        && validAnswer(answers['trip-support-1'])
+        && validAnswer(answers['trip-support-2'])
+        && validAnswer(answers['trip-support-3']);
+    }
+
+    function validMotoAnswers(answers) {
+      return exactAnswerKeys(answers, [
+          'moto-behavior-1', 'moto-behavior-2', 'moto-behavior-3',
+          'moto-management-1', 'moto-management-2', 'moto-management-3',
+          'moto-knowledge-1', 'moto-knowledge-2', 'moto-knowledge-3',
+          'moto-environment-1', 'moto-environment-2', 'moto-environment-3'
+        ])
+        && validAnswer(answers['moto-behavior-1'])
+        && validAnswer(answers['moto-behavior-2'])
+        && validAnswer(answers['moto-behavior-3'])
+        && validAnswer(answers['moto-management-1'])
+        && validAnswer(answers['moto-management-2'])
+        && validAnswer(answers['moto-management-3'])
+        && validAnswer(answers['moto-knowledge-1'])
+        && validAnswer(answers['moto-knowledge-2'])
+        && validAnswer(answers['moto-knowledge-3'])
+        && validAnswer(answers['moto-environment-1'])
+        && validAnswer(answers['moto-environment-2'])
+        && validAnswer(answers['moto-environment-3']);
+    }
+
+    function validAgencyAnswers(answers, agencyType) {
+      return (
+          agencyType == 'road-safety'
+          && exactAnswerKeys(answers, ['agency-road-safety-1', 'agency-road-safety-2', 'agency-road-safety-3'])
+          && validAnswer(answers['agency-road-safety-1'])
+          && validAnswer(answers['agency-road-safety-2'])
+          && validAnswer(answers['agency-road-safety-3'])
+        ) || (
+          agencyType == 'education-area'
+          && exactAnswerKeys(answers, ['agency-education-area-4', 'agency-education-area-5', 'agency-education-area-6'])
+          && validAnswer(answers['agency-education-area-4'])
+          && validAnswer(answers['agency-education-area-5'])
+          && validAnswer(answers['agency-education-area-6'])
+        ) || (
+          agencyType == 'transport'
+          && exactAnswerKeys(answers, ['agency-transport-7', 'agency-transport-8', 'agency-transport-9'])
+          && validAnswer(answers['agency-transport-7'])
+          && validAnswer(answers['agency-transport-8'])
+          && validAnswer(answers['agency-transport-9'])
+        ) || (
+          agencyType == 'local-admin'
+          && exactAnswerKeys(answers, ['agency-local-admin-10', 'agency-local-admin-11', 'agency-local-admin-12'])
+          && validAnswer(answers['agency-local-admin-10'])
+          && validAnswer(answers['agency-local-admin-11'])
+          && validAnswer(answers['agency-local-admin-12'])
+        );
+    }
+
+    function validAnswers(data) {
+      return data.answers is map && (
+        (data.topicId == 'bus' && data.agencyType == null && validBusAnswers(data.answers))
+        || (data.topicId == 'trip' && data.agencyType == null && validTripAnswers(data.answers))
+        || (data.topicId == 'moto' && data.agencyType == null && validMotoAnswers(data.answers))
+        || (data.topicId == 'agency' && validAgencyAnswers(data.answers, data.agencyType))
+      );
+    }
+
+    function validSubmission() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'schemaVersion', 'publicConsent', 'institution', 'province',
+          'respondentRole', 'position', 'assessmentDate', 'topicId',
+          'topicLabel', 'agencyType', 'rubricVersion', 'answers',
+          'verificationStatus', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'schemaVersion', 'publicConsent', 'institution', 'province',
+          'respondentRole', 'position', 'assessmentDate', 'topicId',
+          'topicLabel', 'agencyType', 'rubricVersion', 'answers',
+          'verificationStatus', 'createdAt'
+        ])
+        && data.schemaVersion == 1
+        && data.publicConsent == true
+        && data.institution is string
+        && data.institution.size() >= 2
+        && data.institution.size() <= 180
+        && validProvince(data.province)
+        && validRole(data.respondentRole)
+        && data.position is string
+        && data.position.size() <= 120
+        && data.assessmentDate is string
+        && data.assessmentDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && data.topicId in ['bus', 'trip', 'moto', 'agency']
+        && data.topicLabel is string
+        && data.topicLabel.size() >= 2
+        && data.topicLabel.size() <= 250
+        && (data.agencyType == null || data.agencyType in ['road-safety', 'education-area', 'transport', 'local-admin'])
+        && data.rubricVersion == 'TCC-DRAFT-22-06-69-EXACT-01'
+        && validAnswers(data)
+        && data.verificationStatus == 'self_reported'
+        && data.createdAt == request.time;
+    }
+
+    function validPrivateAssessor(submissionId) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['schemaVersion', 'submissionId', 'assessorName', 'createdAt'])
+        && data.keys().hasOnly(['schemaVersion', 'submissionId', 'assessorName', 'createdAt'])
+        && data.schemaVersion == 1
+        && data.submissionId == submissionId
+        && data.assessorName is string
+        && data.assessorName.size() >= 2
+        && data.assessorName.size() <= 120
+        && data.createdAt == request.time
+        && existsAfter(/databases/$(database)/documents/submissions/$(submissionId))
+        && getAfter(/databases/$(database)/documents/submissions/$(submissionId)).data.createdAt == request.time;
+    }
+
+    match /submissions/{submissionId} {
+      // เฉพาะผู้ที่ยืนยันตัวตนด้วย Google จึงอ่านข้อมูลสรุปสำหรับ Dashboard ได้
+      allow read: if isGoogleUser();
+
+      // ไม่ใช้ Auth แต่เปิดเฉพาะการสร้างเอกสารรูปแบบที่กำหนด และห้ามแก้/ลบจาก client
+      allow create: if submissionId.size() == 36 && validSubmission();
+      allow update, delete: if false;
+    }
+
+    match /submission_assessors/{submissionId} {
+      // ชื่อผู้ประเมินเป็นข้อมูลอ้างอิงภายใน: client สร้างได้พร้อมผล แต่ไม่มีสิทธิ์อ่าน แก้ หรือลบ
+      allow read: if false;
+      allow create: if submissionId.size() == 36 && validPrivateAssessor(submissionId);
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
