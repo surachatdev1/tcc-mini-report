@@ -6,7 +6,14 @@ const rules = await readFile(new URL("../firestore.rules", import.meta.url), "ut
 const firebaseConfig = JSON.parse(await readFile(new URL("../firebase.json", import.meta.url), "utf8"));
 const formSource = await readFile(new URL("../components/assessment-workspace.tsx", import.meta.url), "utf8");
 const authGateSource = await readFile(new URL("../components/dashboard-auth-gate.tsx", import.meta.url), "utf8");
+const firebaseHtml = await readFile(new URL("../firebase-spa/index.html", import.meta.url), "utf8");
 const rubric = JSON.parse(await readFile(new URL("../lib/criteria.generated.json", import.meta.url), "utf8"));
+
+test("Firebase SPA มีภาษาไทย ชื่อระบบ และ root สำหรับ React", () => {
+  assert.match(firebaseHtml, /<html lang="th">/);
+  assert.match(firebaseHtml, /<title>ระบบประเมินการเดินทางที่ปลอดภัยของเด็กนักเรียน<\/title>/);
+  assert.match(firebaseHtml, /<div id="root"><\/div>/);
+});
 
 test("Firebase Hosting รองรับ SPA route /dashboard", () => {
   assert.equal(firebaseConfig.hosting.public, "firebase-dist");
