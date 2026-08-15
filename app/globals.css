@@ -420,6 +420,28 @@ input[readonly] { background: #f1f4f2; color: var(--muted); }
 .dashboard-load-state.empty { border-color: #d8c59c; background: #fffaf0; }
 .dashboard-load-state.error { border-color: #e2bab5; background: #fff7f5; }
 .filter-bar { display: grid; grid-template-columns: repeat(2,minmax(0,300px)); gap: 16px; margin-bottom: 20px; border: 1px solid var(--line); border-radius: 14px; background: white; padding: 18px; }
+.export-panel {
+  display: grid; grid-template-columns: auto minmax(220px,1fr) minmax(390px,auto); gap: 16px 20px;
+  align-items: center; margin-bottom: 20px; border: 1px solid #bcd3c7; border-radius: 16px;
+  background: linear-gradient(135deg,#f2f8f4 0%,#fff 100%); padding: 20px;
+}
+.excel-mark {
+  display: grid; width: 52px; height: 52px; place-items: center; border-radius: 13px;
+  background: #1f7048; color: white; box-shadow: 0 6px 14px rgba(31,112,72,.15);
+}
+.excel-mark span { font-size: 24px; font-weight: 700; line-height: 1; }
+.export-copy h2 { margin: 0; font-size: 21px; }
+.export-copy p { margin: 4px 0 0; color: var(--muted); font-size: 15px; }
+.export-actions { display: flex; align-items: end; justify-content: flex-end; gap: 12px; }
+.export-actions button { white-space: nowrap; }
+.export-actions button > span { margin-right: 5px; font-size: 20px; line-height: 1; }
+.export-section-control { display: grid; gap: 5px; }
+.export-section-control > label { color: var(--muted); font-size: 14px; font-weight: 600; }
+.export-section-control > div { display: flex; gap: 8px; }
+.export-section-control select { min-width: 210px; }
+.export-status { grid-column: 2 / -1; margin: -4px 0 0; color: var(--muted); font-size: 14px; }
+.export-status.done { color: #226241; }
+.export-status.error { color: #8d352f; }
 .kpi-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; margin-bottom: 20px; }
 .kpi-card { min-height: 136px; border: 1px solid var(--line); border-radius: 14px; background: white; box-shadow: var(--shadow); padding: 19px; }
 .kpi-card span, .kpi-card small { display: block; color: var(--muted); }
@@ -497,6 +519,9 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   .kpi-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .topic-summary-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .intent-grid { grid-template-columns: 1fr; }
+  .export-panel { grid-template-columns: auto 1fr; }
+  .export-actions, .export-status { grid-column: 1 / -1; }
+  .export-actions { justify-content: flex-start; }
 }
 
 @media (max-width: 720px) {
@@ -522,6 +547,11 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   .topic-summary-grid { grid-template-columns: 1fr; }
   .dashboard-head { align-items: stretch; flex-direction: column; }
   .dashboard-load-state { align-items: stretch; flex-direction: column; }
+  .export-panel { grid-template-columns: 1fr; }
+  .export-copy, .export-actions, .export-status { grid-column: auto; }
+  .export-actions, .export-section-control > div { align-items: stretch; flex-direction: column; }
+  .export-section-control select { width: 100%; min-width: 0; }
+  .export-all-button, .export-section-control .btn { width: 100%; }
   .recent-list > div, .gap-list li { grid-template-columns: 1fr; }
   .recent-list > div { display: grid; }
   .school-field-footer { align-items: flex-start; flex-direction: column; }
