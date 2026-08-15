@@ -6,6 +6,8 @@ const rules = await readFile(new URL("../firestore.rules", import.meta.url), "ut
 const firebaseConfig = JSON.parse(await readFile(new URL("../firebase.json", import.meta.url), "utf8"));
 const formSource = await readFile(new URL("../components/assessment-workspace.tsx", import.meta.url), "utf8");
 const authGateSource = await readFile(new URL("../components/dashboard-auth-gate.tsx", import.meta.url), "utf8");
+const dashboardSource = await readFile(new URL("../components/dashboard-workspace.tsx", import.meta.url), "utf8");
+const dashboardRepositorySource = await readFile(new URL("../lib/integrations/dashboard-repository.ts", import.meta.url), "utf8");
 const firebaseHtml = await readFile(new URL("../firebase-spa/index.html", import.meta.url), "utf8");
 const rubric = JSON.parse(await readFile(new URL("../lib/criteria.generated.json", import.meta.url), "utf8"));
 
@@ -41,6 +43,16 @@ test("Dashboard บังคับ Google Sign-In และไม่เปิด
   assert.match(rules, /allow read: if false;/);
   assert.match(rules, /validPrivateAssessor\(submissionId\)/);
   assert.match(rules, /getAfter\(\/databases\/\$\(database\)\/documents\/submissions\/\$\(submissionId\)\)\.data\.createdAt == request\.time/);
+});
+
+test("Dashboard ใช้ข้อมูลจริงจาก Firestore และไม่ย้อนกลับไปใช้ข้อมูลสาธิต", () => {
+  assert.match(dashboardRepositorySource, /onSnapshot\(/);
+  assert.match(dashboardRepositorySource, /collection\(db, "submissions"\)/);
+  assert.doesNotMatch(dashboardRepositorySource, /limit\(500\)/);
+  assert.doesNotMatch(dashboardSource, /demoRecords|ข้อมูลสาธิต|โรงเรียนตัวอย่าง/);
+  assert.match(dashboardSource, /setRecords\(payload\.records\)/);
+  assert.match(dashboardSource, /ระบบเชื่อมต่อ Firestore แล้ว แต่ยังไม่มีผลประเมิน/);
+  assert.match(dashboardSource, /ไม่สามารถดึงข้อมูลจริงได้/);
 });
 
 test("Firestore rules รู้จัก question id ทุกข้อในร่างเกณฑ์", () => {
