@@ -5,6 +5,7 @@ import test from "node:test";
 const rules = await readFile(new URL("../firestore.rules", import.meta.url), "utf8");
 const firebaseConfig = JSON.parse(await readFile(new URL("../firebase.json", import.meta.url), "utf8"));
 const formSource = await readFile(new URL("../components/assessment-workspace.tsx", import.meta.url), "utf8");
+const assessmentRepositorySource = await readFile(new URL("../lib/integrations/assessment-repository.ts", import.meta.url), "utf8");
 const authGateSource = await readFile(new URL("../components/dashboard-auth-gate.tsx", import.meta.url), "utf8");
 const dashboardSource = await readFile(new URL("../components/dashboard-workspace.tsx", import.meta.url), "utf8");
 const dashboardRepositorySource = await readFile(new URL("../lib/integrations/dashboard-repository.ts", import.meta.url), "utf8");
@@ -53,6 +54,14 @@ test("Dashboard ใช้ข้อมูลจริงจาก Firestore แ�
   assert.match(dashboardSource, /setRecords\(payload\.records\)/);
   assert.match(dashboardSource, /ระบบเชื่อมต่อ Firestore แล้ว แต่ยังไม่มีผลประเมิน/);
   assert.match(dashboardSource, /ไม่สามารถดึงข้อมูลจริงได้/);
+});
+
+test("ผู้ประเมินสาธารณะบันทึกผลแบบ atomic โดยไม่ต้องมีสิทธิ์อ่าน Firestore", () => {
+  assert.match(assessmentRepositorySource, /writeBatch/);
+  assert.match(assessmentRepositorySource, /await batch\.commit\(\)/);
+  assert.doesNotMatch(assessmentRepositorySource, /transaction\.get\(/);
+  assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && validSubmission\(\);/);
+  assert.match(rules, /allow update, delete: if false;/);
 });
 
 test("Firestore rules รู้จัก question id ทุกข้อในร่างเกณฑ์", () => {
