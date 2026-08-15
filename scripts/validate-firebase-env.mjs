@@ -6,7 +6,6 @@ const required = [
   "VITE_FIREBASE_AUTH_DOMAIN",
   "VITE_FIREBASE_PROJECT_ID",
   "VITE_FIREBASE_APP_ID",
-  "VITE_FIREBASE_APPCHECK_SITE_KEY",
 ];
 
 const invalid = required.filter((key) => {
@@ -21,6 +20,10 @@ if (invalid.length) {
   console.error(`Firebase production environment is incomplete: ${[...new Set(invalid)].join(", ")}`);
   console.error("Copy .env.firebase.example to .env.local, replace placeholders, and disable emulator mode.");
   process.exit(1);
+}
+
+if (!env.VITE_FIREBASE_APPCHECK_SITE_KEY?.trim()) {
+  console.warn("Firebase App Check is not configured. This is acceptable for the first test deployment, but enable it before public launch.");
 }
 
 console.log("Firebase production environment is ready.");
