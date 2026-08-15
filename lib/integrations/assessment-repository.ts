@@ -73,7 +73,7 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
     throw new Error("กรุณายืนยันการเผยแพร่ข้อมูลสรุปก่อนบันทึกผล");
   }
 
-  const { doc, runTransaction, serverTimestamp } = await import("firebase/firestore");
+  const { doc, serverTimestamp, writeBatch } = await import("firebase/firestore");
   const db = await getFirebaseDb();
   if (!db) throw new Error("ยังไม่ได้ตั้งค่า Firebase สำหรับเว็บไซต์นี้");
 
@@ -83,44 +83,38 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
   const assessorDocumentRef = doc(db, "submission_assessors", payload.idempotencyKey);
   const assessorName = payload.assessorName.trim().slice(0, 120);
   if (assessorName.length < 2) throw new Error("กรุณาระบุชื่อผู้ประเมิน");
-  let createdAt = new Date().toISOString();
+  const createdAt = new Date().toISOString();
 
-  // Transaction ทำให้การกดซ้ำด้วยรหัสเดิมสร้างเอกสารเพียงครั้งเดียว
-  await runTransaction(db, async (transaction) => {
-    const existing = await transaction.get(documentRef);
-    if (existing.exists()) {
-      const value = existing.data().createdAt;
-      if (value && typeof value.toDate === "function") createdAt = value.toDate().toISOString();
-      return;
-    }
-
-    // เอกสารสาธารณะไม่เก็บชื่อบุคคลหรือคะแนนรวม: Dashboard คำนวณใหม่จากคำตอบดิบตาม rubricVersion
-    transaction.set(documentRef, {
-      schemaVersion: 1,
-      publicConsent: true,
-      institution: payload.institution.trim().slice(0, 180),
-      province: payload.province,
-      respondentRole: payload.respondentRole,
-      position: payload.position.trim().slice(0, 120),
-      assessmentDate: payload.assessmentDate,
-      topicId: payload.topicId,
-      topicLabel: topic.id === "agency" ? `${topic.label} — ${topic.detail}` : topic.label,
-      agencyType: payload.topicId === "agency" ? payload.agencyType : null,
-      rubricVersion,
-      answers,
-      verificationStatus: "self_reported",
-      createdAt: serverTimestamp(),
-    });
-
-    // ชื่อผู้ประเมินแยกไว้ใน collection ที่ Firestore Rules ไม่เปิดให้อ่านจาก client
-    // เพื่อให้ข้อมูลสรุปสาธารณะไม่เปิดเผยตัวบุคคล แต่ผู้ดูแลยังอ้างอิงภายหลังผ่าน Admin SDK ได้
-    transaction.set(assessorDocumentRef, {
-      schemaVersion: 1,
-      submissionId: payload.idempotencyKey,
-      assessorName,
-      createdAt: serverTimestamp(),
-    });
+  // ผู้กรอกเป็น public user จึงใช้ atomic batch ที่เขียนได้โดยไม่ต้องอ่านเอกสารก่อน
+  // document id เดิมทำหน้าที่เป็น idempotency key และ Rules อนุญาต create แต่ไม่อนุญาต update
+  const batch = writeBatch(db);
+  // เอกสารสาธารณะไม่เก็บชื่อบุคคลหรือคะแนนรวม: Dashboard คำนวณใหม่จากคำตอบดิบตาม rubricVersion
+  batch.set(documentRef, {
+    schemaVersion: 1,
+    publicConsent: true,
+    institution: payload.institution.trim().slice(0, 180),
+    province: payload.province,
+    respondentRole: payload.respondentRole,
+    position: payload.position.trim().slice(0, 120),
+    assessmentDate: payload.assessmentDate,
+    topicId: payload.topicId,
+    topicLabel: topic.id === "agency" ? `${topic.label} — ${topic.detail}` : topic.label,
+    agencyType: payload.topicId === "agency" ? payload.agencyType : null,
+    rubricVersion,
+    answers,
+    verificationStatus: "self_reported",
+    createdAt: serverTimestamp(),
   });
+
+  // ชื่อผู้ประเมินแยกไว้ใน collection ที่ Firestore Rules ไม่เปิดให้อ่านจาก client
+  // batch ทำให้ข้อมูลสรุปและชื่ออ้างอิงสำเร็จหรือย้อนกลับพร้อมกันทั้งสองเอกสาร
+  batch.set(assessorDocumentRef, {
+    schemaVersion: 1,
+    submissionId: payload.idempotencyKey,
+    assessorName,
+    createdAt: serverTimestamp(),
+  });
+  await batch.commit();
 
   window.localStorage.removeItem(DRAFT_KEY);
   return {
