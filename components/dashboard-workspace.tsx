@@ -166,8 +166,14 @@ export function DashboardWorkspace() {
 
       {source === "unavailable" ? (
         <section className="dashboard-load-state error" role="alert">
-          <div><strong>ไม่สามารถดึงข้อมูลจริงได้</strong><span>{loadError || "กรุณาตรวจสอบการเข้าสู่ระบบและการตั้งค่า Firestore"}</span></div>
+          <div><strong>ไม่สามารถโหลดข้อมูลได้</strong><span>{loadError || "กรุณาลองเชื่อมต่อใหม่อีกครั้ง"}</span></div>
           <button type="button" className="btn btn-secondary" onClick={reloadDashboard}>ลองโหลดอีกครั้ง</button>
+        </section>
+      ) : null}
+
+      {source === "loading" ? (
+        <section className="dashboard-load-state" role="status" aria-live="polite">
+          <div><strong>กำลังเตรียมข้อมูล Dashboard</strong><span>ระบบกำลังเชื่อมต่อและตรวจสอบผลประเมินล่าสุดจาก Firestore</span></div>
         </section>
       ) : null}
 
@@ -177,7 +183,7 @@ export function DashboardWorkspace() {
         </section>
       ) : null}
 
-      <section className="filter-bar" aria-label="ตัวกรองข้อมูล">
+      {source === "live" ? <><section className="filter-bar" aria-label="ตัวกรองข้อมูล">
         <label className="field">
           <span>จังหวัด</span>
           <select value={province} onChange={(event) => setProvince(event.target.value)}>
@@ -272,6 +278,7 @@ export function DashboardWorkspace() {
         <div className="panel-heading"><div><p className="section-kicker">รายการล่าสุด</p><h2>ผลประเมินที่บันทึกเข้าระบบ</h2></div></div>
         {recent.length ? <div className="recent-list">{recent.map((record) => <div key={record.id}><span><strong>{record.institution}</strong><small>{record.province} · {record.topicLabel} · {formatDate(record.createdAt)}</small></span><b className={`text-grade-${record.grade.toLowerCase()}`}>{record.score.toFixed(1)} · {record.grade}</b></div>)}</div> : <p className="empty-state">ยังไม่มีข้อมูลตามตัวกรองนี้</p>}
       </section>
+      </> : null}
     </main>
   );
 }

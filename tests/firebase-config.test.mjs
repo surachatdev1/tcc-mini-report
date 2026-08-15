@@ -52,8 +52,12 @@ test("Dashboard ใช้ข้อมูลจริงจาก Firestore แ�
   assert.doesNotMatch(dashboardRepositorySource, /limit\(500\)/);
   assert.doesNotMatch(dashboardSource, /demoRecords|ข้อมูลสาธิต|โรงเรียนตัวอย่าง/);
   assert.match(dashboardSource, /setRecords\(payload\.records\)/);
+  assert.match(dashboardRepositorySource, /if \(snapshot\.empty\)/);
+  assert.match(dashboardRepositorySource, /พบข้อมูลใน Firestore แต่รูปแบบข้อมูลยังไม่ตรง/);
+  assert.match(dashboardSource, /source === "loading"/);
+  assert.match(dashboardSource, /source === "live" \? <>/);
   assert.match(dashboardSource, /ระบบเชื่อมต่อ Firestore แล้ว แต่ยังไม่มีผลประเมิน/);
-  assert.match(dashboardSource, /ไม่สามารถดึงข้อมูลจริงได้/);
+  assert.match(dashboardSource, /ไม่สามารถโหลดข้อมูลได้/);
   assert.match(dashboardSource, /ดาวน์โหลดข้อมูลรวม/);
   assert.match(dashboardSource, /เลือกข้อมูลแต่ละส่วน/);
   assert.match(dashboardRepositorySource, /categoryScores: summary\.categories/);
@@ -64,6 +68,8 @@ test("ผู้ประเมินสาธารณะบันทึกผ�
   assert.match(assessmentRepositorySource, /writeBatch/);
   assert.match(assessmentRepositorySource, /await batch\.commit\(\)/);
   assert.doesNotMatch(assessmentRepositorySource, /transaction\.get\(/);
+  assert.match(assessmentRepositorySource, /firestoreWriteError/);
+  assert.match(assessmentRepositorySource, /เชื่อมต่อ Firestore ไม่สำเร็จ/);
   assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && validSubmission\(\);/);
   assert.match(rules, /allow update, delete: if false;/);
 });

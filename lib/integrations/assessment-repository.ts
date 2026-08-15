@@ -50,6 +50,23 @@ export interface AssessmentRepository {
 
 const DRAFT_KEY = "tcc-assessment-draft-v5";
 
+function firestoreWriteError(error: unknown) {
+  const code = typeof error === "object" && error && "code" in error
+    ? String(error.code)
+    : "";
+
+  if (code.includes("permission-denied")) {
+    return new Error("Firebase ปฏิเสธการบันทึก กรุณาตรวจสอบว่าติดตั้ง Firestore Rules ล่าสุดแล้ว");
+  }
+  if (code.includes("unavailable") || code.includes("network-request-failed")) {
+    return new Error("เชื่อมต่อ Firestore ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วกดบันทึกอีกครั้ง");
+  }
+  if (code.includes("already-exists")) {
+    return new Error("ผลประเมินรายการนี้ถูกบันทึกแล้ว กรุณาเปิด Dashboard เพื่อตรวจสอบข้อมูล");
+  }
+  return error instanceof Error ? error : new Error("บันทึกผลลง Firestore ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+}
+
 function sanitizeAnswers(payload: SubmissionInput) {
   const topic = getTopic(payload.topicId, payload.agencyType);
   const sanitized: Record<string, Answer> = {};
@@ -114,7 +131,12 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
     assessorName,
     createdAt: serverTimestamp(),
   });
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (error) {
+    // แปลง error ของ SDK เป็นข้อความที่ผู้กรอกเข้าใจได้ โดยไม่เปิดรายละเอียดระบบภายใน
+    throw firestoreWriteError(error);
+  }
 
   window.localStorage.removeItem(DRAFT_KEY);
   return {

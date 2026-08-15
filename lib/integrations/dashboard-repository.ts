@@ -35,6 +35,23 @@ export type DashboardResult = {
 
 export type DashboardListener = (result: DashboardResult) => void;
 
+function firestoreReadError(error: unknown) {
+  const code = typeof error === "object" && error && "code" in error
+    ? String(error.code)
+    : "";
+
+  if (code.includes("permission-denied") || code.includes("unauthenticated")) {
+    return "ยังยืนยันบัญชี Google กับ Firestore ไม่สำเร็จ กรุณาออกจากระบบแล้วเข้าสู่ระบบอีกครั้ง";
+  }
+  if (code.includes("unavailable") || code.includes("network-request-failed")) {
+    return "ขณะนี้เชื่อมต่อ Firestore ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
+  }
+  if (code.includes("failed-precondition")) {
+    return "Firestore ยังไม่พร้อมสำหรับคำค้นหานี้ กรุณาติดต่อผู้ดูแลระบบ";
+  }
+  return "ไม่สามารถโหลดข้อมูลจาก Firestore ได้ กรุณาลองใหม่อีกครั้ง";
+}
+
 function isTopicId(value: unknown): value is TopicId {
   return ["bus", "trip", "moto", "agency"].includes(value as TopicId);
 }
@@ -128,12 +145,25 @@ async function subscribeToFirestore(listener: DashboardListener): Promise<() => 
       const records = snapshot.docs
         .map((document) => firestoreRecord(document.id, document.data()))
         .filter((record): record is DashboardRecord => record !== null);
-      listener({ source: records.length ? "live" : "empty", records });
+
+      if (snapshot.empty) {
+        listener({ source: "empty", records: [] });
+        return;
+      }
+      if (!records.length) {
+        listener({
+          source: "unavailable",
+          records: [],
+          error: "พบข้อมูลใน Firestore แต่รูปแบบข้อมูลยังไม่ตรงกับเกณฑ์ประเมินเวอร์ชันปัจจุบัน",
+        });
+        return;
+      }
+      listener({ source: "live", records });
     },
-    () => listener({
+    (error) => listener({
       source: "unavailable",
       records: [],
-      error: "ไม่สามารถอ่านข้อมูลจาก Firestore ได้ กรุณาตรวจสิทธิ์เข้าสู่ระบบแล้วลองใหม่",
+      error: firestoreReadError(error),
     }),
   );
 }
