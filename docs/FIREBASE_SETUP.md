@@ -29,7 +29,7 @@ cp .env.firebase.example .env.local
 | `VITE_FIREBASE_STORAGE_BUCKET` | `storageBucket` |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` |
 | `VITE_FIREBASE_APP_ID` | `appId` |
-| `VITE_FIREBASE_APPCHECK_SITE_KEY` | reCAPTCHA Enterprise site key |
+| `VITE_FIREBASE_APPCHECK_SITE_KEY` | reCAPTCHA Enterprise site key — เว้นว่างได้เฉพาะรอบทดสอบแรก |
 
 ค่า Firebase Web config ถูกส่งไปกับ JavaScript อยู่แล้ว จึงไม่ใช่รหัสผ่าน สิ่งที่ควบคุมสิทธิ์จริงคือ `firestore.rules` และ App Check ห้ามนำ service-account JSON มาใส่ในตัวแปร `VITE_*` หรือ commit ลง Git
 
@@ -41,7 +41,7 @@ npm run firebase:build
 npm run firebase:serve
 ```
 
-ก่อนใช้ emulator ให้เปลี่ยน `VITE_FIREBASE_USE_EMULATORS=true` ใน `.env.local` ระบบจะข้าม App Check และเชื่อม Firestore ที่เครื่องแทน project จริง เมื่อจะ build production ต้องเปลี่ยนกลับเป็น `false`
+ก่อนใช้ emulator ให้เปลี่ยน `VITE_FIREBASE_USE_EMULATORS=true` ใน `.env.local` ระบบจะข้าม App Check และเชื่อม Firestore ที่เครื่องแทน project จริง เมื่อจะ build production ต้องเปลี่ยนกลับเป็น `false` รอบทดสอบ Firebase Hosting ครั้งแรกสามารถเว้น App Check site key ได้ แต่ยังไม่ควรนำ URL ไปเผยแพร่ในวงกว้าง
 
 ## 4. ผูก project และ deploy
 
