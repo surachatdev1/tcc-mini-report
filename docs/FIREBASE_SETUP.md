@@ -124,7 +124,24 @@ npm run admin:bootstrap -- --email=your-admin@example.com --project=tcc-safe-tra
 - เพิ่ม `tcc-safe-travel.web.app` และ `tcc-safe-travel.firebaseapp.com` ที่ Authentication > Settings > Authorized domains
 - ระบบใช้ redirect บน Safari/Chrome มือถือ และใช้ popup บนเดสก์ท็อป
 - Messenger, Facebook, LINE และ Instagram ใช้ embedded browser ที่ Google OAuth ไม่รองรับ ระบบจะแสดงปุ่มคัดลอกลิงก์เพื่อไปเปิดใน Safari หรือ Chrome แทน
-- หากพบ `redirect_uri_mismatch` ให้เพิ่ม `https://tcc-safe-travel.web.app/__/auth/handler` ใน Authorized redirect URIs ของ OAuth web client
+
+หากพบ `redirect_uri_mismatch` ให้เปิด Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs แล้วแก้ Web client ที่ Firebase Google Sign-in ใช้อยู่ โดยเพิ่มค่าต่อไปนี้แบบตรงตัวและไม่มี `/` ต่อท้าย
+
+**Authorized JavaScript origins**
+
+```text
+https://tcc-safe-travel.web.app
+https://tcc-safe-travel.firebaseapp.com
+```
+
+**Authorized redirect URIs**
+
+```text
+https://tcc-safe-travel.web.app/__/auth/handler
+https://tcc-safe-travel.firebaseapp.com/__/auth/handler
+```
+
+การตั้งค่านี้อยู่ที่ Google OAuth Client จึงแก้ด้วยการ Deploy Hosting ไม่ได้ หลังบันทึกอาจต้องรออย่างน้อย 5 นาทีแล้วทดสอบใหม่ในหน้าต่าง Incognito
 
 ## 8. Deployment โดยไม่ใช้ GitHub Actions
 
