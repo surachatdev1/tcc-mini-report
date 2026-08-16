@@ -34,6 +34,9 @@ test("Firebase Hosting รองรับ SPA route /dashboard และ /admin"
   assert.deepEqual(firebaseConfig.hosting.rewrites, [{ source: "**", destination: "/index.html" }]);
   assert.match(firebaseSpaSource, /window\.location\.pathname === "\/admin"/);
   assert.match(firebaseSpaSource, /<AdminAuthGate \/>/);
+  assert.match(firebaseSpaSource, /const AssessmentWorkspace = lazy/);
+  assert.match(firebaseSpaSource, /const DashboardAuthGate = lazy/);
+  assert.match(firebaseSpaSource, /กำลังเปิดแบบประเมิน/);
 });
 
 test("Firestore ให้เฉพาะผู้มีสิทธิ์อ่าน Dashboard และเปิด public create เท่านั้น", () => {
