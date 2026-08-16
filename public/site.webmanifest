@@ -1,13 +1,13 @@
 {
   "name": "ระบบประเมินการเดินทางที่ปลอดภัยของเด็กนักเรียน",
-  "short_name": "TCC Safe Travel",
+  "short_name": "ประเมินเดินทางปลอดภัย",
   "description": "เครื่องมือประเมินตนเองเพื่อพัฒนาความปลอดภัยในการเดินทางของเด็กนักเรียน",
   "lang": "th",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f3f6f2",
-  "theme_color": "#0f5658",
+  "theme_color": "#00635a",
   "icons": [
     {
       "src": "/icon-192.png",

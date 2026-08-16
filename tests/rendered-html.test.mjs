@@ -31,6 +31,7 @@ test("renders development preview metadata", async () => {
   );
   const html = await response.text();
   assert.match(html, developmentPreviewMeta);
-  assert.match(html, /\/images\/tcc-office-logo\.webp/);
+  assert.match(html, /\/images\/thaihealth-logo\.webp/);
+  assert.doesNotMatch(html, /\/images\/tcc-office-logo\.webp/);
   assert.doesNotMatch(html, />TCC<\/div>/);
 });

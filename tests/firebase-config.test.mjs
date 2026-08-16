@@ -17,6 +17,7 @@ const resultInsightsSource = await readFile(new URL("../components/result-insigh
 const benchmarkRepositorySource = await readFile(new URL("../lib/integrations/benchmark-repository.ts", import.meta.url), "utf8");
 const accessRolesSource = await readFile(new URL("../lib/access-roles.ts", import.meta.url), "utf8");
 const siteHeaderSource = await readFile(new URL("../components/site-header.tsx", import.meta.url), "utf8");
+const thaiHealthLogo = await readFile(new URL("../public/images/thaihealth-logo.webp", import.meta.url));
 const firebaseHtml = await readFile(new URL("../firebase-spa/index.html", import.meta.url), "utf8");
 const webManifest = JSON.parse(await readFile(new URL("../public/site.webmanifest", import.meta.url), "utf8"));
 const faviconIco = await readFile(new URL("../public/favicon.ico", import.meta.url));
@@ -34,14 +35,14 @@ test("Firebase SPA มีภาษาไทย ชื่อระบบ แล�
   assert.match(firebaseHtml, /<div id="root"><\/div>/);
 });
 
-test("Firebase SPA ใช้ไอคอน TCC ครบสำหรับ browser tab และอุปกรณ์พกพา", () => {
-  assert.match(firebaseHtml, /<meta name="theme-color" content="#0f5658"/);
+test("Firebase SPA ใช้ไอคอน สสส. ครบสำหรับ browser tab และอุปกรณ์พกพา", () => {
+  assert.match(firebaseHtml, /<meta name="theme-color" content="#00635a"/);
   assert.match(firebaseHtml, /href="\/favicon\.ico"/);
   assert.match(firebaseHtml, /href="\/favicon-32x32\.png"/);
   assert.match(firebaseHtml, /href="\/apple-touch-icon\.png"/);
   assert.match(firebaseHtml, /href="\/site\.webmanifest"/);
   assert.equal(webManifest.lang, "th");
-  assert.equal(webManifest.theme_color, "#0f5658");
+  assert.equal(webManifest.theme_color, "#00635a");
   assert.deepEqual(
     webManifest.icons.map((icon) => icon.sizes),
     ["192x192", "512x512"],
@@ -119,6 +120,13 @@ test("เมนูสาธารณะแสดงเฉพาะแบบป�
   assert.match(siteHeaderSource, /href="\/dashboard">Dashboard<\/Link>/);
   assert.doesNotMatch(siteHeaderSource, /href="\/admin"/);
   assert.match(protectedAreaSource, /จัดการผู้มีสิทธิ์<\/Link>/);
+});
+
+test("ส่วนหัวใช้ตรา สสส. เป็นอัตลักษณ์หลักเพียงตราเดียว", () => {
+  assert.match(siteHeaderSource, /\/images\/thaihealth-logo\.webp/);
+  assert.match(siteHeaderSource, /สำนักงานกองทุนสนับสนุนการสร้างเสริมสุขภาพ \(สสส\.\)/);
+  assert.doesNotMatch(siteHeaderSource, /tcc-office-logo/);
+  assert.ok(thaiHealthLogo.length > 0);
 });
 
 test("Google Sign-In ใช้ same-origin auth helper บน Firebase Hosting", () => {

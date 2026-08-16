@@ -43,7 +43,7 @@ function formatDate(value: string) {
 
 function referenceCode(record: DashboardRecord) {
   const date = record.assessmentDate.replaceAll("-", "").slice(2) || "000000";
-  return `TCC-${date}-${record.id.slice(0, 6).toUpperCase()}`;
+  return `ST-${date}-${record.id.slice(0, 6).toUpperCase()}`;
 }
 
 export function DashboardWorkspace() {
