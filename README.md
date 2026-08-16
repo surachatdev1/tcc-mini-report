@@ -2,7 +2,7 @@
 
 ระบบประเมินตนเองด้านการเดินทางที่ปลอดภัยของเด็กนักเรียน ตามร่างเกณฑ์วันที่ 22 มิถุนายน 2569 รองรับแบบประเมินสถานศึกษา 3 ชุด แบบประเมินหน่วยงานกำกับ 4 ประเภท และ Dashboard สำหรับเจ้าหน้าที่
 
-เอกสารประกอบ: [การตั้งค่า Firebase](docs/FIREBASE_SETUP.md) · [สถาปัตยกรรม Firebase](docs/FIREBASE_ARCHITECTURE.md) · [ที่มารายชื่อสถานศึกษา](docs/SCHOOL_DIRECTORY.md) · [BA traceability](docs/BA-TRACEABILITY.md)
+เอกสารประกอบ: [การตั้งค่า Firebase](docs/FIREBASE_SETUP.md) · [สถาปัตยกรรม Firebase](docs/FIREBASE_ARCHITECTURE.md) · [ที่มารายชื่อสถานศึกษา](docs/SCHOOL_DIRECTORY.md) · [BA traceability](docs/BA-TRACEABILITY.md) · [ที่มาตราสัญลักษณ์](docs/BRAND_ASSETS.md)
 
 ## Production target
 

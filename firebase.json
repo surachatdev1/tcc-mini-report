@@ -20,7 +20,7 @@
     ],
     "headers": [
       {
-        "source": "**/*.@(js|css|webp|woff2|svg)",
+        "source": "**/*.@(js|css|webp|png|ico|woff|woff2|svg|json|webmanifest)",
         "headers": [
           {
             "key": "Cache-Control",

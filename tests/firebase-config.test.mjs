@@ -18,6 +18,12 @@ const benchmarkRepositorySource = await readFile(new URL("../lib/integrations/be
 const accessRolesSource = await readFile(new URL("../lib/access-roles.ts", import.meta.url), "utf8");
 const siteHeaderSource = await readFile(new URL("../components/site-header.tsx", import.meta.url), "utf8");
 const firebaseHtml = await readFile(new URL("../firebase-spa/index.html", import.meta.url), "utf8");
+const webManifest = JSON.parse(await readFile(new URL("../public/site.webmanifest", import.meta.url), "utf8"));
+const faviconIco = await readFile(new URL("../public/favicon.ico", import.meta.url));
+const faviconPng = await readFile(new URL("../public/favicon-32x32.png", import.meta.url));
+const appleTouchIcon = await readFile(new URL("../public/apple-touch-icon.png", import.meta.url));
+const appIcon192 = await readFile(new URL("../public/icon-192.png", import.meta.url));
+const appIcon512 = await readFile(new URL("../public/icon-512.png", import.meta.url));
 const firebaseClientSource = await readFile(new URL("../lib/integrations/firebase-client.ts", import.meta.url), "utf8");
 const firebaseEnvExample = await readFile(new URL("../.env.firebase.example", import.meta.url), "utf8");
 const rubric = JSON.parse(await readFile(new URL("../lib/criteria.generated.json", import.meta.url), "utf8"));
@@ -26,6 +32,25 @@ test("Firebase SPA มีภาษาไทย ชื่อระบบ แล�
   assert.match(firebaseHtml, /<html lang="th">/);
   assert.match(firebaseHtml, /<title>ระบบประเมินการเดินทางที่ปลอดภัยของเด็กนักเรียน<\/title>/);
   assert.match(firebaseHtml, /<div id="root"><\/div>/);
+});
+
+test("Firebase SPA ใช้ไอคอน TCC ครบสำหรับ browser tab และอุปกรณ์พกพา", () => {
+  assert.match(firebaseHtml, /<meta name="theme-color" content="#0f5658"/);
+  assert.match(firebaseHtml, /href="\/favicon\.ico"/);
+  assert.match(firebaseHtml, /href="\/favicon-32x32\.png"/);
+  assert.match(firebaseHtml, /href="\/apple-touch-icon\.png"/);
+  assert.match(firebaseHtml, /href="\/site\.webmanifest"/);
+  assert.equal(webManifest.lang, "th");
+  assert.equal(webManifest.theme_color, "#0f5658");
+  assert.deepEqual(
+    webManifest.icons.map((icon) => icon.sizes),
+    ["192x192", "512x512"],
+  );
+  assert.match(firebaseConfig.hosting.headers[0].source, /png/);
+  assert.match(firebaseConfig.hosting.headers[0].source, /ico/);
+  for (const asset of [faviconIco, faviconPng, appleTouchIcon, appIcon192, appIcon512]) {
+    assert.ok(asset.length > 0);
+  }
 });
 
 test("Firebase Hosting รองรับ SPA route /dashboard และ /admin", () => {
