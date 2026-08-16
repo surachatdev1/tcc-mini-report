@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "@fontsource/sarabun/400.css";
 import "@fontsource/sarabun/500.css";
 import "@fontsource/sarabun/600.css";
@@ -12,10 +12,20 @@ export const metadata: Metadata = {
   other: {
     "codex-preview": "development",
   },
+  manifest: "/site.webmanifest",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: [
+      { url: "/favicon.ico", type: "image/x-icon" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: [{ url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" }],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f5658",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
