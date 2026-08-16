@@ -37,6 +37,16 @@ service cloud.firestore {
       );
     }
 
+    function hasPrivateDashboardAccess() {
+      return hasVerifiedEmail() && (
+        isAdmin()
+        || (
+          exists(/databases/$(database)/documents/dashboard_members/$(currentEmail()))
+          && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.active == true
+        )
+      );
+    }
+
     function validAdminPolicy(email) {
       let data = request.resource.data;
       return data.keys().hasAll(['schemaVersion', 'email', 'displayName', 'role', 'active', 'createdAt', 'createdBy'])
@@ -245,16 +255,78 @@ service cloud.firestore {
 
     function validPrivateAssessor(submissionId) {
       let data = request.resource.data;
-      return data.keys().hasAll(['schemaVersion', 'submissionId', 'assessorName', 'createdAt'])
-        && data.keys().hasOnly(['schemaVersion', 'submissionId', 'assessorName', 'createdAt'])
-        && data.schemaVersion == 1
+      return data.keys().hasAll(['schemaVersion', 'submissionId', 'assessorName', 'assessorPhone', 'createdAt'])
+        && data.keys().hasOnly(['schemaVersion', 'submissionId', 'assessorName', 'assessorPhone', 'createdAt'])
+        && data.schemaVersion == 2
         && data.submissionId == submissionId
         && data.assessorName is string
         && data.assessorName.size() >= 2
         && data.assessorName.size() <= 120
+        && data.assessorPhone is string
+        && data.assessorPhone.size() <= 30
         && data.createdAt == request.time
         && existsAfter(/databases/$(database)/documents/submissions/$(submissionId))
         && getAfter(/databases/$(database)/documents/submissions/$(submissionId)).data.createdAt == request.time;
+    }
+
+    function validBenchmarkCategory(category) {
+      return category is map
+        && category.keys().hasAll(['id', 'label', 'percent'])
+        && category.keys().hasOnly(['id', 'label', 'percent'])
+        && category.id is string
+        && category.id.size() >= 1
+        && category.id.size() <= 80
+        && category.label is string
+        && category.label.size() >= 1
+        && category.label.size() <= 120
+        && category.percent is number
+        && category.percent >= 0
+        && category.percent <= 100;
+    }
+
+    function validBenchmark() {
+      let data = request.resource.data;
+      let categories = data.categoryMedians;
+      return data.keys().hasAll([
+          'schemaVersion', 'topicId', 'agencyType', 'province', 'scope',
+          'sampleSize', 'averageScore', 'medianScore', 'gradeCounts',
+          'categoryMedians', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'schemaVersion', 'topicId', 'agencyType', 'province', 'scope',
+          'sampleSize', 'averageScore', 'medianScore', 'gradeCounts',
+          'categoryMedians', 'updatedAt'
+        ])
+        && data.schemaVersion == 1
+        && data.topicId in ['bus', 'trip', 'moto', 'agency']
+        && (data.agencyType == null || data.agencyType in ['road-safety', 'education-area', 'transport', 'local-admin'])
+        && (data.province == null || validProvince(data.province))
+        && data.scope in ['province', 'pilot']
+        && ((data.scope == 'province' && validProvince(data.province)) || (data.scope == 'pilot' && data.province == null))
+        && data.sampleSize is int
+        && data.sampleSize >= 10
+        && data.averageScore is number
+        && data.averageScore >= 0
+        && data.averageScore <= 100
+        && data.medianScore is number
+        && data.medianScore >= 0
+        && data.medianScore <= 100
+        && data.gradeCounts is map
+        && data.gradeCounts.keys().hasAll(['A', 'B', 'C', 'D'])
+        && data.gradeCounts.keys().hasOnly(['A', 'B', 'C', 'D'])
+        && data.gradeCounts.A is int && data.gradeCounts.A >= 0
+        && data.gradeCounts.B is int && data.gradeCounts.B >= 0
+        && data.gradeCounts.C is int && data.gradeCounts.C >= 0
+        && data.gradeCounts.D is int && data.gradeCounts.D >= 0
+        && data.gradeCounts.A + data.gradeCounts.B + data.gradeCounts.C + data.gradeCounts.D == data.sampleSize
+        && categories is list
+        && categories.size() >= 1
+        && categories.size() <= 4
+        && validBenchmarkCategory(categories[0])
+        && (categories.size() < 2 || validBenchmarkCategory(categories[1]))
+        && (categories.size() < 3 || validBenchmarkCategory(categories[2]))
+        && (categories.size() < 4 || validBenchmarkCategory(categories[3]))
+        && data.updatedAt == request.time;
     }
 
     match /submissions/{submissionId} {
@@ -267,10 +339,17 @@ service cloud.firestore {
     }
 
     match /submission_assessors/{submissionId} {
-      // ชื่อผู้ประเมินเป็นข้อมูลอ้างอิงภายใน: client สร้างได้พร้อมผล แต่ไม่มีสิทธิ์อ่าน แก้ หรือลบ
-      allow read: if false;
+      // ข้อมูลติดต่ออ่านได้เฉพาะ admin หรืออีเมลที่อนุญาตรายบุคคล ไม่เปิดให้สิทธิ์ระดับโดเมน
+      allow read: if hasPrivateDashboardAccess();
       allow create: if submissionId.size() == 36 && validPrivateAssessor(submissionId);
       allow update, delete: if false;
+    }
+
+    match /benchmarks/{benchmarkId} {
+      // มีเฉพาะค่ากลางของกลุ่มอย่างน้อย 10 ราย ไม่มีชื่อ หน่วยงาน หรือคำตอบรายบุคคล
+      allow read: if true;
+      allow create, update: if isAdmin() && validBenchmark();
+      allow delete: if isAdmin();
     }
 
     match /dashboard_admins/{email} {

@@ -37,13 +37,20 @@ function average(records: DashboardRecord[]) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short", year: "2-digit" }).format(new Date(value));
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00+07:00`) : new Date(value);
+  return new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short", year: "2-digit" }).format(date);
+}
+
+function referenceCode(record: DashboardRecord) {
+  const date = record.assessmentDate.replaceAll("-", "").slice(2) || "000000";
+  return `TCC-${date}-${record.id.slice(0, 6).toUpperCase()}`;
 }
 
 export function DashboardWorkspace() {
   const [records, setRecords] = useState<DashboardRecord[]>([]);
   const [source, setSource] = useState<"loading" | DashboardResult["source"]>("loading");
   const [loadError, setLoadError] = useState("");
+  const [personalDataVisible, setPersonalDataVisible] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [province, setProvince] = useState("all");
   const [topicId, setTopicId] = useState<"all" | TopicId>("all");
@@ -67,12 +74,14 @@ export function DashboardWorkspace() {
       setRecords(payload.records);
       setSource(payload.source);
       setLoadError(payload.error ?? "");
+      setPersonalDataVisible(payload.personalDataVisible);
     }).then((stop) => {
       if (active) unsubscribe = stop;
       else stop();
     }).catch(() => {
       if (!active) return;
       setRecords([]);
+      setPersonalDataVisible(false);
       setSource("unavailable");
       setLoadError("เชื่อมต่อข้อมูล Dashboard ไม่สำเร็จ");
     });
@@ -120,7 +129,7 @@ export function DashboardWorkspace() {
 
   const recent = useMemo(() => [...filtered]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 6), [filtered]);
+    .slice(0, 20), [filtered]);
 
   async function exportExcel(scope: DashboardExportScope) {
     if (!filtered.length || exportState === "working") return;
@@ -130,6 +139,7 @@ export function DashboardWorkspace() {
       await downloadDashboardExcel({
         scope,
         records: filtered,
+        includePersonalData: personalDataVisible,
         provinceLabel: province === "all" ? "ทุกจังหวัด" : province,
         topicLabel: topicOptions.find((option) => option.id === topicId)?.label ?? "ทุกแบบประเมิน",
       });
@@ -197,7 +207,9 @@ export function DashboardWorkspace() {
         <div className="excel-mark" aria-hidden="true"><span>X</span></div>
         <div className="export-copy">
           <h2 id="export-title">ส่งออกข้อมูลเป็น Excel</h2>
-          <p>ไฟล์เป็นไปตามตัวกรองด้านบน และไม่รวมชื่อผู้ประเมินหรือข้อมูลส่วนบุคคล</p>
+          <p>{personalDataVisible
+            ? "ไฟล์รายการผลประเมินมีชื่อผู้ให้ข้อมูล ตำแหน่ง และเบอร์โทรศัพท์ โปรดจัดเก็บอย่างเหมาะสม"
+            : "ไฟล์เป็นไปตามตัวกรองด้านบน และไม่รวมข้อมูลส่วนบุคคล"}</p>
         </div>
         <div className="export-actions">
           <button type="button" className="btn btn-primary export-all-button" disabled={exportDisabled} onClick={() => void exportExcel("all")}>
@@ -269,8 +281,15 @@ export function DashboardWorkspace() {
       </section>
 
       <section className="panel compact-panel table-panel">
-        <div className="panel-heading"><div><p className="section-kicker">รายการล่าสุด</p><h2>ผลประเมินที่บันทึกเข้าระบบ</h2></div></div>
-        {recent.length ? <div className="recent-list">{recent.map((record) => <div key={record.id}><span><strong>{record.institution}</strong><small>{record.province} · {record.topicLabel} · {formatDate(record.createdAt)}</small></span><b className={`text-grade-${record.grade.toLowerCase()}`}>{record.score.toFixed(1)} · {record.grade}</b></div>)}</div> : <p className="empty-state">ยังไม่มีข้อมูลตามตัวกรองนี้</p>}
+        <div className="panel-heading"><div><p className="section-kicker">รายการล่าสุด</p><h2>ผลประเมินและผู้ให้ข้อมูล</h2><p>{personalDataVisible ? "แสดงข้อมูลติดต่อเฉพาะบัญชีที่ได้รับสิทธิ์รายบุคคล" : "บัญชีนี้เห็นเฉพาะข้อมูลสรุป ไม่แสดงข้อมูลส่วนบุคคล"}</p></div></div>
+        {recent.length ? <div className="table-scroll"><table className="assessment-record-table">
+          <thead><tr><th>เลขอ้างอิง</th><th>สถานศึกษา / หน่วยงาน</th><th>จังหวัด</th><th>แบบประเมิน</th>{personalDataVisible ? <><th>ผู้ให้ข้อมูล</th><th>หน้าที่ / ตำแหน่ง</th><th>เบอร์โทร</th></> : null}<th>วันที่</th><th>ผล</th></tr></thead>
+          <tbody>{recent.map((record) => <tr key={record.id}>
+            <td><strong>{referenceCode(record)}</strong></td><td>{record.institution}</td><td>{record.province}</td><td>{record.topicLabel}</td>
+            {personalDataVisible ? <><td>{record.assessorName || "ไม่ระบุ"}</td><td><strong>{record.respondentRole || "ไม่ระบุ"}</strong>{record.position ? <small>{record.position}</small> : null}</td><td>{record.assessorPhone || "ไม่ระบุ"}</td></> : null}
+            <td>{formatDate(record.assessmentDate || record.createdAt)}</td><td><b className={`text-grade-${record.grade.toLowerCase()}`}>{record.score.toFixed(1)} · {record.grade}</b></td>
+          </tr>)}</tbody>
+        </table></div> : <p className="empty-state">ยังไม่มีข้อมูลตามตัวกรองนี้</p>}
       </section>
       </> : null}
     </main>

@@ -12,16 +12,19 @@
             │    ├─ create: schema + consent + server timestamp
             │    └─ update/delete: denied
             └─ Firestore /submission_assessors/{UUID}
-                 ├─ ชื่อผู้ประเมิน: create only
-                 └─ read/update/delete จาก client: denied
+                 ├─ ชื่อและเบอร์โทรผู้ประเมิน: create only
+                 ├─ read: เฉพาะ admin/member รายบุคคล
+                 └─ update/delete จาก client: denied
 
 /dashboard
   └─ อ่านผลประเมินจริงหลัง Firestore Rules ตรวจสิทธิ์
-       └─ ตรวจรูปแบบคำตอบ + คำนวณคะแนนใหม่จาก rubric ใน source code
+       ├─ ตรวจรูปแบบคำตอบ + คำนวณคะแนนใหม่จาก rubric ใน source code
+       └─ join ข้อมูลติดต่อใน browser เฉพาะผู้มีสิทธิ์รายบุคคล
 
 /admin
   └─ จัดการ dashboard_admins, dashboard_members และ dashboard_domains
-       └─ อ่าน/เขียนได้เฉพาะ admin ที่ยืนยันอีเมลแล้ว
+       ├─ อ่าน/เขียนได้เฉพาะ admin ที่ยืนยันอีเมลแล้ว
+       └─ สร้าง /benchmarks จากผลจริง โดยเผยแพร่เมื่อกลุ่มมีอย่างน้อย 10 รายการ
 ```
 
 ## เหตุผลที่เลือก Firestore แทน SQL Connect
@@ -47,13 +50,22 @@
 
 ## Schema: `submission_assessors/{idempotencyKey}`
 
-- `schemaVersion`: `1`
+- `schemaVersion`: `2`
 - `submissionId`: UUID เดียวกับผลประเมิน
 - `assessorName`: ชื่อ–นามสกุลสำหรับอ้างอิงภายใน
+- `assessorPhone`: เบอร์โทรศัพท์ (ไม่บังคับ)
 - `createdAt`: server timestamp
 
-collection นี้ไม่เปิดอ่านจาก Firebase Web SDK การตรวจสอบชื่อภายหลังต้องใช้ Firebase Console หรือ Admin SDK/Cloud Functions ที่มีสิทธิ์เท่านั้น จึงไม่ทำให้ Dashboard สาธารณะเปิดเผยชื่อผู้ประเมิน
-Rules บังคับให้สร้างเอกสารชื่อนี้ใน transaction เดียวกับผลประเมินสาธารณะ และไม่อนุญาตให้เติมชื่อย้อนหลังจาก client
+collection นี้เปิดอ่านผ่าน Firebase Web SDK เฉพาะ admin หรือ `dashboard_members` รายบุคคล จึงแสดงชื่อและเบอร์โทรใน Dashboard/Excel ได้ตาม feedback แต่บัญชีที่ได้สิทธิ์จากทั้งโดเมนจะอ่านไม่ได้
+Rules บังคับให้สร้างเอกสารนี้ใน atomic batch เดียวกับผลประเมิน และไม่อนุญาตให้เติมหรือแก้ข้อมูลย้อนหลังจาก client
+
+## Schema: `benchmarks/{topic--agency--scope}`
+
+- เก็บจำนวนผลประเมิน ค่าเฉลี่ย ค่ามัธยฐาน จำนวนระดับ A–D และค่ามัธยฐานรายหมวด
+- ไม่มีชื่อ เบอร์โทร ชื่อสถานศึกษา หรือคำตอบรายบุคคล
+- เปิดอ่านสาธารณะเพื่อให้ผู้ตอบเห็นกราฟหลังส่งผลโดยไม่ต้องล็อกอิน
+- admin เป็นผู้คำนวณใหม่จากหน้า `/admin`; ระบบเผยแพร่เฉพาะกลุ่มแบบประเมิน/จังหวัดที่มีอย่างน้อย 10 รายการ
+- ถ้ายังไม่ถึงเกณฑ์ หน้าเว็บเปรียบเทียบผลกับขั้นมาตรฐาน 66.67% แทน
 
 ## ระบบสิทธิ์ Dashboard และ Admin
 
@@ -61,6 +73,7 @@ Rules บังคับให้สร้างเอกสารชื่อ�
 - `dashboard_members/{email}` — อีเมล Google หรือ Email/Password ที่ได้รับอนุญาตรายบุคคล
 - `dashboard_domains/{domain}` — โดเมนอีเมลที่ได้รับอนุญาต
 - `/dashboard` ตรวจ policy ผ่าน Firestore Rules ก่อนอ่าน `submissions`
+- admin/member รายบุคคลอ่าน `submission_assessors` และส่งออกข้อมูลติดต่อได้ ส่วน domain อ่านไม่ได้
 - `/admin` อ่านและแก้ policy ได้เฉพาะ admin ที่อีเมลยืนยันแล้ว
 - รหัสผ่านอยู่ใน Firebase Authentication เท่านั้นและไม่ถูกเขียนลง Firestore
 

@@ -8,6 +8,11 @@ const record: DashboardRecord = {
   id: "11111111-1111-4111-8111-111111111111",
   institution: "=โรงเรียนทดสอบ",
   province: "กรุงเทพมหานคร",
+  assessorName: "สมชาย ใจดี",
+  assessorPhone: "081-234-5678",
+  respondentRole: "ครู / ผู้รับผิดชอบความปลอดภัย",
+  position: "หัวหน้างานกิจการนักเรียน",
+  assessmentDate: "2026-08-15",
   topicId: "bus",
   topicLabel: "รถรับ–ส่งนักเรียน",
   agencyType: null,
@@ -41,6 +46,7 @@ test("Excel ข้อมูลรวมมีทุกส่วนและส�
     records: [record],
     provinceLabel: "ทุกจังหวัด",
     topicLabel: "ทุกแบบประเมิน",
+    includePersonalData: true,
   });
 
   assert.deepEqual(workbook.sheets.map((sheet) => sheet.sheet), [
@@ -56,6 +62,8 @@ test("Excel ข้อมูลรวมมีทุกส่วนและส�
   const assessmentSheet = workbook.sheets.find((sheet) => sheet.sheet === "ผลประเมิน");
   const questionSheet = workbook.sheets.find((sheet) => sheet.sheet === "รายละเอียดรายข้อ");
   assert.equal((assessmentSheet?.data[4][1] as { value?: unknown }).value, "'=โรงเรียนทดสอบ");
+  assert.equal((assessmentSheet?.data[4][5] as { value?: unknown }).value, "สมชาย ใจดี");
+  assert.equal((assessmentSheet?.data[4][8] as { value?: unknown }).value, "081-234-5678");
   assert.equal((questionSheet?.data[4][15] as { value?: unknown }).value, "ข้อมูลประกอบสำหรับทดสอบ");
   const buffer = await writeExcelFile(workbook.sheets, { fontFamily: "Sarabun", fontSize: 11 }).toBuffer();
   assert.ok(buffer.byteLength > 10_000);
@@ -67,6 +75,7 @@ test("Excel รายส่วนสร้างเฉพาะ worksheet ที
     records: [record],
     provinceLabel: "กรุงเทพมหานคร",
     topicLabel: "ทุกแบบประเมิน",
+    includePersonalData: false,
   });
   assert.deepEqual(workbook.sheets.map((sheet) => sheet.sheet), ["ตามจังหวัด"]);
   assert.equal((workbook.sheets[0].data[4][2] as { value?: unknown }).value, 1);

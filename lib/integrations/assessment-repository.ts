@@ -12,6 +12,7 @@ export type DraftPayload = {
   institution: string;
   province: string;
   assessorName: string;
+  assessorPhone: string;
   respondentRole: string;
   position: string;
   assessmentDate: string;
@@ -28,7 +29,9 @@ export type AssessmentRecord = {
   institution: string;
   province: string;
   assessorName: string;
+  assessorPhone: string;
   respondentRole: string;
+  position: string;
   assessmentDate: string;
   topicId: TopicId;
   topicLabel: string;
@@ -99,6 +102,7 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
   const documentRef = doc(db, "submissions", payload.idempotencyKey);
   const assessorDocumentRef = doc(db, "submission_assessors", payload.idempotencyKey);
   const assessorName = payload.assessorName.trim().slice(0, 120);
+  const assessorPhone = payload.assessorPhone.trim().slice(0, 30);
   if (assessorName.length < 2) throw new Error("กรุณาระบุชื่อผู้ประเมิน");
   const createdAt = new Date().toISOString();
 
@@ -123,12 +127,13 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
     createdAt: serverTimestamp(),
   });
 
-  // ชื่อผู้ประเมินแยกไว้ใน collection ที่ Firestore Rules ไม่เปิดให้อ่านจาก client
+  // ข้อมูลติดต่อแยกไว้ใน collection ที่อ่านได้เฉพาะ admin/สมาชิกที่อนุญาตรายบุคคล
   // batch ทำให้ข้อมูลสรุปและชื่ออ้างอิงสำเร็จหรือย้อนกลับพร้อมกันทั้งสองเอกสาร
   batch.set(assessorDocumentRef, {
-    schemaVersion: 1,
+    schemaVersion: 2,
     submissionId: payload.idempotencyKey,
     assessorName,
+    assessorPhone,
     createdAt: serverTimestamp(),
   });
   try {
@@ -144,7 +149,9 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
     institution: payload.institution.trim(),
     province: payload.province,
     assessorName,
+    assessorPhone,
     respondentRole: payload.respondentRole,
+    position: payload.position.trim(),
     assessmentDate: payload.assessmentDate,
     topicId: payload.topicId,
     topicLabel: topic.id === "agency" ? `${topic.label} — ${topic.detail}` : topic.label,

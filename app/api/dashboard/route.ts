@@ -33,6 +33,11 @@ export async function GET() {
         id: row.id,
         institution: row.institution,
         province: row.province,
+        assessorName: "",
+        assessorPhone: "",
+        respondentRole: "",
+        position: "",
+        assessmentDate: "",
         topicId,
         topicLabel: row.topicLabel,
         agencyType: row.agencyType,
@@ -48,12 +53,13 @@ export async function GET() {
       };
     });
 
-    return Response.json({ source: records.length ? "live" : "empty", records });
+    return Response.json({ source: records.length ? "live" : "empty", records, personalDataVisible: false });
   } catch (error) {
     // Agent preview ไม่มี D1 binding จึงคืนสถานะให้หน้าจอใช้ชุดข้อมูลสาธิตแทน
     return Response.json({
       source: "unavailable",
       records: [],
+      personalDataVisible: false,
       error: error instanceof Error ? error.message : "อ่านข้อมูลสรุปไม่สำเร็จ",
     });
   }

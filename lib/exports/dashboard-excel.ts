@@ -17,6 +17,7 @@ export type DashboardExportInput = {
   records: DashboardRecord[];
   provinceLabel: string;
   topicLabel: string;
+  includePersonalData?: boolean;
 };
 
 type CellValue = string | number | Date | null;
@@ -62,6 +63,11 @@ function generatedAtText() {
 
 function fileDate() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
+}
+
+function referenceCode(record: DashboardRecord) {
+  const date = record.assessmentDate.replaceAll("-", "").slice(2) || "000000";
+  return `TCC-${date}-${record.id.slice(0, 6).toUpperCase()}`;
 }
 
 function titleRow(value: string, columnCount: number): Cell[] {
@@ -227,16 +233,26 @@ export async function createDashboardWorkbook(input: DashboardExportInput): Prom
   }
 
   function addAssessments() {
+    const personalColumns: ColumnSpec[] = input.includePersonalData ? [
+      { header: "ชื่อผู้ให้ข้อมูล", width: 30 },
+      { header: "บทบาท", width: 30 },
+      { header: "หน้าที่ / ตำแหน่ง", width: 34 },
+      { header: "เบอร์โทรศัพท์", width: 22 },
+    ] : [];
     const rows = input.records.map((record) => [
-      record.id, record.institution, record.province, record.topicLabel, record.agencyType ?? "—",
+      referenceCode(record), record.institution, record.province, record.topicLabel, record.agencyType ?? "—",
+      ...(input.includePersonalData ? [record.assessorName || "ไม่ระบุ", record.respondentRole || "ไม่ระบุ", record.position || "ไม่ระบุ", record.assessorPhone || "ไม่ระบุ"] : []),
+      record.assessmentDate ? new Date(`${record.assessmentDate}T00:00:00+07:00`) : new Date(record.createdAt),
       new Date(record.createdAt), record.score, record.grade, record.lowQuestions.length,
     ] satisfies CellValue[]);
     addTableSheet("ผลประเมิน", "รายการผลประเมิน", [
-      { header: "รหัสรายการ", width: 38 },
+      { header: "เลขอ้างอิง", width: 26 },
       { header: "สถานศึกษา / หน่วยงาน", width: 42 },
       { header: "จังหวัด", width: 22 },
       { header: "แบบประเมิน", width: 46 },
       { header: "ประเภทหน่วยงาน", width: 22 },
+      ...personalColumns,
+      { header: "วันที่ประเมิน", width: 18, numberFormat: "dd/mm/yyyy" },
       { header: "วันที่บันทึก", width: 22, numberFormat: "dd/mm/yyyy hh:mm" },
       { header: "คะแนน", width: 14, numberFormat: "0.0" },
       { header: "ระดับ", width: 12 },
@@ -246,11 +262,11 @@ export async function createDashboardWorkbook(input: DashboardExportInput): Prom
 
   function addCategories() {
     const rows = input.records.flatMap((record) => record.categoryScores.map((category) => [
-      record.id, record.institution, record.province, record.topicLabel, category.label,
+      referenceCode(record), record.institution, record.province, record.topicLabel, category.label,
       category.weight / 100, category.percent / 100, category.contribution,
     ] satisfies CellValue[]));
     addTableSheet("คะแนนรายหมวด", "คะแนนแยกตามหมวด", [
-      { header: "รหัสรายการ", width: 38 },
+      { header: "เลขอ้างอิง", width: 26 },
       { header: "สถานศึกษา / หน่วยงาน", width: 40 },
       { header: "จังหวัด", width: 22 },
       { header: "แบบประเมิน", width: 42 },
@@ -263,14 +279,14 @@ export async function createDashboardWorkbook(input: DashboardExportInput): Prom
 
   function addQuestions() {
     const rows = input.records.flatMap((record) => record.questionResults.map((question) => [
-      record.id, record.institution, record.province, record.topicLabel, question.number, question.title,
+      referenceCode(record), record.institution, record.province, record.topicLabel, question.number, question.title,
       question.categoryLabel, question.categoryWeight / 100, question.score, question.level,
       question.selectedDescription, question.scorePercent / 100, question.contribution,
       question.requiresImprovement ? "ต้องปรับปรุง" : "ถึงขั้นมาตรฐาน",
       question.recommendation ?? "—", question.explanation || "—",
     ] satisfies CellValue[]));
     addTableSheet("รายละเอียดรายข้อ", "รายละเอียดผลประเมินรายข้อ", [
-      { header: "รหัสรายการ", width: 38 },
+      { header: "เลขอ้างอิง", width: 26 },
       { header: "สถานศึกษา / หน่วยงาน", width: 40 },
       { header: "จังหวัด", width: 22 },
       { header: "แบบประเมิน", width: 42 },

@@ -23,6 +23,7 @@ import {
 import { SchoolCombobox } from "@/components/school-combobox";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { ResultInsights } from "@/components/result-insights";
 
 const steps = ["เลือกแบบประเมิน", "ตอบตามสภาพจริง", "ตรวจทาน", "ดูผลลัพธ์"];
 
@@ -39,6 +40,7 @@ export function AssessmentWorkspace() {
   const [institution, setInstitution] = useState("");
   const [province, setProvince] = useState("");
   const [assessorName, setAssessorName] = useState("");
+  const [assessorPhone, setAssessorPhone] = useState("");
   const [respondentRole, setRespondentRole] = useState("");
   const [position, setPosition] = useState("");
   const [publicConsent, setPublicConsent] = useState(false);
@@ -62,6 +64,7 @@ export function AssessmentWorkspace() {
       setInstitution(draft.institution);
       setProvince(draft.province);
       setAssessorName(draft.assessorName ?? "");
+      setAssessorPhone(draft.assessorPhone ?? "");
       setRespondentRole(draft.respondentRole);
       setPosition(draft.position);
       setPublicConsent(draft.publicConsent);
@@ -79,6 +82,11 @@ export function AssessmentWorkspace() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function goToStep(next: number) {
+    setStep(next);
+    requestAnimationFrame(() => document.querySelector(".workspace")?.scrollIntoView({ block: "start" }));
+  }
+
   function resetAnswers() {
     setAnswers({});
     setSubmitted(null);
@@ -90,6 +98,8 @@ export function AssessmentWorkspace() {
     setTopicId(next === "agency" ? "agency" : "bus");
     setInstitution("");
     setAssessorName("");
+    setAssessorPhone("");
+    setPosition("");
     setRespondentRole("");
     resetAnswers();
   }
@@ -131,6 +141,7 @@ export function AssessmentWorkspace() {
       institution,
       province,
       assessorName,
+      assessorPhone,
       respondentRole,
       position,
       assessmentDate,
@@ -160,7 +171,7 @@ export function AssessmentWorkspace() {
       });
       setSubmitted(result);
       setSubmitState("done");
-      setStep(3);
+      goToStep(3);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "บันทึกผลไม่สำเร็จ");
       setSubmitState("error");
@@ -178,7 +189,7 @@ export function AssessmentWorkspace() {
 
   const sharedProps: ViewProps = {
     step,
-    setStep,
+    setStep: goToStep,
     audienceGroup,
     changeAudience,
     topic,
@@ -192,6 +203,8 @@ export function AssessmentWorkspace() {
     setProvince: changeProvince,
     assessorName,
     setAssessorName,
+    assessorPhone,
+    setAssessorPhone,
     respondentRole,
     setRespondentRole,
     roleOptions,
@@ -247,6 +260,8 @@ type ViewProps = {
   setProvince: (value: string) => void;
   assessorName: string;
   setAssessorName: (value: string) => void;
+  assessorPhone: string;
+  setAssessorPhone: (value: string) => void;
   respondentRole: string;
   setRespondentRole: (value: string) => void;
   roleOptions: string[];
@@ -305,13 +320,20 @@ function AssessmentView(props: ViewProps) {
           <div><strong>ใช้ข้อมูลเพื่อการพัฒนา</strong><span>ผลรวมใช้สะท้อนข้อจำกัดเชิงโครงสร้างและประกอบข้อเสนอเชิงนโยบาย เพื่อสนับสนุนทรัพยากรและแก้ไขความเสี่ยงอย่างตรงจุด</span></div>
           <div><strong>ไม่ใช้เพื่อลงโทษ</strong><span>ผลประเมินไม่ได้นำไปตัดสินสถานศึกษา บุคคล หรือตัดงบประมาณ และควรอ่านร่วมกับบริบทและข้อจำกัดของพื้นที่</span></div>
         </div>
-        <p className="privacy-note"><strong>การใช้ข้อมูลส่วนบุคคล:</strong> ระบบจัดเก็บชื่อผู้ประเมินเพื่ออ้างอิงและตรวจสอบที่มาของผลเท่านั้น โดยจะไม่แสดงชื่อบน Dashboard ของโครงการ กรุณาไม่ระบุข้อมูลนักเรียน เลขทะเบียนรถ เบอร์โทรศัพท์ หรือข้อมูลส่วนบุคคลอื่นในคำอธิบาย</p>
+        <p className="privacy-note"><strong>การใช้ข้อมูลส่วนบุคคล:</strong> ชื่อ ตำแหน่ง และข้อมูลติดต่อใช้เพื่ออ้างอิงและติดตามผลภายในโครงการ เฉพาะผู้ดูแลและเจ้าหน้าที่ที่ได้รับสิทธิ์รายบุคคลเท่านั้นที่เปิดดูหรือส่งออกได้ กรุณาไม่ระบุข้อมูลนักเรียนหรือข้อมูลส่วนบุคคลอื่นในคำอธิบาย</p>
       </section>
       <div className="workspace">
         <nav className="step-nav" aria-label="ขั้นตอนการประเมิน">
           <h2>ขั้นตอน</h2>
           {steps.map((label, index) => (
-            <button className="step-button" type="button" key={label} aria-current={step === index ? "step" : undefined} disabled={index > 1 && !props.readyToReview} onClick={() => setStep(index)}>
+            <button
+              className="step-button"
+              type="button"
+              key={label}
+              aria-current={step === index ? "step" : undefined}
+              disabled={(index > 1 && !props.readyToReview) || (index === 3 && !props.submitted)}
+              onClick={() => setStep(index)}
+            >
               <span className="step-number">{index + 1}</span>
               <span>{label}</span>
             </button>
@@ -322,18 +344,25 @@ function AssessmentView(props: ViewProps) {
             {step === 0 && <ProfileStep {...props} />}
             {step === 1 && <QuestionsStep {...props} />}
             {step === 2 && <ReviewStep {...props} />}
-            {step === 3 && <Result record={props.submitted} fallback={summary} topic={props.topic} answers={props.answers} assessorName={props.assessorName} onNewAssessment={props.onNewAssessment} />}
+            {step === 3 && <Result record={props.submitted} fallback={summary} topic={props.topic} answers={props.answers} assessorName={props.assessorName} province={props.province} onNewAssessment={props.onNewAssessment} />}
           </div>
           <aside className="summary-card" aria-label="สรุปความคืบหน้า">
-            <h2>ความคืบหน้า</h2>
+            <h2>{step === 3 ? "ผลประเมิน" : "ความคืบหน้า"}</h2>
             <p className="summary-topic">{topic.label}</p>
-            <p className="score-total">{summary.percent.toFixed(0)}%</p>
-            <p className="summary-muted">{summary.grade === "-" ? "คะแนนชั่วคราว" : `ระดับ ${summary.grade}`}</p>
-            <div className="progress-track"><div className="progress-fill" style={{ width: `${(summary.answered / topic.questions.length) * 100}%` }} /></div>
-            <p className="summary-muted">ตอบแล้ว {summary.answered} จาก {topic.questions.length} ข้อ</p>
-            <ul className="summary-list">
+            <p className="score-total">{step === 3 ? summary.percent.toFixed(0) : Math.round((summary.answered / topic.questions.length) * 100)}%</p>
+            <p className="summary-muted">{step === 3 ? `ระดับ ${summary.grade}` : `ตอบแล้ว ${summary.answered} จาก ${topic.questions.length} ข้อ`}</p>
+            <div
+              className="progress-track"
+              role="progressbar"
+              aria-label="ความครบถ้วนของคำตอบ"
+              aria-valuemin={0}
+              aria-valuemax={topic.questions.length}
+              aria-valuenow={summary.answered}
+            ><div className="progress-fill" style={{ width: `${(summary.answered / topic.questions.length) * 100}%` }} /></div>
+            <p className="summary-muted">{step === 3 ? "บันทึกผลเรียบร้อยแล้ว" : summary.complete ? "ตอบครบแล้ว พร้อมตรวจทาน" : "ตอบตามสภาพจริงให้ครบทุกข้อ"}</p>
+            {step === 3 ? <ul className="summary-list">
               {summary.categories.map((category) => <li key={category.id}><span>{category.label}</span><strong>{category.percent.toFixed(0)}%</strong></li>)}
-            </ul>
+            </ul> : null}
           </aside>
         </div>
       </div>
@@ -409,7 +438,7 @@ function ProfileStep(props: ViewProps) {
         <section className="profile-section" aria-labelledby="assessor-fields-title">
           <div className="profile-section-heading">
             <span aria-hidden="true">2</span>
-            <div><h3 id="assessor-fields-title">ข้อมูลผู้ประเมิน</h3><p>ใช้สำหรับอ้างอิงผลภายในโครงการ โดยไม่แสดงชื่อบน Dashboard</p></div>
+            <div><h3 id="assessor-fields-title">ข้อมูลผู้ให้ข้อมูล</h3><p>ใช้สำหรับอ้างอิงและติดตามผลภายในโครงการ โดยจำกัดการเข้าถึงเฉพาะผู้ได้รับสิทธิ์</p></div>
           </div>
           <div className="profile-field-grid assessor-fields">
             <div className="field assessor-name-field">
@@ -422,6 +451,10 @@ function ProfileStep(props: ViewProps) {
                 <option value="">เลือกบทบาท</option>
                 {props.roleOptions.map((item) => <option key={item}>{item}</option>)}
               </select>
+            </div>
+            <div className="field phone-field">
+              <label htmlFor="assessor-phone">เบอร์โทรศัพท์ <span className="optional-mark">ไม่บังคับ</span></label>
+              <input id="assessor-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} value={props.assessorPhone} onChange={(event) => props.setAssessorPhone(event.target.value)} placeholder="เช่น 08x-xxx-xxxx หรือเบอร์สำนักงาน" />
             </div>
             <div className="field position-field">
               <label htmlFor="position">ตำแหน่งหรือความเกี่ยวข้อง <span className="optional-mark">ไม่บังคับ</span></label>
@@ -439,7 +472,7 @@ function ProfileStep(props: ViewProps) {
           <input type="checkbox" checked={props.publicConsent} onChange={(event) => props.setPublicConsent(event.target.checked)} />
           <span>
             <strong>รับทราบเจตนารมณ์และยินยอมให้นำข้อมูลสรุปไปใช้ใน Dashboard ของโครงการ <span className="required-mark">*</span></strong>
-            <small>Dashboard สำหรับเจ้าหน้าที่แสดงชื่อหน่วยงาน จังหวัด ประเภทแบบประเมิน คำตอบ และผลประเมินหลังเข้าสู่ระบบด้วย Google แต่ไม่แสดงชื่อผู้ประเมิน ตำแหน่ง หรือข้อมูลติดต่อ ชื่อผู้ประเมินถูกจัดเก็บแยกเพื่อการอ้างอิงและตรวจสอบภายในเท่านั้น</small>
+            <small>Dashboard แสดงผลประเมินแก่เจ้าหน้าที่ที่ได้รับอนุญาต ส่วนชื่อผู้ให้ข้อมูล ตำแหน่ง และเบอร์โทรศัพท์จะแสดงเฉพาะผู้ดูแลหรืออีเมลที่ได้รับสิทธิ์เป็นรายบุคคล และอาจรวมอยู่ในไฟล์รายละเอียดที่ส่งออก</small>
           </span>
         </label>
       </div>
@@ -525,7 +558,7 @@ function ReviewStep(props: ViewProps) {
           <div className="review-item" key={question.id}>
             <strong>ข้อ {question.number} · คะแนน {props.answers[question.id]?.score}</strong>
             <span>{question.title}</span>
-            <p>{props.answers[question.id]?.explanation || "ไม่มีคำอธิบายเพิ่มเติม"}</p>
+            {props.answers[question.id]?.explanation ? <p>{props.answers[question.id].explanation}</p> : null}
           </div>
         ))}
       </div>
@@ -538,18 +571,20 @@ function ReviewStep(props: ViewProps) {
   );
 }
 
-function Result({ record, fallback, topic, answers, assessorName, onNewAssessment }: {
+function Result({ record, fallback, topic, answers, assessorName, province, onNewAssessment }: {
   record: AssessmentRecord | null;
   fallback: ReturnType<typeof calculateScore>;
   topic: ReturnType<typeof getTopic>;
   answers: Record<string, Answer>;
   assessorName: string;
+  province: string;
   onNewAssessment: () => void;
 }) {
   const grade = record?.grade ?? fallback.grade;
   const score = record?.score ?? fallback.percent;
   const categories = record?.categoryScores ?? fallback.categories;
   const questionResults = record?.questionResults ?? fallback.questionResults;
+  const recommendations = record?.recommendations ?? fallback.recommendations;
   const improvementCount = questionResults.filter((item) => item.requiresImprovement).length;
   return (
     <section className="panel">
@@ -563,9 +598,16 @@ function Result({ record, fallback, topic, answers, assessorName, onNewAssessmen
         <strong>{improvementCount ? `พบ ${improvementCount} ข้อที่ยังไม่ถึงขั้นมาตรฐาน` : "ทุกข้อถึงขั้นมาตรฐานหรือขั้นยกระดับ"}</strong>
         <span>{improvementCount ? "ระบบแสดงแนวทางปรับปรุงแยกใต้แต่ละข้อที่ได้ 0–1 คะแนน" : "ควรรักษามาตรการ ติดตามผล และเก็บข้อมูลอ้างอิงอย่างต่อเนื่อง"}</span>
       </div>
-      <div className="category-results">
-        {categories.map((category) => <div key={category.id}><span>{category.label} <small>ได้ {category.contribution.toFixed(1)} จากน้ำหนัก {category.weight} คะแนน</small></span><strong>{category.percent.toFixed(1)}%</strong></div>)}
-      </div>
+      <ResultInsights
+        topicId={record?.topicId ?? topic.id}
+        agencyType={record?.agencyType ?? (topic.id === "agency" ? "road-safety" : null)}
+        province={record?.province ?? province}
+        score={score}
+        grade={grade}
+        categories={categories}
+        questionResults={questionResults}
+        recommendations={recommendations}
+      />
       <div className="formula-card">
         <h3>สูตรที่ใช้คำนวณ</h3>
         <p><strong>คะแนนหมวด</strong> = ผลรวมคะแนนในหมวด ÷ (จำนวนข้อในหมวด × 3) × 100</p>
@@ -616,7 +658,7 @@ function Manual() {
       <ol className="help-steps">
         <li><strong>เลือกกลุ่มผู้ประเมิน</strong><span>โรงเรียนทำ 3 แบบด้านการเดินทาง ส่วนหน่วยงานระดับพื้นที่ทำแบบตามมติคณะรัฐมนตรี</span></li>
         <li><strong>เลือกหนึ่งแบบต่อครั้ง</strong><span>ไม่ต้องทำทุกแบบ หากไม่มีรถรับส่งให้ข้าม และเลือกเฉพาะเรื่องที่เกี่ยวข้องจริง</span></li>
-        <li><strong>ระบุชื่อผู้ประเมิน</strong><span>ชื่อใช้เพื่ออ้างอิงและตรวจสอบที่มาของผลภายในโครงการ โดยไม่แสดงบน Dashboard</span></li>
+        <li><strong>ระบุชื่อผู้ประเมิน</strong><span>ชื่อใช้เพื่ออ้างอิงและติดตามผลภายในโครงการ โดยจะแสดงเฉพาะผู้ดูแลหรืออีเมลที่ได้รับสิทธิ์รายบุคคล</span></li>
         <li><strong>อ่านเกณฑ์ก่อนเลือก</strong><span>แต่ละข้อมีคำอธิบายขั้นพื้นฐาน มาตรฐาน และยกระดับเฉพาะของตัวเอง</span></li>
         <li><strong>คะแนน 0 ไม่ใช่ “ไม่เกี่ยวข้อง”</strong><span>คะแนน 0 ใช้เมื่อไม่มีข้อมูลหรือหลักฐานจนยังประเมินไม่ได้</span></li>
         <li><strong>ข้อมูลประกอบไม่บังคับ</strong><span>หากสะดวก ควรระบุเหตุผลสั้น ๆ จากการดำเนินงานจริง โดยเฉพาะคะแนน 0–1 เพื่อช่วยวางแผนแก้ไขภายหลัง</span></li>
@@ -629,7 +671,7 @@ function Manual() {
         <article className="panel"><h2>ค้นหาสถานศึกษาตามจังหวัด</h2><p>เลือกจังหวัดก่อน แล้วค้นหาชื่อสถานศึกษาหรืออำเภอจากรายชื่อโรงเรียน สพฐ. และโรงเรียนเอกชนในระบบ หากชื่อเปลี่ยนหรือเป็นสังกัดอื่นสามารถกรอกชื่อเองได้</p></article>
         <article className="panel"><h2>การแปลผลและสูตร</h2><p>คะแนนหมวด = ผลรวมคะแนน ÷ (จำนวนข้อ × 3) × 100 แล้วคูณน้ำหนักหมวดเพื่อรวมผล A ตั้งแต่ 85%, B 70–84.99%, C 50–69.99% และ D ต่ำกว่า 50%</p></article>
         <article className="panel"><h2>เจตนารมณ์การใช้ผล</h2><p>ใช้ผลเพื่อสะท้อนสถานการณ์จริง ช่องว่างความเสี่ยง และข้อจำกัดที่เกินอำนาจของโรงเรียน เพื่อวางแผนพัฒนา สนับสนุนทรัพยากร และจัดทำข้อเสนอเชิงนโยบาย ไม่ใช้เพื่อลงโทษ ตัดสิน หรือตัดงบประมาณ</p></article>
-        <article className="panel"><h2>การเก็บข้อมูล</h2><p>ร่างที่ยังไม่ยืนยันพักไว้ในเครื่อง ผลที่ยืนยันบันทึกใน Firebase Firestore ชื่อผู้ประเมินจัดเก็บแยกสำหรับตรวจสอบภายใน ส่วน Dashboard สำหรับเจ้าหน้าที่ต้องเข้าสู่ระบบด้วย Google และไม่แสดงชื่อผู้ประเมิน ตำแหน่ง หรือข้อมูลติดต่อ</p></article>
+        <article className="panel"><h2>การเก็บข้อมูล</h2><p>ร่างที่ยังไม่ยืนยันพักไว้ในเครื่อง ผลที่ยืนยันบันทึกในระบบ ชื่อและข้อมูลติดต่อจัดเก็บแยกจากผลประเมิน ผู้ดูแลและอีเมลที่ได้รับสิทธิ์รายบุคคลเท่านั้นจึงจะเปิดดูหรือส่งออกข้อมูลส่วนนี้ได้</p></article>
       </div>
     </section>
   );

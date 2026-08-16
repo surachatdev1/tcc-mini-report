@@ -12,6 +12,7 @@ import {
   type AccessEntry,
 } from "@/lib/integrations/access-control-repository";
 import { getFirebaseAuth } from "@/lib/integrations/firebase-client";
+import { rebuildBenchmarkSnapshots } from "@/lib/integrations/benchmark-repository";
 
 const EMPTY_DIRECTORY: AccessDirectory = { admins: [], members: [], domains: [] };
 
@@ -154,6 +155,20 @@ export function AdminWorkspace() {
     void runAction(() => removeAccessEntry(collectionName, entry.id), `นำสิทธิ์ของ ${entry.label} ออกแล้ว`, () => undefined);
   }
 
+  async function refreshBenchmarks() {
+    setBusy(true);
+    setError("");
+    setStatus("");
+    try {
+      const result = await rebuildBenchmarkSnapshots();
+      setStatus(`อัปเดตข้อมูลเปรียบเทียบแล้ว ${result.published} กลุ่ม จากผลประเมิน ${result.submissions} รายการ`);
+    } catch (nextError) {
+      setError(friendlyAdminError(nextError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="page-shell admin-page" id="main-content">
       <header className="admin-page-header">
@@ -172,6 +187,14 @@ export function AdminWorkspace() {
       {error ? <p className="admin-message admin-message-error" role="alert">{error}</p> : null}
 
       <div className="admin-panel-grid">
+        <section className="panel admin-panel admin-benchmark-panel" aria-labelledby="admin-benchmark-title">
+          <div className="panel-heading">
+            <p className="section-kicker">ผลเปรียบเทียบสำหรับผู้ตอบ</p>
+            <h2 id="admin-benchmark-title">อัปเดตค่ากลางของกลุ่ม</h2>
+            <p>สร้างข้อมูลสรุปแบบไม่ระบุตัวบุคคลให้หน้าผลลัพธ์ใช้เปรียบเทียบ ระบบเผยแพร่เฉพาะกลุ่มที่มีอย่างน้อย 10 ผลประเมิน</p>
+          </div>
+          <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void refreshBenchmarks()}>{busy ? "กำลังคำนวณ…" : "อัปเดตข้อมูลเปรียบเทียบ"}</button>
+        </section>
         <section className="panel admin-panel" aria-labelledby="admin-managers-title">
           <div className="panel-heading">
             <p className="section-kicker">สิทธิ์ระดับสูง</p>

@@ -14,6 +14,8 @@ const firebaseSpaSource = await readFile(new URL("../firebase-spa/main.tsx", imp
 const bootstrapAdminSource = await readFile(new URL("../scripts/bootstrap-admin.mjs", import.meta.url), "utf8");
 const dashboardSource = await readFile(new URL("../components/dashboard-workspace.tsx", import.meta.url), "utf8");
 const dashboardRepositorySource = await readFile(new URL("../lib/integrations/dashboard-repository.ts", import.meta.url), "utf8");
+const resultInsightsSource = await readFile(new URL("../components/result-insights.tsx", import.meta.url), "utf8");
+const benchmarkRepositorySource = await readFile(new URL("../lib/integrations/benchmark-repository.ts", import.meta.url), "utf8");
 const firebaseHtml = await readFile(new URL("../firebase-spa/index.html", import.meta.url), "utf8");
 const firebaseClientSource = await readFile(new URL("../lib/integrations/firebase-client.ts", import.meta.url), "utf8");
 const firebaseEnvExample = await readFile(new URL("../.env.firebase.example", import.meta.url), "utf8");
@@ -40,14 +42,14 @@ test("Firestore ให้เฉพาะผู้มีสิทธิ์อ่�
   assert.match(rules, /allow read: if hasDashboardAccess\(\);/);
   assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && validSubmission\(\);/);
   assert.match(rules, /allow update, delete: if false;/);
-  assert.doesNotMatch(rules, /allow read: if true;/);
+  assert.match(rules, /match \/benchmarks\/\{benchmarkId\}[\s\S]*allow read: if true;/);
   assert.doesNotMatch(rules, /allow\s+(read,\s*)?write:\s*if\s+true/);
 });
 
-test("Dashboard บังคับ Sign-In และไม่เปิดข้อมูลผู้ประเมิน", () => {
+test("Dashboard บังคับ Sign-In และจำกัดข้อมูลผู้ประเมินตามระดับสิทธิ์", () => {
   assert.match(formSource, /ชื่อ–นามสกุลผู้ประเมิน/);
   assert.match(formSource, /ยินยอมให้นำข้อมูลสรุปไปใช้ใน Dashboard ของโครงการ/);
-  assert.match(formSource, /ไม่แสดงชื่อผู้ประเมิน/);
+  assert.match(formSource, /เฉพาะผู้ดูแลหรืออีเมลที่ได้รับสิทธิ์เป็นรายบุคคล/);
   assert.match(authGateSource, /FirebaseProtectedArea area="dashboard"/);
   assert.match(protectedAreaSource, /signInWithPopup/);
   assert.match(protectedAreaSource, /signInWithRedirect/);
@@ -57,8 +59,10 @@ test("Dashboard บังคับ Sign-In และไม่เปิดข้�
   assert.match(protectedAreaSource, /Safari หรือ Chrome/);
   assert.match(protectedAreaSource, /GoogleAuthProvider/);
   assert.match(rules, /match \/submission_assessors\/\{submissionId\}/);
-  assert.match(rules, /allow read: if false;/);
+  assert.match(rules, /function hasPrivateDashboardAccess\(\)/);
+  assert.match(rules, /allow read: if hasPrivateDashboardAccess\(\);/);
   assert.match(rules, /validPrivateAssessor\(submissionId\)/);
+  assert.match(rules, /data\.assessorPhone\.size\(\) <= 30/);
   assert.match(rules, /getAfter\(\/databases\/\$\(database\)\/documents\/submissions\/\$\(submissionId\)\)\.data\.createdAt == request\.time/);
 });
 
@@ -96,6 +100,7 @@ test("Google Sign-In ใช้ same-origin auth helper บน Firebase Hosting",
 test("Dashboard ใช้ข้อมูลจริงจาก Firestore และไม่ย้อนกลับไปใช้ข้อมูลสาธิต", () => {
   assert.match(dashboardRepositorySource, /onSnapshot\(/);
   assert.match(dashboardRepositorySource, /collection\(db, "submissions"\)/);
+  assert.match(dashboardRepositorySource, /collection\(db, "submission_assessors"\)/);
   assert.doesNotMatch(dashboardRepositorySource, /limit\(500\)/);
   assert.doesNotMatch(dashboardSource, /demoRecords|ข้อมูลสาธิต|โรงเรียนตัวอย่าง/);
   assert.match(dashboardSource, /setRecords\(payload\.records\)/);
@@ -111,6 +116,22 @@ test("Dashboard ใช้ข้อมูลจริงจาก Firestore แ�
   assert.match(dashboardSource, /เลือกข้อมูลแต่ละส่วน/);
   assert.match(dashboardRepositorySource, /categoryScores: summary\.categories/);
   assert.match(dashboardRepositorySource, /questionResults: summary\.questionResults/);
+  assert.match(dashboardSource, /record\.assessorName/);
+  assert.match(dashboardSource, /record\.assessorPhone/);
+  assert.match(dashboardSource, /includePersonalData: personalDataVisible/);
+});
+
+test("หน้าผลลัพธ์เปรียบเทียบกับค่ากลางแบบไม่ระบุตัวบุคคล", () => {
+  assert.match(resultInsightsSource, /คะแนนแยกตามหมวด/);
+  assert.match(resultInsightsSource, /ค่ากลางของกลุ่ม/);
+  assert.match(resultInsightsSource, /น้อยกว่า 10 รายการ/);
+  assert.match(benchmarkRepositorySource, /collection\(db, "benchmarks"\)/);
+  assert.match(benchmarkRepositorySource, /buildBenchmarkSnapshots/);
+  assert.match(adminSource, /อัปเดตข้อมูลเปรียบเทียบ/);
+  assert.match(rules, /มีเฉพาะค่ากลางของกลุ่มอย่างน้อย 10 ราย/);
+  assert.match(rules, /function validBenchmark\(\)/);
+  assert.match(rules, /data\.sampleSize >= 10/);
+  assert.match(rules, /allow create, update: if isAdmin\(\) && validBenchmark\(\);/);
 });
 
 test("ผู้ประเมินสาธารณะบันทึกผลแบบ atomic โดยไม่ต้องมีสิทธิ์อ่าน Firestore", () => {

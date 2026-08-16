@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { agencyTypes, getTopic, provinces, respondentRoles, rubricVersion, type AgencyType, type Score, type TopicId } from "@/lib/assessment-data";
 import { calculateScore, type Answer } from "@/lib/scoring";
 
-type Incoming = { idempotencyKey?: string; institution?: string; province?: string; assessorName?: string; respondentRole?: string; position?: string; assessmentDate?: string; topicId?: TopicId; agencyType?: AgencyType; answers?: Record<string, Answer>; publicConsent?: boolean };
+type Incoming = { idempotencyKey?: string; institution?: string; province?: string; assessorName?: string; assessorPhone?: string; respondentRole?: string; position?: string; assessmentDate?: string; topicId?: TopicId; agencyType?: AgencyType; answers?: Record<string, Answer>; publicConsent?: boolean };
 
 function rowToRecord(row: typeof assessments.$inferSelect) {
   const topicId = row.topicId as TopicId;
@@ -14,7 +14,8 @@ function rowToRecord(row: typeof assessments.$inferSelect) {
   // คำนวณผลซ้ำจากคำตอบดิบ เพื่อให้ผลรายข้อและสูตรใช้ rubric เวอร์ชันเดียวกับหน้าเว็บเสมอ
   const summary = calculateScore(answers, topic);
   return { id: row.id, institution: row.institution, province: row.province,
-    assessorName: row.assessorName, respondentRole: row.respondentRole, assessmentDate: row.assessmentDate, topicId,
+    assessorName: row.assessorName, assessorPhone: "", respondentRole: row.respondentRole, position: row.position,
+    assessmentDate: row.assessmentDate, topicId,
     topicLabel: row.topicLabel, agencyType, score: summary.percent,
     grade: summary.grade, categoryScores: summary.categories, questionResults: summary.questionResults,
     recommendations: summary.recommendations, verificationStatus: row.verificationStatus, createdAt: row.createdAt };
