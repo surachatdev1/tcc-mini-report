@@ -151,16 +151,10 @@ export function DashboardWorkspace() {
           <h1>Dashboard ความปลอดภัยในการเดินทาง</h1>
           <p>ดูผลตามจังหวัด ประเภทการประเมิน และประเด็นที่ควรเร่งสนับสนุน</p>
         </div>
-        <span className={`data-badge ${source}`}>
-          {source === "loading" && "กำลังโหลดข้อมูลจริง"}
-          {source === "live" && "ข้อมูลจาก Firestore"}
-          {source === "empty" && "ยังไม่มีผลประเมิน"}
-          {source === "unavailable" && "เชื่อมต่อข้อมูลไม่สำเร็จ"}
-        </span>
       </div>
 
       <section className="dashboard-note" aria-label="ขอบเขตข้อมูล">
-        <strong>หลักการอ่านผล:</strong> คะแนนใช้สะท้อนช่องว่างเพื่อจัดทำแผนพัฒนา ไม่ใช้ลงโทษหรือตัดงบประมาณ
+        <strong>การใช้ผลประเมิน:</strong> คะแนนใช้สะท้อนช่องว่างเพื่อจัดทำแผนพัฒนา ไม่ใช้ลงโทษหรือตัดงบประมาณ
         และยังไม่แสดง “อัตราการส่งครบ” จนกว่าจะมีรายชื่อหน่วยงานเป้าหมายประจำรอบประเมิน
       </section>
 
@@ -173,13 +167,13 @@ export function DashboardWorkspace() {
 
       {source === "loading" ? (
         <section className="dashboard-load-state" role="status" aria-live="polite">
-          <div><strong>กำลังเตรียมข้อมูล Dashboard</strong><span>ระบบกำลังเชื่อมต่อและตรวจสอบผลประเมินล่าสุดจาก Firestore</span></div>
+          <div><strong>กำลังเตรียมข้อมูล Dashboard</strong><span>กำลังโหลดผลประเมินล่าสุด โปรดรอสักครู่</span></div>
         </section>
       ) : null}
 
       {source === "empty" ? (
         <section className="dashboard-load-state empty" role="status">
-          <div><strong>ระบบเชื่อมต่อ Firestore แล้ว แต่ยังไม่มีผลประเมิน</strong><span>เมื่อมีผู้ส่งแบบประเมิน รายการและตัวเลขสรุปจะปรากฏในหน้านี้โดยอัตโนมัติ</span></div>
+          <div><strong>ยังไม่มีผลประเมิน</strong><span>เมื่อมีผู้ส่งแบบประเมิน รายการและตัวเลขสรุปจะปรากฏในหน้านี้โดยอัตโนมัติ</span></div>
         </section>
       ) : null}
 
@@ -203,7 +197,7 @@ export function DashboardWorkspace() {
         <div className="excel-mark" aria-hidden="true"><span>X</span></div>
         <div className="export-copy">
           <h2 id="export-title">ส่งออกข้อมูลเป็น Excel</h2>
-          <p>ไฟล์ใช้ข้อมูลจริงตามตัวกรองด้านบน และไม่รวมชื่อผู้ประเมินหรือข้อมูลส่วนบุคคล</p>
+          <p>ไฟล์เป็นไปตามตัวกรองด้านบน และไม่รวมชื่อผู้ประเมินหรือข้อมูลส่วนบุคคล</p>
         </div>
         <div className="export-actions">
           <button type="button" className="btn btn-primary export-all-button" disabled={exportDisabled} onClick={() => void exportExcel("all")}>

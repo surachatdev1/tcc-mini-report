@@ -41,15 +41,15 @@ function firestoreReadError(error: unknown) {
     : "";
 
   if (code.includes("permission-denied") || code.includes("unauthenticated")) {
-    return "ยังยืนยันบัญชี Google กับ Firestore ไม่สำเร็จ กรุณาออกจากระบบแล้วเข้าสู่ระบบอีกครั้ง";
+    return "ยังยืนยันบัญชีผู้ใช้งานไม่สำเร็จ กรุณาออกจากระบบแล้วเข้าสู่ระบบอีกครั้ง";
   }
   if (code.includes("unavailable") || code.includes("network-request-failed")) {
-    return "ขณะนี้เชื่อมต่อ Firestore ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
+    return "ขณะนี้เชื่อมต่อข้อมูลไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
   }
   if (code.includes("failed-precondition")) {
-    return "Firestore ยังไม่พร้อมสำหรับคำค้นหานี้ กรุณาติดต่อผู้ดูแลระบบ";
+    return "ระบบข้อมูลยังไม่พร้อมสำหรับคำค้นหานี้ กรุณาติดต่อผู้ดูแลระบบ";
   }
-  return "ไม่สามารถโหลดข้อมูลจาก Firestore ได้ กรุณาลองใหม่อีกครั้ง";
+  return "ไม่สามารถโหลดผลประเมินได้ กรุณาลองใหม่อีกครั้ง";
 }
 
 function isTopicId(value: unknown): value is TopicId {
@@ -154,7 +154,7 @@ async function subscribeToFirestore(listener: DashboardListener): Promise<() => 
         listener({
           source: "unavailable",
           records: [],
-          error: "พบข้อมูลใน Firestore แต่รูปแบบข้อมูลยังไม่ตรงกับเกณฑ์ประเมินเวอร์ชันปัจจุบัน",
+          error: "พบผลประเมินบางรายการที่ไม่สามารถนำมาแสดงตามเกณฑ์เวอร์ชันปัจจุบันได้ กรุณาติดต่อผู้ดูแลระบบ",
         });
         return;
       }

@@ -100,10 +100,12 @@ test("Dashboard ใช้ข้อมูลจริงจาก Firestore แ�
   assert.doesNotMatch(dashboardSource, /demoRecords|ข้อมูลสาธิต|โรงเรียนตัวอย่าง/);
   assert.match(dashboardSource, /setRecords\(payload\.records\)/);
   assert.match(dashboardRepositorySource, /if \(snapshot\.empty\)/);
-  assert.match(dashboardRepositorySource, /พบข้อมูลใน Firestore แต่รูปแบบข้อมูลยังไม่ตรง/);
+  assert.match(dashboardRepositorySource, /พบผลประเมินบางรายการที่ไม่สามารถนำมาแสดง/);
   assert.match(dashboardSource, /source === "loading"/);
   assert.match(dashboardSource, /source === "live" \? <>/);
-  assert.match(dashboardSource, /ระบบเชื่อมต่อ Firestore แล้ว แต่ยังไม่มีผลประเมิน/);
+  assert.match(dashboardSource, /ยังไม่มีผลประเมิน/);
+  assert.doesNotMatch(dashboardSource, /ข้อมูลจาก Firestore|ข้อมูลจริงตามตัวกรอง|ระบบเชื่อมต่อ Firestore/);
+  assert.doesNotMatch(protectedAreaSource, /เข้าสู่ระบบแล้ว:/);
   assert.match(dashboardSource, /ไม่สามารถโหลดข้อมูลได้/);
   assert.match(dashboardSource, /ดาวน์โหลดข้อมูลรวม/);
   assert.match(dashboardSource, /เลือกข้อมูลแต่ละส่วน/);
