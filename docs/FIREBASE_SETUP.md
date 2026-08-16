@@ -24,7 +24,7 @@ cp .env.firebase.example .env.local
 |---|---|
 | `VITE_DATA_PROVIDER` | ใช้ค่า `firestore` |
 | `VITE_FIREBASE_API_KEY` | `apiKey` |
-| `VITE_FIREBASE_AUTH_DOMAIN` | `authDomain` |
+| `VITE_FIREBASE_AUTH_DOMAIN` | ใช้โดเมน Hosting หลัก `tcc-safe-travel.web.app` เพื่อให้ redirect helper เป็น same-origin |
 | `VITE_FIREBASE_PROJECT_ID` | `projectId` |
 | `VITE_FIREBASE_STORAGE_BUCKET` | `storageBucket` |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` |
@@ -90,6 +90,13 @@ App Check ไม่มีหน้าให้ผู้ใช้แก้โจ�
 
 Google Sign-In รุ่นนี้ใช้ยืนยันตัวตนแต่ยังไม่จำกัดรายชื่ออีเมล หากต้องให้เฉพาะเจ้าหน้าที่บางคนเข้าใช้ ให้เพิ่ม allowlist หรือ custom claims ภายหลัง
 
+### Google Sign-In บนมือถือ
+
+- เพิ่ม `tcc-safe-travel.web.app` และ `tcc-safe-travel.firebaseapp.com` ที่ Authentication > Settings > Authorized domains
+- ระบบใช้ redirect บน Safari/Chrome มือถือ และใช้ popup บนเดสก์ท็อป
+- Messenger, Facebook, LINE และ Instagram ใช้ embedded browser ที่ Google OAuth ไม่รองรับ ระบบจะแสดงปุ่มคัดลอกลิงก์เพื่อไปเปิดใน Safari หรือ Chrome แทน
+- หากพบ `redirect_uri_mismatch` ให้เพิ่ม `https://tcc-safe-travel.web.app/__/auth/handler` ใน Authorized redirect URIs ของ OAuth web client
+
 ## 7. Deployment โดยไม่ใช้ GitHub Actions
 
 GitHub ใช้เก็บ source code เท่านั้น การ Deploy ทำตรงจากเครื่องผู้พัฒนาหรือ Google Cloud Shell จึงไม่ใช้ Actions minutes
@@ -115,4 +122,5 @@ npm run firebase:release
 2. เว้นช่องที่ระบุว่าไม่บังคับ ตอบแบบประเมินหนึ่งชุด และตรวจผล/คำแนะนำรายข้อ
 3. ส่งผลและตรวจว่ามีเอกสารใหม่ใน `submissions` และ `submission_assessors`
 4. เปิด `/dashboard` ใน Incognito ต้องเห็นหน้าขอ Google Login ก่อน
-5. หลัง Login ต้องเห็นข้อมูลสรุป แต่ต้องไม่เห็นชื่อผู้ประเมิน
+5. เปิดลิงก์ผ่าน Messenger ต้องเห็นคำแนะนำให้เปิด Safari/Chrome และปุ่มคัดลอกลิงก์ โดยไม่เข้าสู่ OAuth ที่จะล้มเหลว
+6. เปิด `/dashboard` โดยตรงใน Safari/Chrome แล้ว Login ต้องเห็นข้อมูลสรุป แต่ต้องไม่เห็นชื่อผู้ประเมิน

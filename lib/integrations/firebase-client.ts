@@ -18,6 +18,20 @@ function environment(): FirebaseEnvironment {
   return (import.meta as ImportMeta & { env?: FirebaseEnvironment }).env ?? {};
 }
 
+function resolveAuthDomain(env: FirebaseEnvironment) {
+  const configuredDomain = env.VITE_FIREBASE_AUTH_DOMAIN;
+  const projectId = env.VITE_FIREBASE_PROJECT_ID;
+  if (typeof window === "undefined" || !projectId) return configuredDomain;
+
+  // On Firebase Hosting, keep the OAuth helper on the same origin. This avoids
+  // third-party storage restrictions used by Safari, Firefox, and modern Chrome.
+  const currentHost = window.location.hostname;
+  if (currentHost === `${projectId}.web.app` || currentHost === `${projectId}.firebaseapp.com`) {
+    return currentHost;
+  }
+  return configuredDomain;
+}
+
 export function shouldUseFirestore() {
   return environment().VITE_DATA_PROVIDER === "firestore";
 }
@@ -43,7 +57,7 @@ async function getFirebaseApp(): Promise<FirebaseApp | null> {
     const { getApps, initializeApp } = await import("firebase/app");
     const app = getApps()[0] ?? initializeApp({
       apiKey: env.VITE_FIREBASE_API_KEY,
-      authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+      authDomain: resolveAuthDomain(env),
       projectId: env.VITE_FIREBASE_PROJECT_ID,
       storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
       messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,

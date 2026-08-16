@@ -10,6 +10,8 @@ const authGateSource = await readFile(new URL("../components/dashboard-auth-gate
 const dashboardSource = await readFile(new URL("../components/dashboard-workspace.tsx", import.meta.url), "utf8");
 const dashboardRepositorySource = await readFile(new URL("../lib/integrations/dashboard-repository.ts", import.meta.url), "utf8");
 const firebaseHtml = await readFile(new URL("../firebase-spa/index.html", import.meta.url), "utf8");
+const firebaseClientSource = await readFile(new URL("../lib/integrations/firebase-client.ts", import.meta.url), "utf8");
+const firebaseEnvExample = await readFile(new URL("../.env.firebase.example", import.meta.url), "utf8");
 const rubric = JSON.parse(await readFile(new URL("../lib/criteria.generated.json", import.meta.url), "utf8"));
 
 test("Firebase SPA มีภาษาไทย ชื่อระบบ และ root สำหรับ React", () => {
@@ -38,12 +40,23 @@ test("Dashboard บังคับ Google Sign-In และไม่เปิด
   assert.match(formSource, /ยินยอมให้นำข้อมูลสรุปไปใช้ใน Dashboard ของโครงการ/);
   assert.match(formSource, /ไม่แสดงชื่อผู้ประเมิน/);
   assert.match(authGateSource, /signInWithPopup/);
+  assert.match(authGateSource, /signInWithRedirect/);
+  assert.match(authGateSource, /getRedirectResult/);
+  assert.match(authGateSource, /browserBlocksOAuthState/);
+  assert.match(authGateSource, /เปิดด้วย Safari หรือ Chrome/);
   assert.match(authGateSource, /GoogleAuthProvider/);
   assert.match(authGateSource, /ไม่ขอสิทธิ์อ่าน Gmail/);
   assert.match(rules, /match \/submission_assessors\/\{submissionId\}/);
   assert.match(rules, /allow read: if false;/);
   assert.match(rules, /validPrivateAssessor\(submissionId\)/);
   assert.match(rules, /getAfter\(\/databases\/\$\(database\)\/documents\/submissions\/\$\(submissionId\)\)\.data\.createdAt == request\.time/);
+});
+
+test("Google Sign-In ใช้ same-origin auth helper บน Firebase Hosting", () => {
+  assert.match(firebaseClientSource, /resolveAuthDomain/);
+  assert.match(firebaseClientSource, /currentHost === `\$\{projectId\}\.web\.app`/);
+  assert.match(firebaseClientSource, /currentHost === `\$\{projectId\}\.firebaseapp\.com`/);
+  assert.match(firebaseEnvExample, /VITE_FIREBASE_AUTH_DOMAIN=tcc-safe-travel\.web\.app/);
 });
 
 test("Dashboard ใช้ข้อมูลจริงจาก Firestore และไม่ย้อนกลับไปใช้ข้อมูลสาธิต", () => {
