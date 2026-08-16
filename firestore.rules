@@ -13,28 +13,15 @@ service cloud.firestore {
       return request.auth.token.email.lower();
     }
 
-    function currentDomain() {
-      return currentEmail().split('@')[1];
-    }
-
-    function isProtectedSuperAdminEmail(email) {
+    function isProjectAdminEmail(email) {
       return email in [
         'surachat.dev1@gmail.com',
         'nuonnaka@gmail.com'
       ];
     }
 
-    function isSuperAdmin() {
-      return hasVerifiedEmail() && isProtectedSuperAdminEmail(currentEmail());
-    }
-
     function isAdmin() {
-      return isSuperAdmin() || (
-        hasVerifiedEmail()
-        && exists(/databases/$(database)/documents/dashboard_admins/$(currentEmail()))
-        && get(/databases/$(database)/documents/dashboard_admins/$(currentEmail())).data.active == true
-        && get(/databases/$(database)/documents/dashboard_admins/$(currentEmail())).data.role == 'admin'
-      );
+      return hasVerifiedEmail() && isProjectAdminEmail(currentEmail());
     }
 
     function hasDashboardAccess() {
@@ -44,36 +31,11 @@ service cloud.firestore {
           exists(/databases/$(database)/documents/dashboard_members/$(currentEmail()))
           && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.active == true
         )
-        || (
-          exists(/databases/$(database)/documents/dashboard_domains/$(currentDomain()))
-          && get(/databases/$(database)/documents/dashboard_domains/$(currentDomain())).data.active == true
-        )
       );
     }
 
     function hasPrivateDashboardAccess() {
-      return hasVerifiedEmail() && (
-        isAdmin()
-        || (
-          exists(/databases/$(database)/documents/dashboard_members/$(currentEmail()))
-          && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.active == true
-        )
-      );
-    }
-
-    function validAdminPolicy(email) {
-      let data = request.resource.data;
-      return data.keys().hasAll(['schemaVersion', 'email', 'displayName', 'role', 'active', 'createdAt', 'createdBy'])
-        && data.keys().hasOnly(['schemaVersion', 'email', 'displayName', 'role', 'active', 'createdAt', 'createdBy'])
-        && data.schemaVersion == 1
-        && data.email == email
-        && data.email == data.email.lower()
-        && data.displayName is string
-        && data.displayName.size() <= 120
-        && data.role == 'admin'
-        && data.active == true
-        && data.createdAt == request.time
-        && data.createdBy == currentEmail();
+      return hasDashboardAccess();
     }
 
     function validMemberPolicy(email) {
@@ -85,20 +47,7 @@ service cloud.firestore {
         && data.email == data.email.lower()
         && data.displayName is string
         && data.displayName.size() <= 120
-        && data.authMethod in ['google', 'password']
-        && data.active == true
-        && data.createdAt == request.time
-        && data.createdBy == currentEmail();
-    }
-
-    function validDomainPolicy(domain) {
-      let data = request.resource.data;
-      return data.keys().hasAll(['schemaVersion', 'domain', 'active', 'createdAt', 'createdBy'])
-        && data.keys().hasOnly(['schemaVersion', 'domain', 'active', 'createdAt', 'createdBy'])
-        && data.schemaVersion == 1
-        && data.domain == domain
-        && data.domain == data.domain.lower()
-        && data.domain.matches('^[a-z0-9][a-z0-9.-]*[a-z0-9]$')
+        && data.authMethod == 'google'
         && data.active == true
         && data.createdAt == request.time
         && data.createdBy == currentEmail();
@@ -417,7 +366,7 @@ service cloud.firestore {
     }
 
     match /submissions/{submissionId} {
-      // Dashboard อ่านได้เฉพาะ admin, email หรือ domain ที่ผู้ดูแลอนุญาต
+      // Dashboard อ่านได้เฉพาะผู้ดูแลโครงการหรืออีเมลที่อนุญาตเป็นรายบุคคล
       allow read: if hasDashboardAccess();
 
       // ไม่ใช้ Auth แต่เปิดเฉพาะการสร้างเอกสารรูปแบบที่กำหนด และห้ามแก้/ลบจาก client
@@ -426,7 +375,7 @@ service cloud.firestore {
     }
 
     match /submission_assessors/{submissionId} {
-      // ข้อมูลติดต่ออ่านได้เฉพาะ admin หรืออีเมลที่อนุญาตรายบุคคล ไม่เปิดให้สิทธิ์ระดับโดเมน
+      // ข้อมูลติดต่อใช้สิทธิ์เดียวกับ Dashboard เพราะระบบอนุญาตเฉพาะรายอีเมล
       allow read: if hasPrivateDashboardAccess();
       allow create: if submissionId.size() == 36 && validPrivateAssessor(submissionId);
       allow update, delete: if false;
@@ -439,29 +388,10 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /dashboard_admins/{email} {
-      // Superadmin ถูกกำหนดถาวรใน Rules ส่วนบัญชีใน collection นี้เป็น Admin ระดับรอง
-      allow get: if hasVerifiedEmail() && email == currentEmail();
-      allow list: if isAdmin();
-      allow create, update: if isSuperAdmin()
-        && !isProtectedSuperAdminEmail(email)
-        && validAdminPolicy(email);
-      allow delete: if isSuperAdmin()
-        && !isProtectedSuperAdminEmail(email)
-        && email != currentEmail();
-    }
-
     match /dashboard_members/{email} {
       allow get: if hasVerifiedEmail() && email == currentEmail();
       allow list: if isAdmin();
       allow create, update: if isAdmin() && validMemberPolicy(email);
-      allow delete: if isAdmin();
-    }
-
-    match /dashboard_domains/{domain} {
-      allow get: if hasVerifiedEmail() && domain == currentDomain();
-      allow list: if isAdmin();
-      allow create, update: if isAdmin() && validDomainPolicy(domain);
       allow delete: if isAdmin();
     }
 

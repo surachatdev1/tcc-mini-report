@@ -1,17 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isSuperAdminEmail, SUPER_ADMIN_EMAILS, systemRoleLabel } from "../lib/access-roles.ts";
+import { ADMIN_EMAILS, isAdminEmail, systemRoleLabel } from "../lib/access-roles.ts";
 
-test("กำหนด Superadmin ถาวรสองบัญชีโดยไม่สนตัวพิมพ์ใหญ่เล็ก", () => {
-  assert.deepEqual(SUPER_ADMIN_EMAILS, ["surachat.dev1@gmail.com", "nuonnaka@gmail.com"]);
-  assert.equal(isSuperAdminEmail(" SURACHAT.DEV1@GMAIL.COM "), true);
-  assert.equal(isSuperAdminEmail("nuonnaka@gmail.com"), true);
-  assert.equal(isSuperAdminEmail("another-admin@gmail.com"), false);
+test("กำหนด Admin เจ้าของโครงการถาวรสองบัญชีโดยไม่สนตัวพิมพ์ใหญ่เล็ก", () => {
+  assert.deepEqual(ADMIN_EMAILS, ["surachat.dev1@gmail.com", "nuonnaka@gmail.com"]);
+  assert.equal(isAdminEmail(" SURACHAT.DEV1@GMAIL.COM "), true);
+  assert.equal(isAdminEmail("nuonnaka@gmail.com"), true);
+  assert.equal(isAdminEmail("another-admin@gmail.com"), false);
 });
 
-test("แสดงชื่อระดับสิทธิ์ครบ Superadmin Admin และ User", () => {
-  assert.equal(systemRoleLabel("superadmin"), "Superadmin");
-  assert.equal(systemRoleLabel("admin"), "Admin");
-  assert.equal(systemRoleLabel("user"), "User");
+test("แสดงชื่อระดับสิทธิ์ Admin และ Viewer อย่างตรงไปตรงมา", () => {
+  assert.equal(systemRoleLabel("admin"), "ผู้ดูแลระบบ");
+  assert.equal(systemRoleLabel("viewer"), "ผู้มีสิทธิ์ดู Dashboard");
   assert.equal(systemRoleLabel("none"), "ไม่มีสิทธิ์");
 });

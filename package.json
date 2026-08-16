@@ -15,7 +15,6 @@
     "test:sites": "npm run build && node --test tests/rendered-html.test.mjs",
     "schools:import": "node scripts/import-school-directory.mjs",
     "schools:assets": "node scripts/generate-school-assets.mjs",
-    "admin:bootstrap": "node scripts/bootstrap-admin.mjs",
     "firebase:build": "npm run schools:assets && vite --config vite.firebase.config.ts build",
     "firebase:serve": "npm run firebase:build && firebase emulators:start --only hosting,firestore",
     "firebase:deploy": "node scripts/validate-firebase-env.mjs && npm run firebase:build && firebase deploy --only hosting,firestore:rules,firestore:indexes",

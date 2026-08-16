@@ -11,7 +11,6 @@ const protectedAreaSource = await readFile(new URL("../components/firebase-prote
 const adminSource = await readFile(new URL("../components/admin-workspace.tsx", import.meta.url), "utf8");
 const accessRepositorySource = await readFile(new URL("../lib/integrations/access-control-repository.ts", import.meta.url), "utf8");
 const firebaseSpaSource = await readFile(new URL("../firebase-spa/main.tsx", import.meta.url), "utf8");
-const bootstrapAdminSource = await readFile(new URL("../scripts/bootstrap-admin.mjs", import.meta.url), "utf8");
 const dashboardSource = await readFile(new URL("../components/dashboard-workspace.tsx", import.meta.url), "utf8");
 const dashboardRepositorySource = await readFile(new URL("../lib/integrations/dashboard-repository.ts", import.meta.url), "utf8");
 const resultInsightsSource = await readFile(new URL("../components/result-insights.tsx", import.meta.url), "utf8");
@@ -43,7 +42,7 @@ test("Firestore ให้เฉพาะผู้มีสิทธิ์อ่�
   assert.match(rules, /function hasDashboardAccess\(\)/);
   assert.match(rules, /function isAdmin\(\)/);
   assert.match(rules, /dashboard_members\/\$\(currentEmail\(\)\)/);
-  assert.match(rules, /dashboard_domains\/\$\(currentDomain\(\)\)/);
+  assert.doesNotMatch(rules, /dashboard_domains|currentDomain/);
   assert.match(rules, /allow read: if hasDashboardAccess\(\);/);
   assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && validSubmission\(\);/);
   assert.match(rules, /allow update, delete: if false;/);
@@ -58,7 +57,7 @@ test("Dashboard บังคับ Sign-In และจำกัดข้อม�
   assert.match(authGateSource, /FirebaseProtectedArea area="dashboard"/);
   assert.match(protectedAreaSource, /signInWithPopup/);
   assert.match(protectedAreaSource, /signInWithRedirect/);
-  assert.match(protectedAreaSource, /signInWithEmailAndPassword/);
+  assert.doesNotMatch(protectedAreaSource, /signInWithEmailAndPassword|sendPasswordResetEmail/);
   assert.match(protectedAreaSource, /getRedirectResult/);
   assert.match(protectedAreaSource, /browserBlocksOAuthState/);
   assert.match(protectedAreaSource, /Safari หรือ Chrome/);
@@ -71,43 +70,30 @@ test("Dashboard บังคับ Sign-In และจำกัดข้อม�
   assert.match(rules, /getAfter\(\/databases\/\$\(database\)\/documents\/submissions\/\$\(submissionId\)\)\.data\.createdAt == request\.time/);
 });
 
-test("Superadmin จัดการ Admin และ Admin จัดการ User ได้ตามลำดับสิทธิ์", () => {
+test("Admin เจ้าของโครงการจัดการ Viewer รายอีเมลเพียงระดับเดียว", () => {
   assert.match(adminSource, /จัดการผู้มีสิทธิ์ดู Dashboard/);
-  assert.match(adminSource, /addAdmin/);
-  assert.match(adminSource, /addGoogleMember/);
-  assert.match(adminSource, /addAllowedDomain/);
-  assert.match(adminSource, /createPasswordMember/);
-  assert.match(accessRepositorySource, /dashboard_admins/);
+  assert.match(adminSource, /addDashboardViewer/);
+  assert.match(adminSource, /removeDashboardViewer/);
+  assert.match(adminSource, /ค้นหารายชื่อหรืออีเมล/);
   assert.match(accessRepositorySource, /dashboard_members/);
-  assert.match(accessRepositorySource, /dashboard_domains/);
-  assert.match(accessRepositorySource, /createUserWithEmailAndPassword/);
-  assert.match(accessRepositorySource, /sendEmailVerification/);
-  assert.match(accessRepositorySource, /deleteUser\(createdUser\)/);
+  assert.doesNotMatch(accessRepositorySource, /dashboard_admins|dashboard_domains|createUserWithEmailAndPassword/);
   assert.match(accessRolesSource, /surachat\.dev1@gmail\.com/);
   assert.match(accessRolesSource, /nuonnaka@gmail\.com/);
-  assert.match(accessRepositorySource, /isSuperAdminEmail/);
+  assert.match(accessRepositorySource, /isAdminEmail/);
   assert.match(rules, /request\.auth\.token\.get\('email_verified', false\) == true/);
-  assert.match(rules, /function isSuperAdmin\(\)/);
+  assert.match(rules, /function isProjectAdminEmail\(email\)/);
   assert.match(rules, /surachat\.dev1@gmail\.com/);
   assert.match(rules, /nuonnaka@gmail\.com/);
-  assert.match(rules, /allow create, update: if isSuperAdmin\(\)/);
-  assert.match(rules, /!isProtectedSuperAdminEmail\(email\)/);
+  assert.match(rules, /allow create, update: if isAdmin\(\) && validMemberPolicy\(email\);/);
   assert.match(rules, /allow list: if isAdmin\(\);/);
-  assert.match(rules, /email != currentEmail\(\)/);
+  assert.doesNotMatch(rules, /dashboard_admins|dashboard_domains|isSuperAdmin/);
 });
 
 test("เมนูสาธารณะแสดงเฉพาะแบบประเมินและ Dashboard", () => {
   assert.match(siteHeaderSource, /href="\/">แบบประเมิน<\/Link>/);
   assert.match(siteHeaderSource, /href="\/dashboard">Dashboard<\/Link>/);
   assert.doesNotMatch(siteHeaderSource, /href="\/admin"/);
-  assert.doesNotMatch(protectedAreaSource, /จัดการสิทธิ์<\/Link>/);
-});
-
-test("มีสคริปต์ bootstrap initial admin ผ่านสิทธิ์ Google Cloud", () => {
-  assert.match(bootstrapAdminSource, /gcloud/);
-  assert.match(bootstrapAdminSource, /dashboard_admins/);
-  assert.match(bootstrapAdminSource, /auth.*print-access-token/s);
-  assert.doesNotMatch(bootstrapAdminSource, /service-account.*json/i);
+  assert.match(protectedAreaSource, /จัดการผู้มีสิทธิ์<\/Link>/);
 });
 
 test("Google Sign-In ใช้ same-origin auth helper บน Firebase Hosting", () => {
@@ -147,7 +133,7 @@ test("หน้าผลลัพธ์เปรียบเทียบกั�
   assert.match(resultInsightsSource, /น้อยกว่า 10 รายการ/);
   assert.match(benchmarkRepositorySource, /collection\(db, "benchmarks"\)/);
   assert.match(benchmarkRepositorySource, /buildBenchmarkSnapshots/);
-  assert.match(adminSource, /อัปเดตข้อมูลเปรียบเทียบ/);
+  assert.match(protectedAreaSource, /อัปเดตค่ากลาง/);
   assert.match(rules, /มีเฉพาะค่ากลางของกลุ่มอย่างน้อย 10 ราย/);
   assert.match(rules, /function validBenchmark\(\)/);
   assert.match(rules, /data\.sampleSize >= 10/);
