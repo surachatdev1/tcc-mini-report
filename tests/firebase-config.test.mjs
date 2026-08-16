@@ -17,6 +17,7 @@ const resultInsightsSource = await readFile(new URL("../components/result-insigh
 const benchmarkRepositorySource = await readFile(new URL("../lib/integrations/benchmark-repository.ts", import.meta.url), "utf8");
 const accessRolesSource = await readFile(new URL("../lib/access-roles.ts", import.meta.url), "utf8");
 const siteHeaderSource = await readFile(new URL("../components/site-header.tsx", import.meta.url), "utf8");
+const tccLogo = await readFile(new URL("../public/images/tcc-office-logo.webp", import.meta.url));
 const thaiHealthLogo = await readFile(new URL("../public/images/thaihealth-logo.webp", import.meta.url));
 const firebaseHtml = await readFile(new URL("../firebase-spa/index.html", import.meta.url), "utf8");
 const webManifest = JSON.parse(await readFile(new URL("../public/site.webmanifest", import.meta.url), "utf8"));
@@ -122,10 +123,12 @@ test("เมนูสาธารณะแสดงเฉพาะแบบป�
   assert.match(protectedAreaSource, /จัดการผู้มีสิทธิ์<\/Link>/);
 });
 
-test("ส่วนหัวใช้ตรา สสส. เป็นอัตลักษณ์หลักเพียงตราเดียว", () => {
+test("ส่วนหัวแสดงตรา TCC และ สสส. คู่กันโดยใช้ไฟล์ WebP ภายในระบบ", () => {
+  assert.match(siteHeaderSource, /\/images\/tcc-office-logo\.webp/);
   assert.match(siteHeaderSource, /\/images\/thaihealth-logo\.webp/);
+  assert.match(siteHeaderSource, /สภาองค์กรของผู้บริโภค \(TCC\)/);
   assert.match(siteHeaderSource, /สำนักงานกองทุนสนับสนุนการสร้างเสริมสุขภาพ \(สสส\.\)/);
-  assert.doesNotMatch(siteHeaderSource, /tcc-office-logo/);
+  assert.ok(tccLogo.length > 0);
   assert.ok(thaiHealthLogo.length > 0);
 });
 
