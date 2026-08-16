@@ -39,6 +39,7 @@ next-env.d.ts
 *.tsbuildinfo
 /dist/
 /firebase-dist/
+/public/data/schools/
 /.wrangler/
 /.sites-runtime/
 /outputs/

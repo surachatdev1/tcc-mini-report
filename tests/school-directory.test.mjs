@@ -4,6 +4,7 @@ import test from "node:test";
 
 const directory = JSON.parse(await readFile(new URL("../lib/schools.generated.json", import.meta.url), "utf8"));
 const formSource = await readFile(new URL("../components/assessment-workspace.tsx", import.meta.url), "utf8");
+const schoolDirectorySource = await readFile(new URL("../lib/school-directory.ts", import.meta.url), "utf8");
 
 const provinces = [
   "กรุงเทพมหานคร", "กาญจนบุรี", "พระนครศรีอยุธยา", "ประจวบคีรีขันธ์",
@@ -30,4 +31,6 @@ test("รายชื่อรวมทั้ง สพฐ. และโรง�
 test("ฟอร์มใช้ searchable school combobox หลังเลือกจังหวัด", () => {
   assert.match(formSource, /SchoolCombobox/);
   assert.match(formSource, /setProvince: changeProvince/);
+  assert.match(schoolDirectorySource, /fetch\(`\/data\/schools\/\$\{filename\}\.json`\)/);
+  assert.doesNotMatch(schoolDirectorySource, /import directory from/);
 });

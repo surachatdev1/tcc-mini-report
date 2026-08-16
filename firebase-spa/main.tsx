@@ -6,12 +6,18 @@ import "@/app/globals.css";
 
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { AssessmentWorkspace } from "@/components/assessment-workspace";
-import { DashboardAuthGate } from "@/components/dashboard-auth-gate";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
+// Each route loads its own workspace. This keeps the public assessment from
+// downloading Dashboard/Admin logic and reduces JavaScript parsing on mobile.
+const AssessmentWorkspace = lazy(() => import("@/components/assessment-workspace").then((module) => ({ default: module.AssessmentWorkspace })));
+const DashboardAuthGate = lazy(() => import("@/components/dashboard-auth-gate").then((module) => ({ default: module.DashboardAuthGate })));
 const AdminAuthGate = lazy(() => import("@/components/admin-auth-gate").then((module) => ({ default: module.AdminAuthGate })));
+
+function RouteFallback({ label }: { label: string }) {
+  return <main className="dashboard-login-shell"><p className="auth-status" role="status">{label}</p></main>;
+}
 
 function FirebaseApplication() {
   const isAdmin = window.location.pathname === "/admin" || window.location.pathname.startsWith("/admin/");
@@ -19,7 +25,7 @@ function FirebaseApplication() {
     return (
       <>
         <SiteHeader active="admin" />
-        <Suspense fallback={<main className="dashboard-login-shell"><p className="auth-status" role="status">กำลังเปิดระบบผู้ดูแล…</p></main>}>
+        <Suspense fallback={<RouteFallback label="กำลังเปิดระบบผู้ดูแล…" />}>
           <AdminAuthGate />
         </Suspense>
         <SiteFooter />
@@ -31,12 +37,18 @@ function FirebaseApplication() {
     return (
       <>
         <SiteHeader active="dashboard" />
-        <DashboardAuthGate />
+        <Suspense fallback={<RouteFallback label="กำลังเปิด Dashboard…" />}>
+          <DashboardAuthGate />
+        </Suspense>
         <SiteFooter />
       </>
     );
   }
-  return <AssessmentWorkspace />;
+  return (
+    <Suspense fallback={<RouteFallback label="กำลังเปิดแบบประเมิน…" />}>
+      <AssessmentWorkspace />
+    </Suspense>
+  );
 }
 
 const root = document.getElementById("root");

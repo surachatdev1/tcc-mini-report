@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   getSchoolsByProvince,
   normalizeSchoolSearch,
@@ -14,6 +14,13 @@ type Props = {
 };
 
 const RESULT_LIMIT = 60;
+const EMPTY_SCHOOLS: SchoolDirectoryEntry[] = [];
+
+type SchoolLoadState = {
+  province: string;
+  schools: SchoolDirectoryEntry[];
+  error: string;
+};
 
 export function SchoolCombobox({ province, value, onChange }: Props) {
   const listId = useId();
@@ -22,8 +29,26 @@ export function SchoolCombobox({ province, value, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const [manualMode, setManualMode] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const schools = useMemo(() => getSchoolsByProvince(province), [province]);
+  const [schoolState, setSchoolState] = useState<SchoolLoadState>({ province: "", schools: EMPTY_SCHOOLS, error: "" });
+  const currentSchoolState = schoolState.province === province ? schoolState : null;
+  const schools = currentSchoolState?.schools ?? EMPTY_SCHOOLS;
+  const loadingSchools = Boolean(province) && currentSchoolState === null;
+  const schoolLoadError = currentSchoolState?.error ?? "";
   const query = draftQuery ?? value;
+
+  useEffect(() => {
+    let active = true;
+    if (!province) return () => { active = false; };
+    void getSchoolsByProvince(province).then((entries) => {
+      if (!active) return;
+      setSchoolState({ province, schools: entries, error: "" });
+    }).catch(() => {
+      if (!active) return;
+      setSchoolState({ province, schools: EMPTY_SCHOOLS, error: "ไม่สามารถโหลดรายชื่อสถานศึกษาได้ กรุณากรอกชื่อเอง" });
+    });
+
+    return () => { active = false; };
+  }, [province]);
 
   const matches = useMemo(() => {
     const needle = normalizeSchoolSearch(query);
@@ -79,7 +104,7 @@ export function SchoolCombobox({ province, value, onChange }: Props) {
   }
 
   return (
-    <div className="school-combobox">
+    <div className="school-combobox" aria-busy={loadingSchools}>
       <div className="combobox-input-wrap">
         <input
           ref={inputRef}
@@ -121,7 +146,9 @@ export function SchoolCombobox({ province, value, onChange }: Props) {
 
       {!manualMode && open && (
         <div className="combobox-results" id={listId} role="listbox" aria-label={`สถานศึกษาในจังหวัด${province}`}>
-          {matches.length ? matches.map((school, index) => (
+          {loadingSchools ? <p className="combobox-empty">กำลังโหลดรายชื่อสถานศึกษา…</p> : schoolLoadError ? (
+            <p className="combobox-empty">{schoolLoadError}</p>
+          ) : matches.length ? matches.map((school, index) => (
             <button
               id={`${listId}-${school.id}`}
               type="button"
@@ -147,7 +174,9 @@ export function SchoolCombobox({ province, value, onChange }: Props) {
         <span className="field-help">
           {manualMode
             ? "โหมดกรอกชื่อเอง — ใช้เมื่อไม่พบชื่อในฐานข้อมูล"
-            : `มีรายชื่อ ${schools.length.toLocaleString("th-TH")} แห่งในจังหวัด${province}`}
+            : loadingSchools
+              ? "กำลังโหลดรายชื่อสถานศึกษา…"
+              : schoolLoadError || `มีรายชื่อ ${schools.length.toLocaleString("th-TH")} แห่งในจังหวัด${province}`}
         </span>
         <button className="text-button" type="button" onClick={manualMode ? () => { setManualMode(false); setDraftQuery(""); onChange(""); } : enterManualMode}>
           {manualMode ? "กลับไปค้นหาจากรายชื่อ" : "ไม่พบรายชื่อ? กรอกชื่อเอง"}
