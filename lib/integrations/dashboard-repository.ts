@@ -136,6 +136,8 @@ function privateAssessorRecord(raw: Record<string, unknown>) {
   return {
     assessorName: typeof raw.assessorName === "string" ? raw.assessorName.trim().slice(0, 120) : "",
     assessorPhone: typeof raw.assessorPhone === "string" ? raw.assessorPhone.trim().slice(0, 30) : "",
+    respondentRole: typeof raw.respondentRole === "string" ? raw.respondentRole.trim().slice(0, 120) : "",
+    position: typeof raw.position === "string" ? raw.position.trim().slice(0, 120) : "",
   };
 }
 
@@ -165,12 +167,21 @@ async function subscribeToFirestore(listener: DashboardListener): Promise<() => 
   );
 
   let publicRecords: DashboardRecord[] | null = null;
-  let privateRecords = new Map<string, { assessorName: string; assessorPhone: string }>();
+  let privateRecords = new Map<string, { assessorName: string; assessorPhone: string; respondentRole: string; position: string }>();
   let privateReady = !personalDataVisible;
 
   function emit() {
     if (!publicRecords || !privateReady) return;
-    const records = publicRecords.map((record) => ({ ...record, ...(privateRecords.get(record.id) ?? {}) }));
+    const records = publicRecords.map((record) => {
+      const personal = privateRecords.get(record.id);
+      return {
+        ...record,
+        assessorName: personal?.assessorName || record.assessorName,
+        assessorPhone: personal?.assessorPhone || record.assessorPhone,
+        respondentRole: personal?.respondentRole || record.respondentRole,
+        position: personal?.position || record.position,
+      };
+    });
     listener({ source: records.length ? "live" : "empty", records, personalDataVisible });
   }
 

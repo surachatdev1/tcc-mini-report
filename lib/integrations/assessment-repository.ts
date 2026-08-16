@@ -111,12 +111,10 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
   const batch = writeBatch(db);
   // เอกสารสาธารณะไม่เก็บชื่อบุคคลหรือคะแนนรวม: Dashboard คำนวณใหม่จากคำตอบดิบตาม rubricVersion
   batch.set(documentRef, {
-    schemaVersion: 1,
+    schemaVersion: 2,
     publicConsent: true,
     institution: payload.institution.trim().slice(0, 180),
     province: payload.province,
-    respondentRole: payload.respondentRole,
-    position: payload.position.trim().slice(0, 120),
     assessmentDate: payload.assessmentDate,
     topicId: payload.topicId,
     topicLabel: topic.id === "agency" ? `${topic.label} — ${topic.detail}` : topic.label,
@@ -130,10 +128,12 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
   // ข้อมูลติดต่อแยกไว้ใน collection ที่อ่านได้เฉพาะ admin/สมาชิกที่อนุญาตรายบุคคล
   // batch ทำให้ข้อมูลสรุปและชื่ออ้างอิงสำเร็จหรือย้อนกลับพร้อมกันทั้งสองเอกสาร
   batch.set(assessorDocumentRef, {
-    schemaVersion: 2,
+    schemaVersion: 3,
     submissionId: payload.idempotencyKey,
     assessorName,
     assessorPhone,
+    respondentRole: payload.respondentRole,
+    position: payload.position.trim().slice(0, 120),
     createdAt: serverTimestamp(),
   });
   try {

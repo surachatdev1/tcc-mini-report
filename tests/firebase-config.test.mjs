@@ -142,6 +142,16 @@ test("ผู้ประเมินสาธารณะบันทึกผ�
   assert.match(assessmentRepositorySource, /เชื่อมต่อ Firestore ไม่สำเร็จ/);
   assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && validSubmission\(\);/);
   assert.match(rules, /allow update, delete: if false;/);
+  const publicWriteStart = assessmentRepositorySource.indexOf("batch.set(documentRef");
+  const privateWriteStart = assessmentRepositorySource.indexOf("batch.set(assessorDocumentRef");
+  const publicWrite = assessmentRepositorySource.slice(publicWriteStart, privateWriteStart);
+  const privateWrite = assessmentRepositorySource.slice(privateWriteStart);
+  assert.doesNotMatch(publicWrite, /respondentRole:|position:/);
+  assert.match(privateWrite, /schemaVersion: 3/);
+  assert.match(privateWrite, /respondentRole: payload\.respondentRole/);
+  assert.match(privateWrite, /position: payload\.position/);
+  assert.match(rules, /function validSubmissionV2\(\)/);
+  assert.match(rules, /function validPrivateAssessorV3\(submissionId\)/);
 });
 
 test("Firestore rules รู้จัก question id ทุกข้อในร่างเกณฑ์", () => {

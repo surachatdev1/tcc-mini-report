@@ -95,7 +95,7 @@ npm run admin:bootstrap -- --email=your-admin@example.com --project=tcc-safe-tra
 - หน้า `/dashboard` ต้องเข้าสู่ระบบและมีอีเมลที่ยืนยันแล้ว จากนั้น Firestore Rules ตรวจว่าตรงกับ admin, อีเมลรายบุคคล หรือโดเมนที่อนุญาต
 - หน้า `/admin` เปิดเฉพาะเอกสารใน `dashboard_admins/{email}` และ admin ไม่สามารถลบสิทธิ์บัญชีที่กำลังใช้งานอยู่
 - รายการสิทธิ์อยู่ใน `dashboard_admins`, `dashboard_members` และ `dashboard_domains`
-- ชื่อและเบอร์โทรผู้ประเมินเก็บแยกใน collection `submission_assessors`; เฉพาะ admin และอีเมลที่อนุญาตรายบุคคลเท่านั้นที่อ่าน/ส่งออกได้
+- ชื่อ บทบาท ตำแหน่ง และเบอร์โทรผู้ประเมินเก็บแยกใน collection `submission_assessors`; เฉพาะ admin และอีเมลที่อนุญาตรายบุคคลเท่านั้นที่อ่าน/ส่งออกได้
 - ผู้มีสิทธิ์จากโดเมนเห็นผลสรุป แต่ไม่เห็นชื่อหรือเบอร์โทรผู้ให้ข้อมูล
 - ไม่เก็บเลขทะเบียนรถหรือข้อมูลส่วนบุคคลของนักเรียน
 - Firestore เปิดอ่าน collection `submissions` เฉพาะ Firebase user ที่ยืนยันอีเมลและตรงกับ policy ที่ admin กำหนด

@@ -217,7 +217,8 @@ service cloud.firestore {
       );
     }
 
-    function validSubmission() {
+    // schema 1 รองรับ client รุ่นก่อนหน้าในช่วง rolling deploy; schema 2 ย้ายข้อมูลผู้ให้ข้อมูลออกจากเอกสารผลประเมิน
+    function validSubmissionV1() {
       let data = request.resource.data;
       return data.keys().hasAll([
           'schemaVersion', 'publicConsent', 'institution', 'province',
@@ -253,7 +254,56 @@ service cloud.firestore {
         && data.createdAt == request.time;
     }
 
-    function validPrivateAssessor(submissionId) {
+    function validSubmissionV2() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'schemaVersion', 'publicConsent', 'institution', 'province',
+          'assessmentDate', 'topicId', 'topicLabel', 'agencyType',
+          'rubricVersion', 'answers', 'verificationStatus', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'schemaVersion', 'publicConsent', 'institution', 'province',
+          'assessmentDate', 'topicId', 'topicLabel', 'agencyType',
+          'rubricVersion', 'answers', 'verificationStatus', 'createdAt'
+        ])
+        && data.schemaVersion == 2
+        && data.publicConsent == true
+        && data.institution is string
+        && data.institution.size() >= 2
+        && data.institution.size() <= 180
+        && validProvince(data.province)
+        && data.assessmentDate is string
+        && data.assessmentDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && data.topicId in ['bus', 'trip', 'moto', 'agency']
+        && data.topicLabel is string
+        && data.topicLabel.size() >= 2
+        && data.topicLabel.size() <= 250
+        && (data.agencyType == null || data.agencyType in ['road-safety', 'education-area', 'transport', 'local-admin'])
+        && data.rubricVersion == 'TCC-DRAFT-22-06-69-EXACT-01'
+        && validAnswers(data)
+        && data.verificationStatus == 'self_reported'
+        && data.createdAt == request.time;
+    }
+
+    function validSubmission() {
+      return validSubmissionV1() || validSubmissionV2();
+    }
+
+    function validPrivateAssessorV1(submissionId) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['schemaVersion', 'submissionId', 'assessorName', 'createdAt'])
+        && data.keys().hasOnly(['schemaVersion', 'submissionId', 'assessorName', 'createdAt'])
+        && data.schemaVersion == 1
+        && data.submissionId == submissionId
+        && data.assessorName is string
+        && data.assessorName.size() >= 2
+        && data.assessorName.size() <= 120
+        && data.createdAt == request.time
+        && existsAfter(/databases/$(database)/documents/submissions/$(submissionId))
+        && getAfter(/databases/$(database)/documents/submissions/$(submissionId)).data.createdAt == request.time;
+    }
+
+    function validPrivateAssessorV2(submissionId) {
       let data = request.resource.data;
       return data.keys().hasAll(['schemaVersion', 'submissionId', 'assessorName', 'assessorPhone', 'createdAt'])
         && data.keys().hasOnly(['schemaVersion', 'submissionId', 'assessorName', 'assessorPhone', 'createdAt'])
@@ -267,6 +317,29 @@ service cloud.firestore {
         && data.createdAt == request.time
         && existsAfter(/databases/$(database)/documents/submissions/$(submissionId))
         && getAfter(/databases/$(database)/documents/submissions/$(submissionId)).data.createdAt == request.time;
+    }
+
+    function validPrivateAssessorV3(submissionId) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['schemaVersion', 'submissionId', 'assessorName', 'assessorPhone', 'respondentRole', 'position', 'createdAt'])
+        && data.keys().hasOnly(['schemaVersion', 'submissionId', 'assessorName', 'assessorPhone', 'respondentRole', 'position', 'createdAt'])
+        && data.schemaVersion == 3
+        && data.submissionId == submissionId
+        && data.assessorName is string
+        && data.assessorName.size() >= 2
+        && data.assessorName.size() <= 120
+        && data.assessorPhone is string
+        && data.assessorPhone.size() <= 30
+        && validRole(data.respondentRole)
+        && data.position is string
+        && data.position.size() <= 120
+        && data.createdAt == request.time
+        && existsAfter(/databases/$(database)/documents/submissions/$(submissionId))
+        && getAfter(/databases/$(database)/documents/submissions/$(submissionId)).data.createdAt == request.time;
+    }
+
+    function validPrivateAssessor(submissionId) {
+      return validPrivateAssessorV1(submissionId) || validPrivateAssessorV2(submissionId) || validPrivateAssessorV3(submissionId);
     }
 
     function validBenchmarkCategory(category) {

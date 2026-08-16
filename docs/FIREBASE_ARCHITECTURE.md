@@ -12,7 +12,7 @@
             │    ├─ create: schema + consent + server timestamp
             │    └─ update/delete: denied
             └─ Firestore /submission_assessors/{UUID}
-                 ├─ ชื่อและเบอร์โทรผู้ประเมิน: create only
+                 ├─ ชื่อ บทบาท ตำแหน่ง และเบอร์โทรผู้ประเมิน: create only
                  ├─ read: เฉพาะ admin/member รายบุคคล
                  └─ update/delete จาก client: denied
 
@@ -35,10 +35,9 @@
 
 ## Schema: `submissions/{idempotencyKey}`
 
-- `schemaVersion`: `1`
+- `schemaVersion`: `2` (`1` เป็นข้อมูลเดิมที่ระบบยังอ่านได้)
 - `publicConsent`: `true`
 - `institution`, `province`
-- `respondentRole`, `position`
 - `assessmentDate`
 - `topicId`, `topicLabel`, `agencyType`
 - `rubricVersion`
@@ -46,14 +45,16 @@
 - `verificationStatus`: `self_reported`
 - `createdAt`: server timestamp
 
-จงใจไม่เก็บ `assessorName`, `score`, `grade` และ aggregate ในเอกสารสาธารณะ เพื่อไม่เปิดเผยข้อมูลส่วนบุคคลและไม่เชื่อค่าคำนวณจาก client
+จงใจไม่เก็บ `assessorName`, `assessorPhone`, `respondentRole`, `position`, `score`, `grade` และ aggregate ในเอกสารผลประเมิน เพื่อแยกข้อมูลผู้ให้ข้อมูลและไม่เชื่อค่าคำนวณจาก client
 
 ## Schema: `submission_assessors/{idempotencyKey}`
 
-- `schemaVersion`: `2`
+- `schemaVersion`: `3` (`1–2` เป็นข้อมูลเดิมที่ระบบยังอ่านได้)
 - `submissionId`: UUID เดียวกับผลประเมิน
 - `assessorName`: ชื่อ–นามสกุลสำหรับอ้างอิงภายใน
 - `assessorPhone`: เบอร์โทรศัพท์ (ไม่บังคับ)
+- `respondentRole`: บทบาทผู้ให้ข้อมูล
+- `position`: หน้าที่หรือตำแหน่ง (ไม่บังคับ)
 - `createdAt`: server timestamp
 
 collection นี้เปิดอ่านผ่าน Firebase Web SDK เฉพาะ admin หรือ `dashboard_members` รายบุคคล จึงแสดงชื่อและเบอร์โทรใน Dashboard/Excel ได้ตาม feedback แต่บัญชีที่ได้สิทธิ์จากทั้งโดเมนจะอ่านไม่ได้
