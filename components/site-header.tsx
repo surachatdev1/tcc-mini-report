@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- Firebase Hosting serves this pre-optimized local WebP directly. */
 import Link from "next/link";
 
-export function SiteHeader({ active }: { active: "assessment" | "dashboard" }) {
+export function SiteHeader({ active }: { active: "assessment" | "dashboard" | "admin" }) {
   return (
     <header className="app-header">
       <div className="header-inner">
@@ -23,6 +23,7 @@ export function SiteHeader({ active }: { active: "assessment" | "dashboard" }) {
         <nav className="main-nav" aria-label="เมนูหลัก">
           <Link aria-current={active === "assessment" ? "page" : undefined} href="/">ทำแบบประเมิน</Link>
           <Link aria-current={active === "dashboard" ? "page" : undefined} href="/dashboard">Dashboard</Link>
+          <Link aria-current={active === "admin" ? "page" : undefined} href="/admin">ผู้ดูแลระบบ</Link>
         </nav>
       </div>
     </header>

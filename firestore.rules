@@ -2,9 +2,82 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isGoogleUser() {
+    function hasVerifiedEmail() {
       return request.auth != null
-        && request.auth.token.firebase.sign_in_provider == 'google.com';
+        && request.auth.token.email is string
+        && request.auth.token.email.lower().split('@').size() == 2
+        && request.auth.token.get('email_verified', false) == true;
+    }
+
+    function currentEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function currentDomain() {
+      return currentEmail().split('@')[1];
+    }
+
+    function isAdmin() {
+      return hasVerifiedEmail()
+        && exists(/databases/$(database)/documents/dashboard_admins/$(currentEmail()))
+        && get(/databases/$(database)/documents/dashboard_admins/$(currentEmail())).data.active == true;
+    }
+
+    function hasDashboardAccess() {
+      return hasVerifiedEmail() && (
+        isAdmin()
+        || (
+          exists(/databases/$(database)/documents/dashboard_members/$(currentEmail()))
+          && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.active == true
+        )
+        || (
+          exists(/databases/$(database)/documents/dashboard_domains/$(currentDomain()))
+          && get(/databases/$(database)/documents/dashboard_domains/$(currentDomain())).data.active == true
+        )
+      );
+    }
+
+    function validAdminPolicy(email) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['schemaVersion', 'email', 'displayName', 'role', 'active', 'createdAt', 'createdBy'])
+        && data.keys().hasOnly(['schemaVersion', 'email', 'displayName', 'role', 'active', 'createdAt', 'createdBy'])
+        && data.schemaVersion == 1
+        && data.email == email
+        && data.email == data.email.lower()
+        && data.displayName is string
+        && data.displayName.size() <= 120
+        && data.role == 'admin'
+        && data.active == true
+        && data.createdAt == request.time
+        && data.createdBy == currentEmail();
+    }
+
+    function validMemberPolicy(email) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['schemaVersion', 'email', 'displayName', 'authMethod', 'active', 'createdAt', 'createdBy'])
+        && data.keys().hasOnly(['schemaVersion', 'email', 'displayName', 'authMethod', 'active', 'createdAt', 'createdBy'])
+        && data.schemaVersion == 1
+        && data.email == email
+        && data.email == data.email.lower()
+        && data.displayName is string
+        && data.displayName.size() <= 120
+        && data.authMethod in ['google', 'password']
+        && data.active == true
+        && data.createdAt == request.time
+        && data.createdBy == currentEmail();
+    }
+
+    function validDomainPolicy(domain) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['schemaVersion', 'domain', 'active', 'createdAt', 'createdBy'])
+        && data.keys().hasOnly(['schemaVersion', 'domain', 'active', 'createdAt', 'createdBy'])
+        && data.schemaVersion == 1
+        && data.domain == domain
+        && data.domain == data.domain.lower()
+        && data.domain.matches('^[a-z0-9][a-z0-9.-]*[a-z0-9]$')
+        && data.active == true
+        && data.createdAt == request.time
+        && data.createdBy == currentEmail();
     }
 
     function validProvince(value) {
@@ -185,8 +258,8 @@ service cloud.firestore {
     }
 
     match /submissions/{submissionId} {
-      // เฉพาะผู้ที่ยืนยันตัวตนด้วย Google จึงอ่านข้อมูลสรุปสำหรับ Dashboard ได้
-      allow read: if isGoogleUser();
+      // Dashboard อ่านได้เฉพาะ admin, email หรือ domain ที่ผู้ดูแลอนุญาต
+      allow read: if hasDashboardAccess();
 
       // ไม่ใช้ Auth แต่เปิดเฉพาะการสร้างเอกสารรูปแบบที่กำหนด และห้ามแก้/ลบจาก client
       allow create: if submissionId.size() == 36 && validSubmission();
@@ -198,6 +271,29 @@ service cloud.firestore {
       allow read: if false;
       allow create: if submissionId.size() == 36 && validPrivateAssessor(submissionId);
       allow update, delete: if false;
+    }
+
+    match /dashboard_admins/{email} {
+      // ผู้ใช้ตรวจได้เฉพาะสถานะของอีเมลตนเอง ส่วนการดูรายการทั้งหมดสงวนให้ admin
+      allow get: if hasVerifiedEmail() && email == currentEmail();
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && validAdminPolicy(email);
+      // ป้องกัน admin ลบสิทธิ์บัญชีที่กำลังใช้งานโดยไม่ตั้งใจ
+      allow delete: if isAdmin() && email != currentEmail();
+    }
+
+    match /dashboard_members/{email} {
+      allow get: if hasVerifiedEmail() && email == currentEmail();
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && validMemberPolicy(email);
+      allow delete: if isAdmin();
+    }
+
+    match /dashboard_domains/{domain} {
+      allow get: if hasVerifiedEmail() && domain == currentDomain();
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && validDomainPolicy(domain);
+      allow delete: if isAdmin();
     }
 
     match /{document=**} {

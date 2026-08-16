@@ -34,5 +34,6 @@ async function checkFirebaseConfig() {
 
 await checkPage("/");
 await checkPage("/dashboard");
+await checkPage("/admin");
 await checkFirebaseConfig();
 console.log("Firebase Hosting smoke test passed.");

@@ -7,6 +7,11 @@ const firebaseConfig = JSON.parse(await readFile(new URL("../firebase.json", imp
 const formSource = await readFile(new URL("../components/assessment-workspace.tsx", import.meta.url), "utf8");
 const assessmentRepositorySource = await readFile(new URL("../lib/integrations/assessment-repository.ts", import.meta.url), "utf8");
 const authGateSource = await readFile(new URL("../components/dashboard-auth-gate.tsx", import.meta.url), "utf8");
+const protectedAreaSource = await readFile(new URL("../components/firebase-protected-area.tsx", import.meta.url), "utf8");
+const adminSource = await readFile(new URL("../components/admin-workspace.tsx", import.meta.url), "utf8");
+const accessRepositorySource = await readFile(new URL("../lib/integrations/access-control-repository.ts", import.meta.url), "utf8");
+const firebaseSpaSource = await readFile(new URL("../firebase-spa/main.tsx", import.meta.url), "utf8");
+const bootstrapAdminSource = await readFile(new URL("../scripts/bootstrap-admin.mjs", import.meta.url), "utf8");
 const dashboardSource = await readFile(new URL("../components/dashboard-workspace.tsx", import.meta.url), "utf8");
 const dashboardRepositorySource = await readFile(new URL("../lib/integrations/dashboard-repository.ts", import.meta.url), "utf8");
 const firebaseHtml = await readFile(new URL("../firebase-spa/index.html", import.meta.url), "utf8");
@@ -20,36 +25,65 @@ test("Firebase SPA มีภาษาไทย ชื่อระบบ แล�
   assert.match(firebaseHtml, /<div id="root"><\/div>/);
 });
 
-test("Firebase Hosting รองรับ SPA route /dashboard", () => {
+test("Firebase Hosting รองรับ SPA route /dashboard และ /admin", () => {
   assert.equal(firebaseConfig.hosting.public, "firebase-dist");
   assert.deepEqual(firebaseConfig.hosting.rewrites, [{ source: "**", destination: "/index.html" }]);
+  assert.match(firebaseSpaSource, /window\.location\.pathname === "\/admin"/);
+  assert.match(firebaseSpaSource, /<AdminAuthGate \/>/);
 });
 
-test("Firestore ให้ Google user อ่าน Dashboard และเปิด public create เท่านั้น", () => {
-  assert.match(rules, /function isGoogleUser\(\)/);
-  assert.match(rules, /sign_in_provider == 'google\.com'/);
-  assert.match(rules, /allow read: if isGoogleUser\(\);/);
+test("Firestore ให้เฉพาะผู้มีสิทธิ์อ่าน Dashboard และเปิด public create เท่านั้น", () => {
+  assert.match(rules, /function hasDashboardAccess\(\)/);
+  assert.match(rules, /function isAdmin\(\)/);
+  assert.match(rules, /dashboard_members\/\$\(currentEmail\(\)\)/);
+  assert.match(rules, /dashboard_domains\/\$\(currentDomain\(\)\)/);
+  assert.match(rules, /allow read: if hasDashboardAccess\(\);/);
   assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && validSubmission\(\);/);
   assert.match(rules, /allow update, delete: if false;/);
   assert.doesNotMatch(rules, /allow read: if true;/);
   assert.doesNotMatch(rules, /allow\s+(read,\s*)?write:\s*if\s+true/);
 });
 
-test("Dashboard บังคับ Google Sign-In และไม่เปิดข้อมูลผู้ประเมิน", () => {
+test("Dashboard บังคับ Sign-In และไม่เปิดข้อมูลผู้ประเมิน", () => {
   assert.match(formSource, /ชื่อ–นามสกุลผู้ประเมิน/);
   assert.match(formSource, /ยินยอมให้นำข้อมูลสรุปไปใช้ใน Dashboard ของโครงการ/);
   assert.match(formSource, /ไม่แสดงชื่อผู้ประเมิน/);
-  assert.match(authGateSource, /signInWithPopup/);
-  assert.match(authGateSource, /signInWithRedirect/);
-  assert.match(authGateSource, /getRedirectResult/);
-  assert.match(authGateSource, /browserBlocksOAuthState/);
-  assert.match(authGateSource, /เปิดด้วย Safari หรือ Chrome/);
-  assert.match(authGateSource, /GoogleAuthProvider/);
-  assert.match(authGateSource, /ไม่ขอสิทธิ์อ่าน Gmail/);
+  assert.match(authGateSource, /FirebaseProtectedArea area="dashboard"/);
+  assert.match(protectedAreaSource, /signInWithPopup/);
+  assert.match(protectedAreaSource, /signInWithRedirect/);
+  assert.match(protectedAreaSource, /signInWithEmailAndPassword/);
+  assert.match(protectedAreaSource, /getRedirectResult/);
+  assert.match(protectedAreaSource, /browserBlocksOAuthState/);
+  assert.match(protectedAreaSource, /Safari หรือ Chrome/);
+  assert.match(protectedAreaSource, /GoogleAuthProvider/);
   assert.match(rules, /match \/submission_assessors\/\{submissionId\}/);
   assert.match(rules, /allow read: if false;/);
   assert.match(rules, /validPrivateAssessor\(submissionId\)/);
   assert.match(rules, /getAfter\(\/databases\/\$\(database\)\/documents\/submissions\/\$\(submissionId\)\)\.data\.createdAt == request\.time/);
+});
+
+test("Admin จัดการผู้ดูแล อีเมล โดเมน และบัญชี password ได้", () => {
+  assert.match(adminSource, /จัดการผู้มีสิทธิ์ดู Dashboard/);
+  assert.match(adminSource, /addAdmin/);
+  assert.match(adminSource, /addGoogleMember/);
+  assert.match(adminSource, /addAllowedDomain/);
+  assert.match(adminSource, /createPasswordMember/);
+  assert.match(accessRepositorySource, /dashboard_admins/);
+  assert.match(accessRepositorySource, /dashboard_members/);
+  assert.match(accessRepositorySource, /dashboard_domains/);
+  assert.match(accessRepositorySource, /createUserWithEmailAndPassword/);
+  assert.match(accessRepositorySource, /sendEmailVerification/);
+  assert.match(accessRepositorySource, /deleteUser\(createdUser\)/);
+  assert.match(rules, /request\.auth\.token\.get\('email_verified', false\) == true/);
+  assert.match(rules, /allow list: if isAdmin\(\);/);
+  assert.match(rules, /email != currentEmail\(\)/);
+});
+
+test("มีสคริปต์ bootstrap initial admin ผ่านสิทธิ์ Google Cloud", () => {
+  assert.match(bootstrapAdminSource, /gcloud/);
+  assert.match(bootstrapAdminSource, /dashboard_admins/);
+  assert.match(bootstrapAdminSource, /auth.*print-access-token/s);
+  assert.doesNotMatch(bootstrapAdminSource, /service-account.*json/i);
 });
 
 test("Google Sign-In ใช้ same-origin auth helper บน Firebase Hosting", () => {

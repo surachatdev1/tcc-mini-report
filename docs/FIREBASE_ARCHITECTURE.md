@@ -4,11 +4,11 @@
 
 ```text
 ผู้ประเมินสาธารณะ
-  └─ Firebase Hosting (/, /dashboard)
+  └─ Firebase Hosting (/, /dashboard, /admin)
        ├─ localStorage: ร่างที่ยังไม่ยืนยัน
        └─ Firebase Web SDK + App Check
             ├─ Firestore /submissions/{UUID}
-            │    ├─ ผลประเมินและคำตอบ: read public
+            │    ├─ ผลประเมินและคำตอบ: read เฉพาะบัญชีที่ admin อนุญาต
             │    ├─ create: schema + consent + server timestamp
             │    └─ update/delete: denied
             └─ Firestore /submission_assessors/{UUID}
@@ -16,8 +16,12 @@
                  └─ read/update/delete จาก client: denied
 
 /dashboard
-  └─ อ่านสูงสุด 500 รายการล่าสุด
+  └─ อ่านผลประเมินจริงหลัง Firestore Rules ตรวจสิทธิ์
        └─ ตรวจรูปแบบคำตอบ + คำนวณคะแนนใหม่จาก rubric ใน source code
+
+/admin
+  └─ จัดการ dashboard_admins, dashboard_members และ dashboard_domains
+       └─ อ่าน/เขียนได้เฉพาะ admin ที่ยืนยันอีเมลแล้ว
 ```
 
 ## เหตุผลที่เลือก Firestore แทน SQL Connect
@@ -51,9 +55,18 @@
 collection นี้ไม่เปิดอ่านจาก Firebase Web SDK การตรวจสอบชื่อภายหลังต้องใช้ Firebase Console หรือ Admin SDK/Cloud Functions ที่มีสิทธิ์เท่านั้น จึงไม่ทำให้ Dashboard สาธารณะเปิดเผยชื่อผู้ประเมิน
 Rules บังคับให้สร้างเอกสารชื่อนี้ใน transaction เดียวกับผลประเมินสาธารณะ และไม่อนุญาตให้เติมชื่อย้อนหลังจาก client
 
+## ระบบสิทธิ์ Dashboard และ Admin
+
+- `dashboard_admins/{email}` — ผู้จัดการสิทธิ์และผู้ดู Dashboard
+- `dashboard_members/{email}` — อีเมล Google หรือ Email/Password ที่ได้รับอนุญาตรายบุคคล
+- `dashboard_domains/{domain}` — โดเมนอีเมลที่ได้รับอนุญาต
+- `/dashboard` ตรวจ policy ผ่าน Firestore Rules ก่อนอ่าน `submissions`
+- `/admin` อ่านและแก้ policy ได้เฉพาะ admin ที่อีเมลยืนยันแล้ว
+- รหัสผ่านอยู่ใน Firebase Authentication เท่านั้นและไม่ถูกเขียนลง Firestore
+
 ## ขอบเขตของรุ่นนี้
 
-- Dashboard รวมข้อมูลใน browser สูงสุด 500 รายการล่าสุด
+- Dashboard รวมข้อมูลที่ Firestore ส่งกลับใน browser จึงควรเพิ่ม server-side aggregate เมื่อข้อมูลมีปริมาณสูง
 - การตรวจคำอธิบายเชิงลึกทำใน UI; rules ตรวจ schema ชั้นนอกและขนาดข้อมูล
 - App Check ลด abuse แต่ไม่เท่ากับการพิสูจน์ตัวบุคคล
 

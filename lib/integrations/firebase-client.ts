@@ -1,4 +1,4 @@
-import type { FirebaseApp } from "firebase/app";
+import type { FirebaseApp, FirebaseOptions } from "firebase/app";
 import type { Auth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 
@@ -32,6 +32,26 @@ function resolveAuthDomain(env: FirebaseEnvironment) {
   return configuredDomain;
 }
 
+export function getFirebaseClientOptions(): FirebaseOptions | null {
+  const env = environment();
+  const required = [
+    env.VITE_FIREBASE_API_KEY,
+    env.VITE_FIREBASE_AUTH_DOMAIN,
+    env.VITE_FIREBASE_PROJECT_ID,
+    env.VITE_FIREBASE_APP_ID,
+  ];
+  if (required.some((value) => !value)) return null;
+
+  return {
+    apiKey: env.VITE_FIREBASE_API_KEY,
+    authDomain: resolveAuthDomain(env),
+    projectId: env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: env.VITE_FIREBASE_APP_ID,
+  };
+}
+
 export function shouldUseFirestore() {
   return environment().VITE_DATA_PROVIDER === "firestore";
 }
@@ -46,23 +66,11 @@ async function getFirebaseApp(): Promise<FirebaseApp | null> {
 
   firebaseAppPromise = (async () => {
     const env = environment();
-    const required = [
-      env.VITE_FIREBASE_API_KEY,
-      env.VITE_FIREBASE_AUTH_DOMAIN,
-      env.VITE_FIREBASE_PROJECT_ID,
-      env.VITE_FIREBASE_APP_ID,
-    ];
-    if (required.some((value) => !value)) return null;
+    const options = getFirebaseClientOptions();
+    if (!options) return null;
 
     const { getApps, initializeApp } = await import("firebase/app");
-    const app = getApps()[0] ?? initializeApp({
-      apiKey: env.VITE_FIREBASE_API_KEY,
-      authDomain: resolveAuthDomain(env),
-      projectId: env.VITE_FIREBASE_PROJECT_ID,
-      storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-      appId: env.VITE_FIREBASE_APP_ID,
-    });
+    const app = getApps()[0] ?? initializeApp(options);
 
     // App Check ทำงานเบื้องหลังโดยไม่แสดง captcha และเริ่มก่อนเรียก Firebase services
     if (env.VITE_FIREBASE_APPCHECK_SITE_KEY && env.VITE_FIREBASE_USE_EMULATORS !== "true") {
