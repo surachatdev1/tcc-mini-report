@@ -1,7 +1,10 @@
 import type { User } from "firebase/auth";
+import { isSuperAdminEmail, SUPER_ADMIN_EMAILS, type SystemRole } from "@/lib/access-roles";
 import { getFirebaseAuth, getFirebaseClientOptions, getFirebaseDb } from "@/lib/integrations/firebase-client";
 
 export type DashboardAccess = {
+  role: SystemRole;
+  superadmin: boolean;
   admin: boolean;
   member: boolean;
   domain: boolean;
@@ -15,6 +18,8 @@ export type AccessEntry = {
   authMethod?: "google" | "password";
   createdBy: string;
   createdAt: string;
+  role: Exclude<SystemRole, "none">;
+  protected: boolean;
 };
 
 export type AccessDirectory = {
@@ -68,13 +73,35 @@ function toEntry(id: string, data: Record<string, unknown>): AccessEntry {
     authMethod: data.authMethod === "password" ? "password" : data.authMethod === "google" ? "google" : undefined,
     createdBy: String(data.createdBy ?? "—"),
     createdAt: timestampLabel(data.createdAt),
+    role: data.role === "admin" ? "admin" : "user",
+    protected: false,
   };
+}
+
+function withSuperAdmins(entries: AccessEntry[]) {
+  const byEmail = new Map(entries.map((entry) => [normalizeEmail(entry.id), entry]));
+  const protectedEntries: AccessEntry[] = SUPER_ADMIN_EMAILS.map((email) => {
+    const stored = byEmail.get(email);
+    byEmail.delete(email);
+    return {
+      id: email,
+      label: email,
+      name: stored?.name ?? "",
+      createdBy: stored?.createdBy ?? "กำหนดโดยระบบ",
+      createdAt: stored?.createdAt ?? "ถาวร",
+      role: "superadmin",
+      protected: true,
+    };
+  });
+  return [...protectedEntries, ...byEmail.values()];
 }
 
 export async function getDashboardAccess(user: User): Promise<DashboardAccess> {
   const email = normalizeEmail(user.email ?? "");
   const domain = domainFromEmail(email);
-  if (!email || !domain) return { admin: false, member: false, domain: false, emailVerified: false };
+  if (!email || !domain) {
+    return { role: "none", superadmin: false, admin: false, member: false, domain: false, emailVerified: false };
+  }
 
   // Firestore Rules only allow users to read the policy documents that match
   // their own verified email/domain. The UI check mirrors, but never replaces, Rules.
@@ -87,10 +114,18 @@ export async function getDashboardAccess(user: User): Promise<DashboardAccess> {
     getDoc(doc(db, "dashboard_domains", domain)),
   ]);
 
+  const superadmin = user.emailVerified && isSuperAdminEmail(email);
+  const hasAdminPolicy = admin.exists() && admin.data().active === true && admin.data().role === "admin";
+  const hasMemberPolicy = member.exists() && member.data().active === true;
+  const hasDomainPolicy = allowedDomain.exists() && allowedDomain.data().active === true;
+  const role: SystemRole = superadmin ? "superadmin" : hasAdminPolicy ? "admin" : hasMemberPolicy || hasDomainPolicy ? "user" : "none";
+
   return {
-    admin: admin.exists() && admin.data().active === true,
-    member: member.exists() && member.data().active === true,
-    domain: allowedDomain.exists() && allowedDomain.data().active === true,
+    role,
+    superadmin,
+    admin: superadmin || hasAdminPolicy,
+    member: hasMemberPolicy,
+    domain: hasDomainPolicy,
     emailVerified: user.emailVerified,
   };
 }
@@ -113,7 +148,7 @@ export async function subscribeAccessDirectory(
 
   const unsubscribers = [
     onSnapshot(collection(db, "dashboard_admins"), (snapshot) => {
-      emit("admins", snapshot.docs.map((item) => toEntry(item.id, item.data())));
+      emit("admins", withSuperAdmins(snapshot.docs.map((item) => toEntry(item.id, item.data()))));
     }, onError),
     onSnapshot(collection(db, "dashboard_members"), (snapshot) => {
       emit("members", snapshot.docs.map((item) => toEntry(item.id, item.data())));
@@ -148,6 +183,7 @@ async function writeAccessEntry(collectionName: AccessCollection, id: string, pa
 
 export async function addAdmin(email: string, displayName: string) {
   const normalized = requireEmail(email);
+  if (isSuperAdminEmail(normalized)) throw new Error("บัญชีนี้เป็น Superadmin แบบถาวรอยู่แล้ว");
   await writeAccessEntry("dashboard_admins", normalized, {
     email: normalized,
     displayName: displayName.trim(),
@@ -170,6 +206,9 @@ export async function addAllowedDomain(domain: string) {
 }
 
 export async function removeAccessEntry(collectionName: AccessCollection, id: string) {
+  if (collectionName === "dashboard_admins" && isSuperAdminEmail(id)) {
+    throw new Error("ไม่สามารถลบหรือลดสิทธิ์ Superadmin ได้");
+  }
   const db = await getFirebaseDb();
   if (!db) throw new Error("ไม่สามารถเชื่อมต่อ Firestore ได้");
   const { deleteDoc, doc } = await import("firebase/firestore");

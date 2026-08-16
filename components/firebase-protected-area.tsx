@@ -268,7 +268,6 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
     <>
       <div className="dashboard-utility-wrap">
         <nav className="dashboard-session-actions" aria-label="เมนูผู้ใช้งาน">
-          {access?.admin && area === "dashboard" ? <Link href="/admin">จัดการสิทธิ์</Link> : null}
           {area === "admin" ? <Link href="/dashboard">ดู Dashboard</Link> : null}
           <button
             type="button"

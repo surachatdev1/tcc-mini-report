@@ -78,22 +78,28 @@ npm run firebase:release
 
 App Check ไม่มีหน้าให้ผู้ใช้แก้โจทย์ captcha แต่ทำงานเบื้องหลัง จึงเหมาะกับกลุ่มผู้ใช้ 40+
 
-## 6. สร้างผู้ดูแลระบบคนแรก
+## 6. ระดับสิทธิ์ผู้ใช้งาน
 
-`/admin` ไม่เปิดให้ Google user ทั่วไป ผู้ดูแลคนแรกต้องถูก bootstrap จาก Cloud Shell ด้วย IAM ของเจ้าของ project หลัง Deploy Firestore Rules แล้ว:
+ระบบกำหนดสิทธิ์สามระดับ:
+
+1. **Superadmin** — `surachat.dev1@gmail.com` และ `nuonnaka@gmail.com` ถูกกำหนดถาวรในโค้ดและ Firestore Rules ลบหรือลดสิทธิ์ผ่านหน้าเว็บไม่ได้
+2. **Admin** — Superadmin เพิ่มได้จาก `/admin`; เข้า Dashboard, จัดการ User/domain และอัปเดตข้อมูลเปรียบเทียบได้ แต่เพิ่ม/ลบ Admin ไม่ได้
+3. **User** — ดู Dashboard ตามสิทธิ์อีเมลหรือโดเมน ไม่มีสิทธิ์จัดการระบบ
+
+บัญชี Superadmin เข้า `/admin` ได้โดยตรงหลังเปิด Google Sign-in และ Deploy Rules รุ่นล่าสุด ไม่จำเป็นต้องมีเอกสารใน `dashboard_admins` ส่วนสคริปต์ bootstrap ยังใช้สร้าง Admin สำรองผ่าน IAM ได้เมื่อจำเป็น:
 
 ```bash
 npm run admin:bootstrap -- --email=your-admin@example.com --project=tcc-safe-travel
 ```
 
-สคริปต์ใช้ access token ของ `gcloud` ใน Cloud Shell และไม่สร้างหรือเก็บ service-account JSON เมื่อสร้างสำเร็จ ให้บัญชีดังกล่าวเข้า `https://tcc-safe-travel.web.app/admin` ด้วย Google จากนั้นจึงเพิ่มผู้ดูแลคนอื่นผ่านหน้าเว็บได้
+สคริปต์ใช้ access token ของ `gcloud` ใน Cloud Shell และไม่สร้างหรือเก็บ service-account JSON ทางเข้าหน้า Admin ถูกซ่อนจากเมนูสาธารณะและเปิดผ่าน `https://tcc-safe-travel.web.app/admin` โดยตรงเท่านั้น
 
 ## 7. กฎการเข้าถึงข้อมูล
 
 - หน้าแบบประเมินเปิดให้กรอกได้โดยไม่ต้องสมัครสมาชิกหรือล็อกอิน
 - ผู้ใช้ต้องยืนยันให้นำข้อมูลสรุปไปใช้ใน Dashboard ของโครงการ
 - หน้า `/dashboard` ต้องเข้าสู่ระบบและมีอีเมลที่ยืนยันแล้ว จากนั้น Firestore Rules ตรวจว่าตรงกับ admin, อีเมลรายบุคคล หรือโดเมนที่อนุญาต
-- หน้า `/admin` เปิดเฉพาะเอกสารใน `dashboard_admins/{email}` และ admin ไม่สามารถลบสิทธิ์บัญชีที่กำลังใช้งานอยู่
+- หน้า `/admin` เปิดเฉพาะ Superadmin และ Admin; Superadmin ทั้งสองบัญชีลบหรือลดสิทธิ์ไม่ได้ และ Admin ระดับรองจัดการได้เฉพาะ User/domain
 - รายการสิทธิ์อยู่ใน `dashboard_admins`, `dashboard_members` และ `dashboard_domains`
 - ชื่อ บทบาท ตำแหน่ง และเบอร์โทรผู้ประเมินเก็บแยกใน collection `submission_assessors`; เฉพาะ admin และอีเมลที่อนุญาตรายบุคคลเท่านั้นที่อ่าน/ส่งออกได้
 - ผู้มีสิทธิ์จากโดเมนเห็นผลสรุป แต่ไม่เห็นชื่อหรือเบอร์โทรผู้ให้ข้อมูล
@@ -106,7 +112,7 @@ npm run admin:bootstrap -- --email=your-admin@example.com --project=tcc-safe-tra
 
 ### วิธีให้สิทธิ์จาก `/admin`
 
-1. **ผู้ดูแลระบบ** — เพิ่ม Google email ที่สามารถจัดการสิทธิ์และดู Dashboard
+1. **Admin** — เพิ่มได้โดย Superadmin เท่านั้น และสามารถจัดการ User กับดู Dashboard
 2. **Google email รายบุคคล** — ให้สิทธิ์เฉพาะอีเมลที่ระบุ
 3. **โดเมนอีเมล** — ให้สิทธิ์ทุกอีเมลที่ยืนยันแล้วภายใต้โดเมน เช่น `agency.go.th`
 4. **บัญชีอีเมลและรหัสผ่าน** — Firebase ใช้อีเมลเป็น username; admin กำหนดรหัสผ่านเริ่มต้น และระบบส่งอีเมลยืนยันให้ผู้ใช้ โดยไม่เก็บรหัสผ่านใน Firestore

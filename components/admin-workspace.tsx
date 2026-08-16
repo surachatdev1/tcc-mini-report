@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
+import { isSuperAdminEmail, systemRoleLabel } from "@/lib/access-roles";
 import {
   addAdmin,
   addAllowedDomain,
@@ -44,9 +45,10 @@ function AccessList({
           <div>
             <strong>{entry.label}</strong>
             {entry.name ? <span>{entry.name}</span> : null}
+            <span>{systemRoleLabel(entry.role)}</span>
             <small>เพิ่มโดย {entry.createdBy} · {entry.createdAt}</small>
           </div>
-          {entry.id === currentEmail ? <span className="admin-current-badge">บัญชีปัจจุบัน</span> : (
+          {entry.protected ? <span className="admin-current-badge">Superadmin · ล็อกถาวร</span> : entry.id === currentEmail ? <span className="admin-current-badge">บัญชีปัจจุบัน</span> : (
             <button className="admin-remove-button" type="button" onClick={() => onRemove(entry)}>นำสิทธิ์ออก</button>
           )}
         </li>
@@ -151,6 +153,10 @@ export function AdminWorkspace() {
   }
 
   function remove(collectionName: "dashboard_admins" | "dashboard_members" | "dashboard_domains", entry: AccessEntry) {
+    if (entry.protected) {
+      setError("ไม่สามารถลบหรือลดสิทธิ์ Superadmin ได้");
+      return;
+    }
     if (!window.confirm(`ยืนยันนำสิทธิ์ของ ${entry.label} ออกจากระบบหรือไม่`)) return;
     void runAction(() => removeAccessEntry(collectionName, entry.id), `นำสิทธิ์ของ ${entry.label} ออกแล้ว`, () => undefined);
   }
@@ -175,11 +181,11 @@ export function AdminWorkspace() {
         <div>
           <p className="eyebrow">Administration</p>
           <h1>จัดการผู้มีสิทธิ์ดู Dashboard</h1>
-          <p>สิทธิ์ทุกประเภทบันทึกใน Firestore และตรวจซ้ำด้วย Security Rules ไม่ได้อาศัยการซ่อนเมนูบนหน้าเว็บ</p>
+          <p>แบ่งสิทธิ์เป็น Superadmin, Admin และ User โดยบังคับใช้ทั้งหน้าเว็บและ Firestore Security Rules</p>
         </div>
         <div className="admin-security-note">
           <strong>หลักการให้สิทธิ์</strong>
-          <span>ผู้ใช้ต้องยืนยันอีเมลก่อน และตรงกับผู้ดูแล อีเมลรายบุคคล หรือโดเมนที่อนุญาต</span>
+          <span>{isSuperAdminEmail(currentEmail) ? "คุณเป็น Superadmin และจัดการสิทธิ์ได้ทุกระดับ" : "คุณเป็น Admin และจัดการ User กับข้อมูล Dashboard ได้"}</span>
         </div>
       </header>
 
@@ -195,11 +201,11 @@ export function AdminWorkspace() {
           </div>
           <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void refreshBenchmarks()}>{busy ? "กำลังคำนวณ…" : "อัปเดตข้อมูลเปรียบเทียบ"}</button>
         </section>
-        <section className="panel admin-panel" aria-labelledby="admin-managers-title">
+        {isSuperAdminEmail(currentEmail) ? <section className="panel admin-panel" aria-labelledby="admin-managers-title">
           <div className="panel-heading">
             <p className="section-kicker">สิทธิ์ระดับสูง</p>
             <h2 id="admin-managers-title">ผู้ดูแลระบบ</h2>
-            <p>เพิ่มผู้ที่สามารถจัดการรายชื่อทั้งหมดและเข้าดู Dashboard</p>
+            <p>Superadmin สองบัญชีถูกล็อกถาวร ส่วนบัญชีที่เพิ่มจากหน้านี้จะเป็น Admin และไม่สามารถจัดการ Superadmin ได้</p>
           </div>
           <form className="admin-access-form" onSubmit={submitAdmin}>
             <div className="field"><label htmlFor="admin-email">Google email</label><input id="admin-email" type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} required /></div>
@@ -207,13 +213,13 @@ export function AdminWorkspace() {
             <button className="btn btn-primary" type="submit" disabled={busy}>เพิ่มผู้ดูแล</button>
           </form>
           {loading ? <p className="admin-empty-state">กำลังโหลดรายการ…</p> : <AccessList entries={directory.admins} emptyText="ยังไม่มีรายชื่อผู้ดูแล" currentEmail={currentEmail} onRemove={(entry) => remove("dashboard_admins", entry)} />}
-        </section>
+        </section> : null}
 
         <section className="panel admin-panel" aria-labelledby="admin-members-title">
           <div className="panel-heading">
             <p className="section-kicker">อนุญาตรายบุคคล</p>
-            <h2 id="admin-members-title">Google email ที่เกี่ยวข้อง</h2>
-            <p>เหมาะเมื่อให้สิทธิ์เฉพาะบุคคล โดยไม่เปิดทั้งโดเมนขององค์กร</p>
+            <h2 id="admin-members-title">User ผ่าน Google email</h2>
+            <p>ให้สิทธิ์ดู Dashboard เฉพาะบุคคล โดยไม่ให้สิทธิ์จัดการระบบ</p>
           </div>
           <form className="admin-access-form" onSubmit={submitMember}>
             <div className="field"><label htmlFor="member-email">Google email</label><input id="member-email" type="email" value={memberEmail} onChange={(event) => setMemberEmail(event.target.value)} required /></div>
@@ -226,8 +232,8 @@ export function AdminWorkspace() {
         <section className="panel admin-panel" aria-labelledby="admin-domains-title">
           <div className="panel-heading">
             <p className="section-kicker">อนุญาตระดับองค์กร</p>
-            <h2 id="admin-domains-title">โดเมนอีเมลที่อนุญาต</h2>
-            <p>ผู้ใช้ Google ที่ยืนยันแล้วทุกคนภายใต้โดเมนนี้จะดู Dashboard ได้</p>
+            <h2 id="admin-domains-title">User ผ่านโดเมนอีเมล</h2>
+            <p>ผู้ใช้ Google ที่ยืนยันแล้วภายใต้โดเมนนี้จะดูเฉพาะข้อมูลสรุปใน Dashboard</p>
           </div>
           <form className="admin-access-form admin-domain-form" onSubmit={submitDomain}>
             <div className="field"><label htmlFor="allowed-domain">โดเมน</label><input id="allowed-domain" inputMode="url" placeholder="example.ac.th" value={domain} onChange={(event) => setDomain(event.target.value)} required /></div>
@@ -239,7 +245,7 @@ export function AdminWorkspace() {
         <section className="panel admin-panel" aria-labelledby="admin-password-title">
           <div className="panel-heading">
             <p className="section-kicker">บัญชีเฉพาะระบบ</p>
-            <h2 id="admin-password-title">สร้างบัญชีอีเมลและรหัสผ่าน</h2>
+            <h2 id="admin-password-title">สร้าง User ด้วยอีเมลและรหัสผ่าน</h2>
             <p>อีเมลใช้เป็นชื่อผู้ใช้ รหัสผ่านไม่ถูกบันทึกใน Firestore และระบบจะส่งลิงก์ยืนยันอีเมลให้ผู้ใช้</p>
           </div>
           <form className="admin-access-form" onSubmit={submitPasswordMember}>

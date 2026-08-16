@@ -16,6 +16,8 @@ const dashboardSource = await readFile(new URL("../components/dashboard-workspac
 const dashboardRepositorySource = await readFile(new URL("../lib/integrations/dashboard-repository.ts", import.meta.url), "utf8");
 const resultInsightsSource = await readFile(new URL("../components/result-insights.tsx", import.meta.url), "utf8");
 const benchmarkRepositorySource = await readFile(new URL("../lib/integrations/benchmark-repository.ts", import.meta.url), "utf8");
+const accessRolesSource = await readFile(new URL("../lib/access-roles.ts", import.meta.url), "utf8");
+const siteHeaderSource = await readFile(new URL("../components/site-header.tsx", import.meta.url), "utf8");
 const firebaseHtml = await readFile(new URL("../firebase-spa/index.html", import.meta.url), "utf8");
 const firebaseClientSource = await readFile(new URL("../lib/integrations/firebase-client.ts", import.meta.url), "utf8");
 const firebaseEnvExample = await readFile(new URL("../.env.firebase.example", import.meta.url), "utf8");
@@ -66,7 +68,7 @@ test("Dashboard บังคับ Sign-In และจำกัดข้อม�
   assert.match(rules, /getAfter\(\/databases\/\$\(database\)\/documents\/submissions\/\$\(submissionId\)\)\.data\.createdAt == request\.time/);
 });
 
-test("Admin จัดการผู้ดูแล อีเมล โดเมน และบัญชี password ได้", () => {
+test("Superadmin จัดการ Admin และ Admin จัดการ User ได้ตามลำดับสิทธิ์", () => {
   assert.match(adminSource, /จัดการผู้มีสิทธิ์ดู Dashboard/);
   assert.match(adminSource, /addAdmin/);
   assert.match(adminSource, /addGoogleMember/);
@@ -78,9 +80,24 @@ test("Admin จัดการผู้ดูแล อีเมล โดเม
   assert.match(accessRepositorySource, /createUserWithEmailAndPassword/);
   assert.match(accessRepositorySource, /sendEmailVerification/);
   assert.match(accessRepositorySource, /deleteUser\(createdUser\)/);
+  assert.match(accessRolesSource, /surachat\.dev1@gmail\.com/);
+  assert.match(accessRolesSource, /nuonnaka@gmail\.com/);
+  assert.match(accessRepositorySource, /isSuperAdminEmail/);
   assert.match(rules, /request\.auth\.token\.get\('email_verified', false\) == true/);
+  assert.match(rules, /function isSuperAdmin\(\)/);
+  assert.match(rules, /surachat\.dev1@gmail\.com/);
+  assert.match(rules, /nuonnaka@gmail\.com/);
+  assert.match(rules, /allow create, update: if isSuperAdmin\(\)/);
+  assert.match(rules, /!isProtectedSuperAdminEmail\(email\)/);
   assert.match(rules, /allow list: if isAdmin\(\);/);
   assert.match(rules, /email != currentEmail\(\)/);
+});
+
+test("เมนูสาธารณะแสดงเฉพาะแบบประเมินและ Dashboard", () => {
+  assert.match(siteHeaderSource, /href="\/">แบบประเมิน<\/Link>/);
+  assert.match(siteHeaderSource, /href="\/dashboard">Dashboard<\/Link>/);
+  assert.doesNotMatch(siteHeaderSource, /href="\/admin"/);
+  assert.doesNotMatch(protectedAreaSource, /จัดการสิทธิ์<\/Link>/);
 });
 
 test("มีสคริปต์ bootstrap initial admin ผ่านสิทธิ์ Google Cloud", () => {

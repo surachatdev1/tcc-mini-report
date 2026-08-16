@@ -17,10 +17,24 @@ service cloud.firestore {
       return currentEmail().split('@')[1];
     }
 
+    function isProtectedSuperAdminEmail(email) {
+      return email in [
+        'surachat.dev1@gmail.com',
+        'nuonnaka@gmail.com'
+      ];
+    }
+
+    function isSuperAdmin() {
+      return hasVerifiedEmail() && isProtectedSuperAdminEmail(currentEmail());
+    }
+
     function isAdmin() {
-      return hasVerifiedEmail()
+      return isSuperAdmin() || (
+        hasVerifiedEmail()
         && exists(/databases/$(database)/documents/dashboard_admins/$(currentEmail()))
-        && get(/databases/$(database)/documents/dashboard_admins/$(currentEmail())).data.active == true;
+        && get(/databases/$(database)/documents/dashboard_admins/$(currentEmail())).data.active == true
+        && get(/databases/$(database)/documents/dashboard_admins/$(currentEmail())).data.role == 'admin'
+      );
     }
 
     function hasDashboardAccess() {
@@ -426,12 +440,15 @@ service cloud.firestore {
     }
 
     match /dashboard_admins/{email} {
-      // ผู้ใช้ตรวจได้เฉพาะสถานะของอีเมลตนเอง ส่วนการดูรายการทั้งหมดสงวนให้ admin
+      // Superadmin ถูกกำหนดถาวรใน Rules ส่วนบัญชีใน collection นี้เป็น Admin ระดับรอง
       allow get: if hasVerifiedEmail() && email == currentEmail();
       allow list: if isAdmin();
-      allow create, update: if isAdmin() && validAdminPolicy(email);
-      // ป้องกัน admin ลบสิทธิ์บัญชีที่กำลังใช้งานโดยไม่ตั้งใจ
-      allow delete: if isAdmin() && email != currentEmail();
+      allow create, update: if isSuperAdmin()
+        && !isProtectedSuperAdminEmail(email)
+        && validAdminPolicy(email);
+      allow delete: if isSuperAdmin()
+        && !isProtectedSuperAdminEmail(email)
+        && email != currentEmail();
     }
 
     match /dashboard_members/{email} {
