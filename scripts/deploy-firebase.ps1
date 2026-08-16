@@ -10,7 +10,7 @@ function Invoke-Checked {
   if ($LASTEXITCODE -ne 0) { throw "Command failed with exit code $LASTEXITCODE" }
 }
 
-Write-Host "TCC Safe Travel - Firebase release" -ForegroundColor Cyan
+Write-Host "Safe Travel Assessment - Firebase release" -ForegroundColor Cyan
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   throw "Node.js is not installed. Install Node.js 22 LTS before deployment."
