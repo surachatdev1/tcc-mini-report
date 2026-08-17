@@ -292,7 +292,7 @@ function AssessmentView(props: ViewProps) {
       <section className="intro">
         <div className="intro-content">
           <p className="eyebrow">เครื่องมือประเมินตนเองตามสภาพจริง</p>
-          <h1>ช่วยให้เห็นช่องว่างความเสี่ยง ก่อนนำไปวางแผนพัฒนา</h1>
+          <h1>ช่วยให้เห็น <span>ช่องว่างความเสี่ยง</span> ก่อนนำไปวางแผนพัฒนา</h1>
           <p className="intro-copy">เลือกแบบที่เกี่ยวข้องเพียงหนึ่งเรื่องต่อครั้ง อ่านเกณฑ์แต่ละระดับ แล้วเลือกคำตอบที่ใกล้เคียงกับการดำเนินงานจริงมากที่สุด</p>
         </div>
         <figure className="hero-figure">
@@ -303,7 +303,7 @@ function AssessmentView(props: ViewProps) {
         </figure>
       </section>
       <section className="purpose-note">
-        <span aria-hidden="true">●</span>
+        <span className="purpose-note-icon" aria-hidden="true">✓</span>
         <div>
           <strong>ประเมินเพื่อพัฒนา ไม่ใช่เพื่อตัดสินหรือตัดงบประมาณ</strong>
           <p>ผลประเมินช่วยสะท้อนข้อจำกัดของโรงเรียนและหน่วยงาน เพื่อจัดลำดับความเสี่ยงและสนับสนุนทรัพยากรได้ตรงจุด</p>

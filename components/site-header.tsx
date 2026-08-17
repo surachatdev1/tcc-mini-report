@@ -11,16 +11,6 @@ export function SiteHeader({ active }: { active: "assessment" | "dashboard" | "a
           aria-label="สภาองค์กรของผู้บริโภค และสำนักงานกองทุนสนับสนุนการสร้างเสริมสุขภาพ กลับหน้าแบบประเมิน"
         >
           <span className="brand-logos" aria-hidden="true">
-            <span className="brand-logo brand-logo-tcc">
-              <img
-                src="/images/tcc-office-logo.webp"
-                width="480"
-                height="306"
-                alt=""
-                decoding="async"
-              />
-            </span>
-            <span className="brand-logo-divider" />
             <span className="brand-logo brand-logo-thaihealth">
               <img
                 src="/images/thaihealth-logo.webp"
@@ -30,9 +20,19 @@ export function SiteHeader({ active }: { active: "assessment" | "dashboard" | "a
                 decoding="async"
               />
             </span>
+            <span className="brand-logo-divider" />
+            <span className="brand-logo brand-logo-tcc">
+              <img
+                src="/images/tcc-office-logo.webp"
+                width="480"
+                height="306"
+                alt=""
+                decoding="async"
+              />
+            </span>
           </span>
           <div>
-            <p className="brand-agency">สภาองค์กรของผู้บริโภค (TCC) · สำนักงานกองทุนสนับสนุนการสร้างเสริมสุขภาพ (สสส.)</p>
+            <p className="brand-agency">สภาองค์กรของผู้บริโภค ร่วมกับ สสส.</p>
             <p className="brand-title">ระบบประเมินการเดินทางที่ปลอดภัยของเด็กนักเรียน</p>
             <p className="brand-subtitle">สำรวจความพร้อม เห็นช่องว่าง และนำไปพัฒนา</p>
           </div>

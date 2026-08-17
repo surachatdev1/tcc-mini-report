@@ -17,6 +17,7 @@ const resultInsightsSource = await readFile(new URL("../components/result-insigh
 const benchmarkRepositorySource = await readFile(new URL("../lib/integrations/benchmark-repository.ts", import.meta.url), "utf8");
 const accessRolesSource = await readFile(new URL("../lib/access-roles.ts", import.meta.url), "utf8");
 const siteHeaderSource = await readFile(new URL("../components/site-header.tsx", import.meta.url), "utf8");
+const globalStyles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 const tccLogo = await readFile(new URL("../public/images/tcc-office-logo.webp", import.meta.url));
 const thaiHealthLogo = await readFile(new URL("../public/images/thaihealth-logo.webp", import.meta.url));
 const firebaseHtml = await readFile(new URL("../firebase-spa/index.html", import.meta.url), "utf8");
@@ -37,13 +38,13 @@ test("Firebase SPA มีภาษาไทย ชื่อระบบ แล�
 });
 
 test("Firebase SPA ใช้ไอคอน สสส. ครบสำหรับ browser tab และอุปกรณ์พกพา", () => {
-  assert.match(firebaseHtml, /<meta name="theme-color" content="#00635a"/);
+  assert.match(firebaseHtml, /<meta name="theme-color" content="#074d5b"/);
   assert.match(firebaseHtml, /href="\/favicon\.ico"/);
   assert.match(firebaseHtml, /href="\/favicon-32x32\.png"/);
   assert.match(firebaseHtml, /href="\/apple-touch-icon\.png"/);
   assert.match(firebaseHtml, /href="\/site\.webmanifest"/);
   assert.equal(webManifest.lang, "th");
-  assert.equal(webManifest.theme_color, "#00635a");
+  assert.equal(webManifest.theme_color, "#074d5b");
   assert.deepEqual(
     webManifest.icons.map((icon) => icon.sizes),
     ["192x192", "512x512"],
@@ -126,10 +127,19 @@ test("เมนูสาธารณะแสดงเฉพาะแบบป�
 test("ส่วนหัวแสดงตรา TCC และ สสส. คู่กันโดยใช้ไฟล์ WebP ภายในระบบ", () => {
   assert.match(siteHeaderSource, /\/images\/tcc-office-logo\.webp/);
   assert.match(siteHeaderSource, /\/images\/thaihealth-logo\.webp/);
-  assert.match(siteHeaderSource, /สภาองค์กรของผู้บริโภค \(TCC\)/);
-  assert.match(siteHeaderSource, /สำนักงานกองทุนสนับสนุนการสร้างเสริมสุขภาพ \(สสส\.\)/);
+  assert.ok(siteHeaderSource.indexOf("thaihealth-logo.webp") < siteHeaderSource.indexOf("tcc-office-logo.webp"));
+  assert.match(siteHeaderSource, /สภาองค์กรของผู้บริโภค ร่วมกับ สสส\./);
   assert.ok(tccLogo.length > 0);
   assert.ok(thaiHealthLogo.length > 0);
+});
+
+test("ชุดสีและองค์ประกอบหลักสอดคล้องกับสื่อประชาสัมพันธ์โครงการ", () => {
+  assert.match(globalStyles, /--brand-strong: #074d5b/);
+  assert.match(globalStyles, /--accent: #f2aa00/);
+  assert.match(globalStyles, /\.brand-logos[\s\S]*border-radius: 999px/);
+  assert.match(globalStyles, /\.intro h1 span \{ color: #ffd166; \}/);
+  assert.match(globalStyles, /\.purpose-note-icon/);
+  assert.match(globalStyles, /counter-reset: intent/);
 });
 
 test("Google Sign-In ใช้ same-origin auth helper บน Firebase Hosting", () => {
