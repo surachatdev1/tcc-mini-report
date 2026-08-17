@@ -137,7 +137,7 @@ test("ชุดสีและองค์ประกอบหลักสอ�
   assert.match(globalStyles, /--brand-strong: #074d5b/);
   assert.match(globalStyles, /--accent: #f2aa00/);
   assert.match(globalStyles, /\.brand-logos[\s\S]*border-radius: 999px/);
-  assert.match(globalStyles, /width: 200px; height: 62px/);
+  assert.match(globalStyles, /width: 252px; height: 76px/);
   assert.match(globalStyles, /\.brand-logo-divider \{ display: none; \}/);
   assert.match(globalStyles, /min-width: 0; min-height: 0; width: 100%; height: 100%/);
   assert.match(globalStyles, /width: 100%; height: 100%;[\s\S]*object-fit: contain; object-position: center/);
