@@ -242,6 +242,10 @@ test("เหตุผลและข้อมูลประกอบเป็�
   assert.match(formSource, /กำลังส่งแบบประเมิน/);
   assert.match(formSource, /required aria-required="true"/);
   assert.match(formSource, /กรุณาระบุเหตุผลหรือข้อมูลประกอบของข้อนี้/);
+  assert.match(formSource, /ยังมีข้อมูลที่ต้องกรอกอีก/);
+  assert.match(formSource, /กรุณาเลือกจังหวัดที่ต้องการประเมิน/);
+  assert.match(formSource, /ยังมีคำตอบที่ต้องตรวจสอบ/);
+  assert.match(formSource, /กรุณาเลือกระดับที่ตรงกับการดำเนินงานจริงของข้อนี้/);
   assert.doesNotMatch(formSource, /placeholder="ถ้ามี/);
   assert.match(formSource, /summary\.complete && missingExplanationCount === 0/);
   assert.match(assessmentRepositorySource, /if \(!explanation\)/);

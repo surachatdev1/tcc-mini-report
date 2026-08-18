@@ -337,7 +337,7 @@ function AssessmentView(props: ViewProps) {
               type="button"
               key={label}
               aria-current={step === index ? "step" : undefined}
-              disabled={(index > 1 && !props.readyToReview) || (index === 3 && !props.submitted)}
+              disabled={(index === 1 && !props.profileComplete) || (index > 1 && !props.readyToReview) || (index === 3 && !props.submitted)}
               onClick={() => setStep(index)}
             >
               <span className="step-number">{index + 1}</span>
@@ -377,6 +377,33 @@ function AssessmentView(props: ViewProps) {
 }
 
 function ProfileStep(props: ViewProps) {
+  const [showValidation, setShowValidation] = useState(false);
+  const missingProvince = !props.province;
+  const missingInstitution = !props.institution.trim();
+  const missingAssessorName = props.assessorName.trim().length < 2;
+  const missingRole = !props.respondentRole;
+  const missingConsent = !props.publicConsent;
+  const missingProfileCount = [missingProvince, missingInstitution, missingAssessorName, missingRole, missingConsent].filter(Boolean).length;
+
+  function startAssessment() {
+    if (props.profileComplete) {
+      props.setStep(1);
+      return;
+    }
+
+    setShowValidation(true);
+    const firstMissingId = missingProvince
+      ? "province"
+      : missingInstitution
+        ? "institution"
+        : missingAssessorName
+          ? "assessor-name"
+          : missingRole
+            ? "role"
+            : "public-consent";
+    requestAnimationFrame(() => document.getElementById(firstMissingId)?.focus());
+  }
+
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -423,20 +450,22 @@ function ProfileStep(props: ViewProps) {
             <div><h3 id="organization-fields-title">ข้อมูลพื้นที่และหน่วยงาน</h3><p>เลือกจังหวัดก่อน แล้วจึงค้นหาสถานศึกษาหรือระบุชื่อหน่วยงาน</p></div>
           </div>
           <div className="profile-field-grid location-fields">
-            <div className="field province-field">
+            <div className={`field province-field ${showValidation && missingProvince ? "field-error" : ""}`}>
               <label htmlFor="province">จังหวัด <span className="required-mark">*</span></label>
-              <select id="province" value={props.province} onChange={(event) => props.setProvince(event.target.value)}>
+              <select id="province" value={props.province} onChange={(event) => props.setProvince(event.target.value)} required aria-invalid={showValidation && missingProvince} aria-describedby={showValidation && missingProvince ? "province-error" : undefined}>
                 <option value="">เลือกจังหวัด</option>
                 {provinces.map((item) => <option key={item}>{item}</option>)}
               </select>
+              {showValidation && missingProvince ? <span className="error-text" id="province-error">กรุณาเลือกจังหวัดที่ต้องการประเมิน</span> : null}
             </div>
-            <div className="field institution-field">
+            <div className={`field institution-field ${showValidation && missingInstitution ? "field-error" : ""}`}>
               <label htmlFor="institution">{props.audienceGroup === "school" ? "ชื่อสถานศึกษา" : "ชื่อหน่วยงาน"} <span className="required-mark">*</span></label>
               {props.audienceGroup === "school" ? (
-                <SchoolCombobox key={props.province} province={props.province} value={props.institution} onChange={props.setInstitution} />
+                <SchoolCombobox key={props.province} province={props.province} value={props.institution} onChange={props.setInstitution} invalid={showValidation && missingInstitution} describedBy={showValidation && missingInstitution ? "institution-error" : undefined} />
               ) : (
-                <input id="institution" value={props.institution} onChange={(event) => props.setInstitution(event.target.value)} placeholder="ระบุชื่อเต็มของหน่วยงาน" autoComplete="organization" />
+                <input id="institution" value={props.institution} onChange={(event) => props.setInstitution(event.target.value)} placeholder="ระบุชื่อเต็มของหน่วยงาน" autoComplete="organization" required aria-invalid={showValidation && missingInstitution} aria-describedby={showValidation && missingInstitution ? "institution-error" : undefined} />
               )}
+              {showValidation && missingInstitution ? <span className="error-text" id="institution-error">กรุณา{props.audienceGroup === "school" ? "เลือกหรือระบุชื่อสถานศึกษา" : "ระบุชื่อหน่วยงาน"}</span> : null}
             </div>
           </div>
         </section>
@@ -447,16 +476,18 @@ function ProfileStep(props: ViewProps) {
             <div><h3 id="assessor-fields-title">ข้อมูลผู้ให้ข้อมูล</h3><p>ใช้สำหรับอ้างอิงและติดตามผลภายในโครงการ โดยจำกัดการเข้าถึงเฉพาะผู้ได้รับสิทธิ์</p></div>
           </div>
           <div className="profile-field-grid assessor-fields">
-            <div className="field assessor-name-field">
+            <div className={`field assessor-name-field ${showValidation && missingAssessorName ? "field-error" : ""}`}>
               <label htmlFor="assessor-name">ชื่อ–นามสกุลผู้ประเมิน <span className="required-mark">*</span></label>
-              <input id="assessor-name" value={props.assessorName} maxLength={120} onChange={(event) => props.setAssessorName(event.target.value)} placeholder="ระบุชื่อและนามสกุล" autoComplete="name" />
+              <input id="assessor-name" value={props.assessorName} maxLength={120} onChange={(event) => props.setAssessorName(event.target.value)} placeholder="ระบุชื่อและนามสกุล" autoComplete="name" required aria-invalid={showValidation && missingAssessorName} aria-describedby={showValidation && missingAssessorName ? "assessor-name-error" : undefined} />
+              {showValidation && missingAssessorName ? <span className="error-text" id="assessor-name-error">กรุณาระบุชื่อ–นามสกุลผู้ประเมิน</span> : null}
             </div>
-            <div className="field role-field">
+            <div className={`field role-field ${showValidation && missingRole ? "field-error" : ""}`}>
               <label htmlFor="role">บทบาทผู้ประเมิน <span className="required-mark">*</span></label>
-              <select id="role" value={props.respondentRole} onChange={(event) => props.setRespondentRole(event.target.value)}>
+              <select id="role" value={props.respondentRole} onChange={(event) => props.setRespondentRole(event.target.value)} required aria-invalid={showValidation && missingRole} aria-describedby={showValidation && missingRole ? "role-error" : undefined}>
                 <option value="">เลือกบทบาท</option>
                 {props.roleOptions.map((item) => <option key={item}>{item}</option>)}
               </select>
+              {showValidation && missingRole ? <span className="error-text" id="role-error">กรุณาเลือกบทบาทที่ตรงกับผู้ตอบแบบประเมิน</span> : null}
             </div>
             <div className="field phone-field">
               <label htmlFor="assessor-phone">เบอร์โทรศัพท์ <span className="optional-mark">ไม่บังคับ</span></label>
@@ -474,22 +505,43 @@ function ProfileStep(props: ViewProps) {
           </div>
         </section>
 
-        <label className="consent-box field full">
-          <input type="checkbox" checked={props.publicConsent} onChange={(event) => props.setPublicConsent(event.target.checked)} />
+        <label className={`consent-box field full ${showValidation && missingConsent ? "field-error" : ""}`}>
+          <input id="public-consent" type="checkbox" checked={props.publicConsent} onChange={(event) => props.setPublicConsent(event.target.checked)} required aria-invalid={showValidation && missingConsent} aria-describedby={showValidation && missingConsent ? "consent-error" : undefined} />
           <span>
             <strong>รับทราบเจตนารมณ์และยินยอมให้นำข้อมูลสรุปไปใช้ใน Dashboard ของโครงการ <span className="required-mark">*</span></strong>
             <small>Dashboard แสดงผลประเมินแก่เจ้าหน้าที่ที่ได้รับอนุญาต ส่วนชื่อผู้ให้ข้อมูล ตำแหน่ง และเบอร์โทรศัพท์จะแสดงเฉพาะผู้ดูแลหรืออีเมลที่ได้รับสิทธิ์เป็นรายบุคคล และอาจรวมอยู่ในไฟล์รายละเอียดที่ส่งออก</small>
+            {showValidation && missingConsent ? <span className="error-text" id="consent-error">กรุณาอ่านและยืนยันการรับทราบเจตนารมณ์ก่อนดำเนินการต่อ</span> : null}
           </span>
         </label>
       </div>
+      {showValidation && missingProfileCount > 0 ? <div className="validation-summary" role="alert"><strong>ยังมีข้อมูลที่ต้องกรอกอีก {missingProfileCount} รายการ</strong><span>กรุณาตรวจสอบช่องที่มีข้อความกำกับ แล้วจึงเริ่มทำแบบประเมิน</span></div> : null}
       <div className="action-row single-action">
-        <button className="btn btn-primary" type="button" disabled={!props.profileComplete} onClick={() => props.setStep(1)}>เริ่มทำแบบประเมิน</button>
+        <button className="btn btn-primary" type="button" onClick={startAssessment}>เริ่มทำแบบประเมิน</button>
       </div>
     </section>
   );
 }
 
 function QuestionsStep(props: ViewProps) {
+  const [showValidation, setShowValidation] = useState(false);
+  const unansweredQuestions = props.topic.questions.filter((question) => props.answers[question.id]?.score === undefined);
+  const questionsWithoutExplanation = props.topic.questions.filter((question) => !props.answers[question.id]?.explanation.trim());
+
+  function reviewAnswers() {
+    if (props.readyToReview) {
+      props.setStep(2);
+      return;
+    }
+
+    setShowValidation(true);
+    const firstInvalidQuestion = props.topic.questions.find((question) => props.answers[question.id]?.score === undefined || !props.answers[question.id]?.explanation.trim());
+    if (!firstInvalidQuestion) return;
+    const targetId = props.answers[firstInvalidQuestion.id]?.score === undefined
+      ? `${firstInvalidQuestion.id}-score-0`
+      : `${firstInvalidQuestion.id}-explanation`;
+    requestAnimationFrame(() => document.getElementById(targetId)?.focus());
+  }
+
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -505,7 +557,8 @@ function QuestionsStep(props: ViewProps) {
       </div>
       {props.topic.questions.map((question, index) => {
         const answer = props.answers[question.id];
-        const explanationMissing = answer?.score !== undefined && !answer.explanation.trim();
+        const scoreMissing = showValidation && answer?.score === undefined;
+        const explanationMissing = showValidation && !answer?.explanation.trim();
         const category = props.topic.categories.find((item) => item.id === question.categoryId);
         const previousCategory = index > 0 ? props.topic.questions[index - 1].categoryId : null;
         return (
@@ -519,14 +572,15 @@ function QuestionsStep(props: ViewProps) {
               <p className="question-number">ข้อ {question.number} · ประเด็นที่ {index + 1} จาก {props.topic.questions.length}</p>
               <h3 className="question-title" id={`${question.id}-title`}>{question.title}</h3>
               <div className="evidence-note"><strong>ข้อมูลที่ควรตรวจดูก่อนตอบ</strong><span>{question.evidence}</span></div>
-              <div className="score-group" role="radiogroup" aria-labelledby={`${question.id}-title`}>
+              <div className={`score-group ${scoreMissing ? "score-group-error" : ""}`} role="radiogroup" aria-labelledby={`${question.id}-title`} aria-invalid={scoreMissing} aria-describedby={scoreMissing ? `${question.id}-score-error` : undefined}>
                 {question.options.map((option) => (
-                  <button type="button" role="radio" aria-checked={answer?.score === option.value} className="score-option" key={option.value} onClick={() => props.updateScore(question.id, option.value)}>
+                  <button id={`${question.id}-score-${option.value}`} type="button" role="radio" aria-checked={answer?.score === option.value} className="score-option" key={option.value} onClick={() => props.updateScore(question.id, option.value)}>
                     <span className="score-value">{option.value}</span>
                     <span><strong>{option.label}</strong><br />{option.description}</span>
                   </button>
                 ))}
               </div>
+              {scoreMissing ? <span className="error-text question-error" id={`${question.id}-score-error`}>กรุณาเลือกระดับที่ตรงกับการดำเนินงานจริงของข้อนี้</span> : null}
               <div className={`explanation explanation-required field ${explanationMissing ? "field-error" : ""}`}>
                 <div className="explanation-head">
                   <label htmlFor={`${question.id}-explanation`}>โปรดระบุเหตุผลประกอบการเลือกระดับนี้ หรือระบุหลักฐานเชิงประจักษ์ <span className="required-mark">*</span> <span className="required-label">ต้องกรอกทุกข้อ</span></label>
@@ -540,12 +594,13 @@ function QuestionsStep(props: ViewProps) {
           </div>
         );
       })}
+      {showValidation && !props.readyToReview ? <div className="validation-summary" role="alert"><strong>ยังมีคำตอบที่ต้องตรวจสอบ</strong><span>{unansweredQuestions.length > 0 ? `กรุณาเลือกระดับอีก ${unansweredQuestions.length} ข้อ` : ""}{unansweredQuestions.length > 0 && questionsWithoutExplanation.length > 0 ? " และ" : ""}{questionsWithoutExplanation.length > 0 ? `ระบุเหตุผลอีก ${questionsWithoutExplanation.length} ข้อ` : ""} แล้วจึงตรวจทานคำตอบ</span></div> : null}
       <div className="action-row">
         <div>
           <button className="btn btn-secondary" type="button" onClick={props.saveDraft}>บันทึกร่างในเครื่อง</button>
           <div className="save-state" aria-live="polite">{props.saveState}</div>
         </div>
-        <button className="btn btn-primary" type="button" disabled={!props.readyToReview} onClick={() => props.setStep(2)}>ตรวจทานคำตอบ</button>
+        <button className="btn btn-primary" type="button" onClick={reviewAnswers}>ตรวจทานคำตอบ</button>
       </div>
     </section>
   );

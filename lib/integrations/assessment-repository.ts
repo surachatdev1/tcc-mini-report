@@ -93,8 +93,20 @@ function sanitizeAnswers(payload: SubmissionInput) {
 }
 
 async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRecord> {
+  if (!payload.province) {
+    throw new Error("กรุณาเลือกจังหวัดที่ต้องการประเมิน");
+  }
+  if (!payload.institution.trim()) {
+    throw new Error(`กรุณา${payload.topicId === "agency" ? "ระบุชื่อหน่วยงาน" : "เลือกหรือระบุชื่อสถานศึกษา"}`);
+  }
+  if (payload.assessorName.trim().length < 2) {
+    throw new Error("กรุณาระบุชื่อ–นามสกุลผู้ประเมิน");
+  }
+  if (!payload.respondentRole) {
+    throw new Error("กรุณาเลือกบทบาทที่ตรงกับผู้ตอบแบบประเมิน");
+  }
   if (!payload.publicConsent) {
-    throw new Error("กรุณายืนยันการเผยแพร่ข้อมูลสรุปก่อนบันทึกผล");
+    throw new Error("กรุณาอ่านและยืนยันการรับทราบเจตนารมณ์ก่อนส่งแบบประเมิน");
   }
 
   const { doc, serverTimestamp, writeBatch } = await import("firebase/firestore");
@@ -109,7 +121,6 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
   const assessorDocumentRef = doc(db, "submission_assessors", payload.idempotencyKey);
   const assessorName = payload.assessorName.trim().slice(0, 120);
   const assessorPhone = payload.assessorPhone.trim().slice(0, 30);
-  if (assessorName.length < 2) throw new Error("กรุณาระบุชื่อผู้ประเมิน");
   const createdAt = new Date().toISOString();
 
   // ผู้กรอกเป็น public user จึงใช้ atomic batch ที่เขียนได้โดยไม่ต้องอ่านเอกสารก่อน

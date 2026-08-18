@@ -11,6 +11,8 @@ type Props = {
   province: string;
   value: string;
   onChange: (value: string) => void;
+  invalid?: boolean;
+  describedBy?: string;
 };
 
 const RESULT_LIMIT = 60;
@@ -22,7 +24,7 @@ type SchoolLoadState = {
   error: string;
 };
 
-export function SchoolCombobox({ province, value, onChange }: Props) {
+export function SchoolCombobox({ province, value, onChange, invalid = false, describedBy }: Props) {
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [draftQuery, setDraftQuery] = useState<string | null>(null);
@@ -114,6 +116,9 @@ export function SchoolCombobox({ province, value, onChange }: Props) {
           aria-controls={manualMode ? undefined : listId}
           aria-expanded={manualMode ? undefined : open}
           aria-activedescendant={!manualMode && open && matches[activeIndex] ? `${listId}-${matches[activeIndex].id}` : undefined}
+          aria-invalid={invalid}
+          aria-describedby={describedBy}
+          required
           value={query}
           onFocus={() => !manualMode && setOpen(true)}
           onBlur={() => window.setTimeout(() => setOpen(false), 120)}

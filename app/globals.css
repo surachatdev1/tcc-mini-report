@@ -386,8 +386,18 @@ input[readonly] { background: #f1f4f2; color: var(--muted); }
 .explanation-required.field-error { border-color: #c45850; border-left-color: var(--danger); background: #fff5f4; }
 .character-count, .summary-muted, .save-state { color: var(--muted); font-size: 14px; }
 .character-count { white-space: nowrap; }
-.field-error textarea { border-color: #b5554c; background: #fff8f7; }
+.field-error textarea, .field-error input, .field-error select { border-color: #b5554c; background: #fff8f7; }
+.consent-box.field-error { border: 2px solid #b5554c; background: #fff8f7; }
+.score-group-error { border-radius: 12px; outline: 2px solid #d58a83; outline-offset: 5px; }
+.question-error { display: block; margin-top: 10px; }
 .error-text { color: var(--danger); font-size: 14px; font-weight: 600; }
+.validation-summary {
+  display: grid; gap: 2px; margin-top: 20px; border: 1px solid #d58a83;
+  border-left: 5px solid var(--danger); border-radius: 10px;
+  background: #fff8f7; color: #6b2924; padding: 12px 14px;
+}
+.validation-summary strong { font-size: 16px; }
+.validation-summary span { font-size: 14px; line-height: 1.5; }
 .na-note {
   margin: 18px 0 0; border-radius: 10px; background: var(--amber-soft);
   color: #694900; padding: 13px 15px; font-size: 15px;

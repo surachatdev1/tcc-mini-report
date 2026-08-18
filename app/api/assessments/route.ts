@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     const payload = await request.json() as Incoming;
     const topicIds: TopicId[] = ["bus", "trip", "moto", "agency"];
     if (!payload.idempotencyKey || !payload.institution?.trim() || (payload.assessorName?.trim().length ?? 0) < 2 || !payload.assessmentDate || !payload.topicId || !payload.answers || payload.publicConsent !== true)
-      return Response.json({ error: "ข้อมูลที่จำเป็นไม่ครบ" }, { status: 400 });
+      return Response.json({ error: "กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบก่อนส่งแบบประเมิน" }, { status: 400 });
     if (!provinces.includes(payload.province ?? "") || !respondentRoles.includes(payload.respondentRole ?? "") || !topicIds.includes(payload.topicId))
       return Response.json({ error: "จังหวัด บทบาท หรือประเภทการประเมินไม่ถูกต้อง" }, { status: 400 });
     if (payload.topicId === "agency" && !agencyTypes.some((item) => item.id === payload.agencyType))
@@ -39,7 +39,8 @@ export async function POST(request: Request) {
       if (![0, 1, 2, 3].includes(answer?.score as Score))
         return Response.json({ error: `กรุณาเลือกคะแนนข้อ ${question.number}` }, { status: 400 });
       const explanation = (answer.explanation ?? "").trim().slice(0, 500);
-      // ช่องข้อมูลประกอบเป็น optional ตาม requirement; คะแนนยังคงต้องครบทุกข้อ
+      if (!explanation)
+        return Response.json({ error: `กรุณาระบุเหตุผลหรือข้อมูลประกอบข้อ ${question.number}` }, { status: 400 });
       sanitizedAnswers[question.id] = { score: answer.score, explanation };
     }
     // คำนวณซ้ำฝั่งเซิร์ฟเวอร์เสมอ ไม่เชื่อคะแนนจากเบราว์เซอร์
@@ -58,5 +59,5 @@ export async function POST(request: Request) {
       recommendationsJson: JSON.stringify(summary.recommendations), scoreBasisPoints: Math.round(summary.percent * 100), grade: summary.grade,
     }).returning();
     return Response.json({ assessment: rowToRecord(created) }, { status: 201 });
-  } catch (error) { return Response.json({ error: error instanceof Error ? error.message : "บันทึกผลไม่สำเร็จ" }, { status: 500 }); }
+  } catch { return Response.json({ error: "ขออภัย ขณะนี้ยังไม่สามารถส่งแบบประเมินได้ กรุณาลองใหม่อีกครั้ง" }, { status: 500 }); }
 }
