@@ -81,7 +81,10 @@ function sanitizeAnswers(payload: SubmissionInput) {
     }
 
     const explanation = (answer.explanation ?? "").trim().slice(0, 500);
-    // ข้อมูลประกอบเป็น optional แต่ยังตัดความยาวเพื่อคุมขนาดเอกสาร Firestore
+    // เหตุผลเป็นข้อมูลบังคับรายข้อ เพื่อให้ผลประเมินตรวจสอบย้อนกลับและนำไปวางแผนได้
+    if (!explanation) {
+      throw new Error(`กรุณาระบุเหตุผลหรือข้อมูลประกอบข้อ ${question.number}`);
+    }
     sanitized[question.id] = { score: answer.score, explanation };
   }
 

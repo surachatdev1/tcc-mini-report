@@ -54,9 +54,13 @@ export function AssessmentWorkspace() {
 
   const topic = useMemo(() => getTopic(topicId, agencyType), [topicId, agencyType]);
   const summary = useMemo(() => calculateScore(answers, topic), [answers, topic]);
+  const missingExplanationCount = useMemo(
+    () => topic.questions.filter((question) => !answers[question.id]?.explanation.trim()).length,
+    [answers, topic],
+  );
   const roleOptions = audienceGroup === "school" ? schoolRespondentRoles : agencyRespondentRoles;
   const profileComplete = Boolean(institution.trim() && province && assessorName.trim().length >= 2 && respondentRole && assessmentDate && publicConsent);
-  const readyToReview = summary.complete;
+  const readyToReview = summary.complete && missingExplanationCount === 0;
 
   useEffect(() => {
     void assessmentRepository.loadDraft().then((draft) => {
@@ -217,6 +221,7 @@ export function AssessmentWorkspace() {
     updateScore,
     updateExplanation,
     summary,
+    missingExplanationCount,
     profileComplete,
     readyToReview,
     saveDraft,
@@ -274,6 +279,7 @@ type ViewProps = {
   updateScore: (id: string, score: Score) => void;
   updateExplanation: (id: string, text: string) => void;
   summary: ReturnType<typeof calculateScore>;
+  missingExplanationCount: number;
   profileComplete: boolean;
   readyToReview: boolean;
   saveDraft: () => void;
@@ -316,7 +322,7 @@ function AssessmentView(props: ViewProps) {
           <p>แบบประเมินตนเองนี้เป็นเครื่องมือสำรวจและยกระดับความปลอดภัยในการเดินทางของนักเรียน เพื่อให้สถานศึกษาและหน่วยงานใช้ทบทวนสถานการณ์จริงและค้นหาช่องว่างความเสี่ยงในพื้นที่ของตนเอง</p>
         </div>
         <div className="intent-grid">
-          <div><strong>ตอบตามสภาพจริง</strong><span>เลือกหนึ่งแบบต่อครั้ง และเลือกระดับ 0–3 ที่ตรงกับการดำเนินงานมากที่สุด ข้อมูลประกอบเป็นทางเลือก</span></div>
+          <div><strong>ตอบตามสภาพจริง</strong><span>เลือกหนึ่งแบบต่อครั้ง เลือกระดับ 0–3 ที่ตรงกับการดำเนินงานมากที่สุด และระบุเหตุผลประกอบให้ครบทุกข้อ</span></div>
           <div><strong>ใช้ข้อมูลเพื่อการพัฒนา</strong><span>ผลรวมใช้สะท้อนข้อจำกัดเชิงโครงสร้างและประกอบข้อเสนอเชิงนโยบาย เพื่อสนับสนุนทรัพยากรและแก้ไขความเสี่ยงอย่างตรงจุด</span></div>
           <div><strong>ใช้เพื่อการพัฒนาและจัดสรรทรัพยากร</strong><span>ผลการประเมินใช้เพื่อสะท้อนภาพรวมของความเสี่ยงและความจำเป็นในพื้นที่ เพื่อประกอบการวางแผนและจัดสรรทรัพยากรให้เหมาะสม ไม่ได้ใช้เพื่อจัดอันดับ ตัดสิน หรือประเมินผลสถานศึกษา บุคคล หรือหน่วยงาน</span></div>
         </div>
@@ -359,7 +365,7 @@ function AssessmentView(props: ViewProps) {
               aria-valuemax={topic.questions.length}
               aria-valuenow={summary.answered}
             ><div className="progress-fill" style={{ width: `${(summary.answered / topic.questions.length) * 100}%` }} /></div>
-            <p className="summary-muted">{step === 3 ? "บันทึกผลเรียบร้อยแล้ว" : summary.complete ? "ตอบครบแล้ว พร้อมตรวจทาน" : "ตอบตามสภาพจริงให้ครบทุกข้อ"}</p>
+            <p className="summary-muted">{step === 3 ? "บันทึกผลเรียบร้อยแล้ว" : !summary.complete ? "ตอบตามสภาพจริงให้ครบทุกข้อ" : props.missingExplanationCount > 0 ? `กรอกเหตุผลประกอบอีก ${props.missingExplanationCount} ข้อ` : "ตอบและระบุเหตุผลครบแล้ว พร้อมตรวจทาน"}</p>
             {step === 3 ? <ul className="summary-list">
               {summary.categories.map((category) => <li key={category.id}><span>{category.label}</span><strong>{category.percent.toFixed(0)}%</strong></li>)}
             </ul> : null}
@@ -489,7 +495,7 @@ function QuestionsStep(props: ViewProps) {
       <div className="panel-heading">
         <p className="section-kicker">ขั้นตอนที่ 2 จาก 4 · {props.topic.label}</p>
         <h2>เลือกระดับที่ตรงกับการดำเนินงานจริง</h2>
-        <p>อ่านข้อความในแต่ละระดับก่อนเลือก หากมีข้อมูลประกอบสามารถอธิบายเพิ่มเติมได้ แต่ไม่บังคับกรอก</p>
+        <p>อ่านข้อความในแต่ละระดับก่อนเลือก และระบุเหตุผลหรือข้อมูลประกอบให้ครบทุกข้อก่อนตรวจทาน</p>
       </div>
       <div className="score-legend" aria-label="ความหมายคะแนน">
         <span><b>0</b> ยังประเมินไม่ได้</span><span><b>1</b> ขั้นพื้นฐาน</span><span><b>2</b> ขั้นมาตรฐาน</span><span><b>3</b> ขั้นยกระดับ</span>
@@ -499,6 +505,7 @@ function QuestionsStep(props: ViewProps) {
       </div>
       {props.topic.questions.map((question, index) => {
         const answer = props.answers[question.id];
+        const explanationMissing = answer?.score !== undefined && !answer.explanation.trim();
         const category = props.topic.categories.find((item) => item.id === question.categoryId);
         const previousCategory = index > 0 ? props.topic.questions[index - 1].categoryId : null;
         return (
@@ -520,12 +527,13 @@ function QuestionsStep(props: ViewProps) {
                   </button>
                 ))}
               </div>
-              <div className="explanation field">
+              <div className={`explanation field ${explanationMissing ? "field-error" : ""}`}>
                 <div className="explanation-head">
-                  <label htmlFor={`${question.id}-explanation`}>เหตุผลและข้อมูลประกอบ <span className="optional-mark">ไม่บังคับ</span></label>
+                  <label htmlFor={`${question.id}-explanation`}>เหตุผลและข้อมูลประกอบ <span className="required-mark">*</span> <span className="required-label">ต้องกรอก</span></label>
                   <span className="character-count">{answer?.explanation.length ?? 0}/500</span>
                 </div>
-                <textarea id={`${question.id}-explanation`} value={answer?.explanation ?? ""} onChange={(event) => props.updateExplanation(question.id, event.target.value)} placeholder="ถ้ามี เช่น มีคำสั่งแต่งตั้งและทบทวนล่าสุดเดือน… / ยังไม่มีผู้รับผิดชอบ / เอกสารอยู่ระหว่างจัดทำ" />
+                <textarea id={`${question.id}-explanation`} value={answer?.explanation ?? ""} onChange={(event) => props.updateExplanation(question.id, event.target.value)} placeholder="กรุณาระบุเหตุผล เช่น มีคำสั่งแต่งตั้งและทบทวนล่าสุดเดือน… / ยังไม่มีผู้รับผิดชอบ / เอกสารอยู่ระหว่างจัดทำ" required aria-required="true" aria-invalid={explanationMissing} aria-describedby={explanationMissing ? `${question.id}-explanation-error` : undefined} />
+                {explanationMissing ? <span className="error-text" id={`${question.id}-explanation-error`}>กรุณาระบุเหตุผลหรือข้อมูลประกอบของข้อนี้</span> : null}
               </div>
             </article>
           </div>
@@ -661,13 +669,13 @@ function Manual() {
         <li><strong>ระบุชื่อผู้ประเมิน</strong><span>ชื่อใช้เพื่ออ้างอิงและติดตามผลภายในโครงการ โดยจะแสดงเฉพาะผู้ดูแลหรืออีเมลที่ได้รับสิทธิ์รายบุคคล</span></li>
         <li><strong>อ่านเกณฑ์ก่อนเลือก</strong><span>แต่ละข้อมีคำอธิบายขั้นพื้นฐาน มาตรฐาน และยกระดับเฉพาะของตัวเอง</span></li>
         <li><strong>คะแนน 0 ไม่ใช่ “ไม่เกี่ยวข้อง”</strong><span>คะแนน 0 ใช้เมื่อไม่มีข้อมูลหรือหลักฐานจนยังประเมินไม่ได้</span></li>
-        <li><strong>ข้อมูลประกอบไม่บังคับ</strong><span>หากสะดวก ควรระบุเหตุผลสั้น ๆ จากการดำเนินงานจริง โดยเฉพาะคะแนน 0–1 เพื่อช่วยวางแผนแก้ไขภายหลัง</span></li>
+        <li><strong>เหตุผลประกอบต้องกรอกทุกข้อ</strong><span>ระบุเหตุผลสั้น ๆ จากการดำเนินงานจริงให้สอดคล้องกับคะแนน เพื่อช่วยตรวจสอบและวางแผนแก้ไขภายหลัง</span></li>
         <li><strong>อ่านผลแยกรายข้อ</strong><span>ระบบแสดงระดับที่เลือก ผลต่อคะแนนรวม และข้อเสนอแนะเฉพาะข้อที่ได้ 0–1 ซึ่งยังไม่ถึงขั้นมาตรฐาน 2 คะแนน</span></li>
         <li><strong>ผลใช้เพื่อพัฒนา</strong><span>Dashboard สรุปคะแนน ช่องว่าง และแนวโน้ม โดยไม่ใช้ผลเพื่อตัดสินหรือตัดงบประมาณ</span></li>
       </ol>
       <div className="manual-grid manual-detail-grid">
         <article className="panel"><h2>4 ชุดประเมิน แต่คนละกลุ่มผู้ใช้</h2><p>รถรับส่ง รถทัศนศึกษา และรถจักรยานยนต์เป็นแบบสำหรับสถานศึกษา ส่วนบทการดำเนินงานตามมติคณะรัฐมนตรีแยกตาม ศปถ. เขตพื้นที่การศึกษา ขนส่งจังหวัด และ อปท.</p></article>
-        <article className="panel"><h2>ข้อมูลประกอบเป็นทางเลือก</h2><p>ระบบแสดงรายการเอกสารหรือข้อมูลที่ควรตรวจดูก่อนตอบ แต่ไม่บังคับกรอกคำอธิบายหรืออัปโหลดไฟล์ ผู้ประเมินสามารถระบุข้อจำกัดเป็นข้อความสั้น ๆ ได้หากต้องการ</p></article>
+        <article className="panel"><h2>ต้องระบุเหตุผลประกอบทุกข้อ</h2><p>ผู้ประเมินต้องกรอกเหตุผลหรือข้อมูลประกอบเป็นข้อความสั้น ๆ ให้สอดคล้องกับคะแนนที่เลือก ส่วนการอัปโหลดเอกสารหลักฐานยังไม่บังคับ</p></article>
         <article className="panel"><h2>ค้นหาสถานศึกษาตามจังหวัด</h2><p>เลือกจังหวัดก่อน แล้วค้นหาชื่อสถานศึกษาหรืออำเภอจากรายชื่อโรงเรียน สพฐ. และโรงเรียนเอกชนในระบบ หากชื่อเปลี่ยนหรือเป็นสังกัดอื่นสามารถกรอกชื่อเองได้</p></article>
         <article className="panel"><h2>การแปลผลและสูตร</h2><p>คะแนนหมวด = ผลรวมคะแนน ÷ (จำนวนข้อ × 3) × 100 แล้วคูณน้ำหนักหมวดเพื่อรวมผล A ตั้งแต่ 85%, B 70–84.99%, C 50–69.99% และ D ต่ำกว่า 50%</p></article>
         <article className="panel"><h2>เจตนารมณ์การใช้ผล</h2><p>ใช้ผลเพื่อสะท้อนสถานการณ์จริง ช่องว่างความเสี่ยง และข้อจำกัดที่เกินอำนาจของโรงเรียน เพื่อวางแผนพัฒนา สนับสนุนทรัพยากร และจัดทำข้อเสนอเชิงนโยบาย ไม่ใช้เพื่อลงโทษ ตัดสิน หรือตัดงบประมาณ</p></article>

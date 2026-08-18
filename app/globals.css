@@ -208,6 +208,11 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .field.full { grid-column: 1 / -1; }
 .field label, .field-label { font-weight: 600; }
 .required-mark { color: var(--danger); }
+.required-label {
+  display: inline-flex; margin-left: 4px; border-radius: 999px;
+  background: #fdebea; color: var(--danger); padding: 2px 8px;
+  font-size: 13px; font-weight: 700; line-height: 1.4;
+}
 .field-help { color: var(--muted); font-size: 14px; }
 .optional-mark { margin-left: 5px; color: var(--muted); font-size: 14px; font-weight: 400; }
 .agency-field, .profile-fields { margin-top: 22px; }

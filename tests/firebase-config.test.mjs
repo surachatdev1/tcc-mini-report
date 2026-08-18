@@ -226,12 +226,17 @@ test("Firestore rules รู้จัก question id ทุกข้อในร
     }
   }
   assert.match(rules, /validAnswer\(answer\)/);
+  assert.match(rules, /answer\.explanation\.size\(\) >= 1/);
   assert.match(rules, /answer\.explanation\.size\(\) <= 500/);
   assert.doesNotMatch(rules, /answer\.explanation\.size\(\) >= 10/);
 });
 
-test("ข้อมูลประกอบเป็น optional ทั้งในฟอร์มและ Firestore rules", () => {
+test("เหตุผลและข้อมูลประกอบเป็นข้อมูลบังคับทั้งในฟอร์ม repository และ Firestore rules", () => {
   assert.match(formSource, /เหตุผลและข้อมูลประกอบ/);
-  assert.match(formSource, /ไม่บังคับ/);
-  assert.doesNotMatch(formSource, /กรุณาอธิบายอย่างน้อย 10 ตัวอักษร/);
+  assert.match(formSource, /required aria-required="true"/);
+  assert.match(formSource, /กรุณาระบุเหตุผลหรือข้อมูลประกอบของข้อนี้/);
+  assert.match(formSource, /summary\.complete && missingExplanationCount === 0/);
+  assert.match(assessmentRepositorySource, /if \(!explanation\)/);
+  assert.match(assessmentRepositorySource, /กรุณาระบุเหตุผลหรือข้อมูลประกอบข้อ/);
+  assert.match(rules, /answer\.explanation\.size\(\) >= 1/);
 });
