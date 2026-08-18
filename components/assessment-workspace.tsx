@@ -177,7 +177,7 @@ export function AssessmentWorkspace() {
       setSubmitState("done");
       goToStep(3);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "บันทึกผลไม่สำเร็จ");
+      setSubmitError(error instanceof Error ? error.message : "ขออภัย ขณะนี้ยังไม่สามารถส่งแบบประเมินได้ กรุณาลองใหม่อีกครั้ง หากยังพบปัญหา โปรดติดต่อผู้ดูแลระบบ");
       setSubmitState("error");
     }
   }
@@ -365,7 +365,7 @@ function AssessmentView(props: ViewProps) {
               aria-valuemax={topic.questions.length}
               aria-valuenow={summary.answered}
             ><div className="progress-fill" style={{ width: `${(summary.answered / topic.questions.length) * 100}%` }} /></div>
-            <p className="summary-muted">{step === 3 ? "บันทึกผลเรียบร้อยแล้ว" : !summary.complete ? "ตอบตามสภาพจริงให้ครบทุกข้อ" : props.missingExplanationCount > 0 ? `กรอกเหตุผลประกอบอีก ${props.missingExplanationCount} ข้อ` : "ตอบและระบุเหตุผลครบแล้ว พร้อมตรวจทาน"}</p>
+            <p className="summary-muted">{step === 3 ? "ส่งแบบประเมินเรียบร้อยแล้ว" : !summary.complete ? "ตอบตามสภาพจริงให้ครบทุกข้อ" : props.missingExplanationCount > 0 ? `กรอกเหตุผลประกอบอีก ${props.missingExplanationCount} ข้อ` : "ตอบและระบุเหตุผลครบแล้ว พร้อมตรวจทาน"}</p>
             {step === 3 ? <ul className="summary-list">
               {summary.categories.map((category) => <li key={category.id}><span>{category.label}</span><strong>{category.percent.toFixed(0)}%</strong></li>)}
             </ul> : null}
@@ -527,12 +527,13 @@ function QuestionsStep(props: ViewProps) {
                   </button>
                 ))}
               </div>
-              <div className={`explanation field ${explanationMissing ? "field-error" : ""}`}>
+              <div className={`explanation explanation-required field ${explanationMissing ? "field-error" : ""}`}>
                 <div className="explanation-head">
-                  <label htmlFor={`${question.id}-explanation`}>เหตุผลและข้อมูลประกอบ <span className="required-mark">*</span> <span className="required-label">ต้องกรอก</span></label>
+                  <label htmlFor={`${question.id}-explanation`}>โปรดระบุเหตุผลประกอบการเลือกระดับนี้ หรือระบุหลักฐานเชิงประจักษ์ <span className="required-mark">*</span> <span className="required-label">ต้องกรอกทุกข้อ</span></label>
                   <span className="character-count">{answer?.explanation.length ?? 0}/500</span>
                 </div>
-                <textarea id={`${question.id}-explanation`} value={answer?.explanation ?? ""} onChange={(event) => props.updateExplanation(question.id, event.target.value)} placeholder="กรุณาระบุเหตุผล เช่น มีคำสั่งแต่งตั้งและทบทวนล่าสุดเดือน… / ยังไม่มีผู้รับผิดชอบ / เอกสารอยู่ระหว่างจัดทำ" required aria-required="true" aria-invalid={explanationMissing} aria-describedby={explanationMissing ? `${question.id}-explanation-error` : undefined} />
+                <p className="explanation-guidance">ระบุข้อมูลสั้น ๆ ให้สอดคล้องกับระดับ 0–3 ที่เลือก เพื่อให้ตรวจสอบและนำผลไปวางแผนได้</p>
+                <textarea id={`${question.id}-explanation`} value={answer?.explanation ?? ""} onChange={(event) => props.updateExplanation(question.id, event.target.value)} placeholder="ตัวอย่าง: มีคำสั่งแต่งตั้งและทบทวนล่าสุดเดือน… / ยังไม่มีผู้รับผิดชอบ / เอกสารอยู่ระหว่างจัดทำ" required aria-required="true" aria-invalid={explanationMissing} aria-describedby={explanationMissing ? `${question.id}-explanation-error` : undefined} />
                 {explanationMissing ? <span className="error-text" id={`${question.id}-explanation-error`}>กรุณาระบุเหตุผลหรือข้อมูลประกอบของข้อนี้</span> : null}
               </div>
             </article>
@@ -555,7 +556,7 @@ function ReviewStep(props: ViewProps) {
     <section className="panel">
       <div className="panel-heading">
         <p className="section-kicker">ขั้นตอนที่ 3 จาก 4</p>
-        <h2>ตรวจทานก่อนยืนยันผล</h2>
+        <h2>ตรวจทานก่อนส่งแบบประเมิน</h2>
         <p>ระบบจะบันทึกคำตอบดิบแบบสร้างครั้งเดียว และ Dashboard จะคำนวณคะแนนใหม่จากเกณฑ์ในระบบทุกครั้ง</p>
       </div>
       <div className="review-context">
@@ -572,8 +573,8 @@ function ReviewStep(props: ViewProps) {
       </div>
       {props.submitError && <div className="status-message error" role="alert">{props.submitError}</div>}
       <div className="action-row">
-        <button className="btn btn-secondary" type="button" onClick={() => props.setStep(1)}>กลับไปแก้ไข</button>
-        <button className="btn btn-primary" type="button" disabled={props.submitState === "saving"} onClick={props.submitAssessment}>{props.submitState === "saving" ? "กำลังบันทึก…" : "ยืนยันและบันทึกผล"}</button>
+        <button className="btn btn-secondary" type="button" onClick={() => props.setStep(1)}>กลับไปแก้ไขคำตอบ</button>
+        <button className="btn btn-primary" type="button" disabled={props.submitState === "saving"} onClick={props.submitAssessment}>{props.submitState === "saving" ? "กำลังส่งแบบประเมิน…" : "ยืนยันส่งแบบประเมิน"}</button>
       </div>
     </section>
   );
@@ -598,7 +599,7 @@ function Result({ record, fallback, topic, answers, assessorName, province, onNe
     <section className="panel">
       <div className="panel-heading">
         <p className="section-kicker">ขั้นตอนที่ 4 จาก 4</p>
-        <h2>{record ? "บันทึกผลสำเร็จ" : "ผลการประเมิน"}</h2>
+        <h2>{record ? "ส่งแบบประเมินเรียบร้อยแล้ว" : "ผลการประเมิน"}</h2>
         <p>{record ? `เลขอ้างอิง ${record.id.slice(0, 8).toUpperCase()} · ผู้ประเมิน ${record.assessorName}` : `ผู้ประเมิน ${assessorName} · ยังไม่ได้บันทึกเข้าฐานข้อมูล`}</p>
       </div>
       <div className="result-box"><p className="result-grade">{grade}</p><h3>{score.toFixed(1)}%</h3><p>{getGradeLabel(grade, record?.topicId ?? topic.id)}</p></div>

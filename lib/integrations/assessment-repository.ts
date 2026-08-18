@@ -59,15 +59,16 @@ function firestoreWriteError(error: unknown) {
     : "";
 
   if (code.includes("permission-denied")) {
-    return new Error("Firebase ปฏิเสธการบันทึก กรุณาตรวจสอบว่าติดตั้ง Firestore Rules ล่าสุดแล้ว");
+    return new Error("ขออภัย ขณะนี้ระบบยังไม่พร้อมรับแบบประเมิน กรุณาลองใหม่อีกครั้ง หากยังพบปัญหา โปรดติดต่อผู้ดูแลระบบ");
   }
   if (code.includes("unavailable") || code.includes("network-request-failed")) {
-    return new Error("เชื่อมต่อ Firestore ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วกดบันทึกอีกครั้ง");
+    return new Error("ขออภัย ยังไม่สามารถเชื่อมต่อเพื่อส่งแบบประเมินได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง");
   }
   if (code.includes("already-exists")) {
-    return new Error("ผลประเมินรายการนี้ถูกบันทึกแล้ว กรุณาเปิด Dashboard เพื่อตรวจสอบข้อมูล");
+    return new Error("ระบบได้รับแบบประเมินรายการนี้แล้ว จึงไม่จำเป็นต้องส่งซ้ำ หากต้องการตรวจสอบหรือแก้ไข โปรดติดต่อผู้ดูแลระบบ");
   }
-  return error instanceof Error ? error : new Error("บันทึกผลลง Firestore ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+  // ไม่ส่งรายละเอียดข้อผิดพลาดภายในให้ผู้ตอบแบบประเมินเห็น
+  return new Error("ขออภัย ขณะนี้ยังไม่สามารถส่งแบบประเมินได้ กรุณาลองใหม่อีกครั้ง หากยังพบปัญหา โปรดติดต่อผู้ดูแลระบบ");
 }
 
 function sanitizeAnswers(payload: SubmissionInput) {
@@ -98,7 +99,9 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
 
   const { doc, serverTimestamp, writeBatch } = await import("firebase/firestore");
   const db = await getFirebaseDb();
-  if (!db) throw new Error("ยังไม่ได้ตั้งค่า Firebase สำหรับเว็บไซต์นี้");
+  if (!db) {
+    throw new Error("ขออภัย ขณะนี้ระบบยังไม่พร้อมรับแบบประเมิน กรุณาลองใหม่อีกครั้ง หากยังพบปัญหา โปรดติดต่อผู้ดูแลระบบ");
+  }
 
   const { topic, answers } = sanitizeAnswers(payload);
   const summary = calculateScore(answers, topic);
@@ -194,7 +197,7 @@ export const assessmentRepository: AssessmentRepository = {
     });
     const data = await response.json() as { assessment?: AssessmentRecord; error?: string };
     if (!response.ok || !data.assessment) {
-      throw new Error(data.error || "บันทึกผลไม่สำเร็จ");
+      throw new Error("ขออภัย ขณะนี้ยังไม่สามารถส่งแบบประเมินได้ กรุณาลองใหม่อีกครั้ง หากยังพบปัญหา โปรดติดต่อผู้ดูแลระบบ");
     }
     window.localStorage.removeItem(DRAFT_KEY);
     return data.assessment;

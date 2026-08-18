@@ -373,8 +373,17 @@ input[readonly] { background: #f1f4f2; color: var(--muted); }
   border-radius: 9px; background: #e9eeec; font-weight: 700;
 }
 .score-option[aria-checked="true"] .score-value { background: var(--brand); color: white; }
-.explanation { margin-top: 16px; }
-.explanation-head { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 7px; }
+.explanation { margin-top: 18px; }
+.explanation-required {
+  border: 2px solid #e2bd61; border-left: 6px solid var(--accent);
+  border-radius: 12px; background: #fffaf0; padding: 14px 15px 15px;
+  box-shadow: 0 5px 14px rgba(130,91,0,.07);
+}
+.explanation-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.explanation-head label { flex: 1; color: #3f310d; font-size: 18px; font-weight: 700; line-height: 1.5; }
+.explanation-guidance { margin: 1px 0 8px; color: #6b5a2c; font-size: 14px; line-height: 1.55; }
+.explanation-required textarea { min-height: 118px; border-width: 2px; background: white; }
+.explanation-required.field-error { border-color: #c45850; border-left-color: var(--danger); background: #fff5f4; }
 .character-count, .summary-muted, .save-state { color: var(--muted); font-size: 14px; }
 .character-count { white-space: nowrap; }
 .field-error textarea { border-color: #b5554c; background: #fff8f7; }
@@ -667,6 +676,10 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   .profile-section { padding: 16px 14px; }
   .question-card { padding-block: 25px; }
   .question-title { border-left-width: 5px; padding: 13px 14px; font-size: 20px; line-height: 1.48; }
+  .explanation-required { padding: 13px 12px 14px; }
+  .explanation-head { flex-direction: column; gap: 4px; }
+  .explanation-head label { font-size: 17px; }
+  .character-count { align-self: flex-end; }
   .item-results-heading, .footer-inner { align-items: flex-start; flex-direction: column; }
   .insight-cards { grid-template-columns: 1fr; }
   .comparison-heading { align-items: flex-start; flex-direction: column; }

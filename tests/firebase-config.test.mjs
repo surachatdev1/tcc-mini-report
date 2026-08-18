@@ -152,6 +152,7 @@ test("ชุดสีและองค์ประกอบหลักสอ�
   assert.match(globalStyles, /counter-reset: intent/);
   assert.match(globalStyles, /\.question-number \{[\s\S]*display: inline-flex;[\s\S]*background: var\(--brand-strong\); color: white/);
   assert.match(globalStyles, /\.question-title \{[\s\S]*border-left: 6px solid var\(--brand\);[\s\S]*font-size: clamp\(20px,2vw,24px\);[\s\S]*font-weight: 700/);
+  assert.match(globalStyles, /\.explanation-required \{[\s\S]*border: 2px solid #e2bd61; border-left: 6px solid var\(--accent\)/);
 });
 
 test("Google Sign-In ใช้ same-origin auth helper บน Firebase Hosting", () => {
@@ -203,7 +204,10 @@ test("ผู้ประเมินสาธารณะบันทึกผ�
   assert.match(assessmentRepositorySource, /await batch\.commit\(\)/);
   assert.doesNotMatch(assessmentRepositorySource, /transaction\.get\(/);
   assert.match(assessmentRepositorySource, /firestoreWriteError/);
-  assert.match(assessmentRepositorySource, /เชื่อมต่อ Firestore ไม่สำเร็จ/);
+  assert.match(assessmentRepositorySource, /ขออภัย ยังไม่สามารถเชื่อมต่อเพื่อส่งแบบประเมินได้/);
+  assert.match(assessmentRepositorySource, /หากยังพบปัญหา โปรดติดต่อผู้ดูแลระบบ/);
+  assert.doesNotMatch(assessmentRepositorySource, /Firebase ปฏิเสธการบันทึก/);
+  assert.doesNotMatch(assessmentRepositorySource, /ยังไม่ได้ตั้งค่า Firebase สำหรับเว็บไซต์นี้/);
   assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && validSubmission\(\);/);
   assert.match(rules, /allow update, delete: if false;/);
   const publicWriteStart = assessmentRepositorySource.indexOf("batch.set(documentRef");
@@ -232,9 +236,13 @@ test("Firestore rules รู้จัก question id ทุกข้อในร
 });
 
 test("เหตุผลและข้อมูลประกอบเป็นข้อมูลบังคับทั้งในฟอร์ม repository และ Firestore rules", () => {
-  assert.match(formSource, /เหตุผลและข้อมูลประกอบ/);
+  assert.match(formSource, /โปรดระบุเหตุผลประกอบการเลือกระดับนี้ หรือระบุหลักฐานเชิงประจักษ์/);
+  assert.match(formSource, /ต้องกรอกทุกข้อ/);
+  assert.match(formSource, /ยืนยันส่งแบบประเมิน/);
+  assert.match(formSource, /กำลังส่งแบบประเมิน/);
   assert.match(formSource, /required aria-required="true"/);
   assert.match(formSource, /กรุณาระบุเหตุผลหรือข้อมูลประกอบของข้อนี้/);
+  assert.doesNotMatch(formSource, /placeholder="ถ้ามี/);
   assert.match(formSource, /summary\.complete && missingExplanationCount === 0/);
   assert.match(assessmentRepositorySource, /if \(!explanation\)/);
   assert.match(assessmentRepositorySource, /กรุณาระบุเหตุผลหรือข้อมูลประกอบข้อ/);
