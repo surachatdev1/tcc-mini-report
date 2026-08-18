@@ -150,6 +150,8 @@ test("ชุดสีและองค์ประกอบหลักสอ�
   assert.match(globalStyles, /\.intro h1 span \{ color: #ffd166; \}/);
   assert.match(globalStyles, /\.purpose-note-icon/);
   assert.match(globalStyles, /counter-reset: intent/);
+  assert.match(globalStyles, /\.question-number \{[\s\S]*display: inline-flex;[\s\S]*background: var\(--brand-strong\); color: white/);
+  assert.match(globalStyles, /\.question-title \{[\s\S]*border-left: 6px solid var\(--brand\);[\s\S]*font-size: clamp\(20px,2vw,24px\);[\s\S]*font-weight: 700/);
 });
 
 test("Google Sign-In ใช้ same-origin auth helper บน Firebase Hosting", () => {
