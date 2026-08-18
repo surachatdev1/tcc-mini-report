@@ -124,6 +124,12 @@ test("เมนูสาธารณะแสดงเฉพาะแบบป�
   assert.match(protectedAreaSource, /จัดการผู้มีสิทธิ์<\/Link>/);
 });
 
+test("คำชี้แจงข้อ 3 ระบุเจตนารมณ์ด้านการพัฒนาและจัดสรรทรัพยากร", () => {
+  assert.match(formSource, /ใช้เพื่อการพัฒนาและจัดสรรทรัพยากร/);
+  assert.match(formSource, /ผลการประเมินใช้เพื่อสะท้อนภาพรวมของความเสี่ยงและความจำเป็นในพื้นที่ เพื่อประกอบการวางแผนและจัดสรรทรัพยากรให้เหมาะสม ไม่ได้ใช้เพื่อจัดอันดับ ตัดสิน หรือประเมินผลสถานศึกษา บุคคล หรือหน่วยงาน/);
+  assert.doesNotMatch(formSource, /<strong>ไม่ใช้เพื่อลงโทษ<\/strong>/);
+});
+
 test("ส่วนหัวแสดงตรา TCC และ สสส. คู่กันโดยใช้ไฟล์ WebP ภายในระบบ", () => {
   assert.match(siteHeaderSource, /\/images\/tcc-office-logo\.webp/);
   assert.match(siteHeaderSource, /\/images\/thaihealth-logo\.webp/);
