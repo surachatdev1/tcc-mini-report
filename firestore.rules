@@ -181,122 +181,6 @@ service cloud.firestore {
       );
     }
 
-    // Admin ลบได้เฉพาะข้อความประกอบ โดยห้ามเปลี่ยนคะแนนหรือข้อมูลผลประเมินส่วนอื่น
-    function validModeratedAnswer(answer, previousAnswer) {
-      return answer is map
-        && previousAnswer is map
-        && answer.keys().hasAll(['score', 'explanation'])
-        && answer.keys().hasOnly(['score', 'explanation'])
-        && answer.score == previousAnswer.score
-        && answer.explanation is string
-        && answer.explanation.size() <= 500
-        && (answer.explanation == previousAnswer.explanation || answer.explanation == '');
-    }
-
-    function validModeratedBusAnswers(answers, previousAnswers) {
-      let keys = [
-        'bus-driver-1', 'bus-driver-2', 'bus-driver-3',
-        'bus-vehicle-1', 'bus-vehicle-2', 'bus-vehicle-3',
-        'bus-management-1', 'bus-management-2', 'bus-management-3'
-      ];
-      return exactAnswerKeys(answers, keys)
-        && validModeratedAnswer(answers['bus-driver-1'], previousAnswers['bus-driver-1'])
-        && validModeratedAnswer(answers['bus-driver-2'], previousAnswers['bus-driver-2'])
-        && validModeratedAnswer(answers['bus-driver-3'], previousAnswers['bus-driver-3'])
-        && validModeratedAnswer(answers['bus-vehicle-1'], previousAnswers['bus-vehicle-1'])
-        && validModeratedAnswer(answers['bus-vehicle-2'], previousAnswers['bus-vehicle-2'])
-        && validModeratedAnswer(answers['bus-vehicle-3'], previousAnswers['bus-vehicle-3'])
-        && validModeratedAnswer(answers['bus-management-1'], previousAnswers['bus-management-1'])
-        && validModeratedAnswer(answers['bus-management-2'], previousAnswers['bus-management-2'])
-        && validModeratedAnswer(answers['bus-management-3'], previousAnswers['bus-management-3']);
-    }
-
-    function validModeratedTripAnswers(answers, previousAnswers) {
-      let keys = [
-        'trip-driver-1', 'trip-driver-2', 'trip-driver-3',
-        'trip-vehicle-1', 'trip-vehicle-2', 'trip-vehicle-3',
-        'trip-school-1', 'trip-school-2', 'trip-school-3',
-        'trip-support-1', 'trip-support-2', 'trip-support-3'
-      ];
-      return exactAnswerKeys(answers, keys)
-        && validModeratedAnswer(answers['trip-driver-1'], previousAnswers['trip-driver-1'])
-        && validModeratedAnswer(answers['trip-driver-2'], previousAnswers['trip-driver-2'])
-        && validModeratedAnswer(answers['trip-driver-3'], previousAnswers['trip-driver-3'])
-        && validModeratedAnswer(answers['trip-vehicle-1'], previousAnswers['trip-vehicle-1'])
-        && validModeratedAnswer(answers['trip-vehicle-2'], previousAnswers['trip-vehicle-2'])
-        && validModeratedAnswer(answers['trip-vehicle-3'], previousAnswers['trip-vehicle-3'])
-        && validModeratedAnswer(answers['trip-school-1'], previousAnswers['trip-school-1'])
-        && validModeratedAnswer(answers['trip-school-2'], previousAnswers['trip-school-2'])
-        && validModeratedAnswer(answers['trip-school-3'], previousAnswers['trip-school-3'])
-        && validModeratedAnswer(answers['trip-support-1'], previousAnswers['trip-support-1'])
-        && validModeratedAnswer(answers['trip-support-2'], previousAnswers['trip-support-2'])
-        && validModeratedAnswer(answers['trip-support-3'], previousAnswers['trip-support-3']);
-    }
-
-    function validModeratedMotoAnswers(answers, previousAnswers) {
-      let keys = [
-        'moto-behavior-1', 'moto-behavior-2', 'moto-behavior-3',
-        'moto-management-1', 'moto-management-2', 'moto-management-3',
-        'moto-knowledge-1', 'moto-knowledge-2', 'moto-knowledge-3',
-        'moto-environment-1', 'moto-environment-2', 'moto-environment-3'
-      ];
-      return exactAnswerKeys(answers, keys)
-        && validModeratedAnswer(answers['moto-behavior-1'], previousAnswers['moto-behavior-1'])
-        && validModeratedAnswer(answers['moto-behavior-2'], previousAnswers['moto-behavior-2'])
-        && validModeratedAnswer(answers['moto-behavior-3'], previousAnswers['moto-behavior-3'])
-        && validModeratedAnswer(answers['moto-management-1'], previousAnswers['moto-management-1'])
-        && validModeratedAnswer(answers['moto-management-2'], previousAnswers['moto-management-2'])
-        && validModeratedAnswer(answers['moto-management-3'], previousAnswers['moto-management-3'])
-        && validModeratedAnswer(answers['moto-knowledge-1'], previousAnswers['moto-knowledge-1'])
-        && validModeratedAnswer(answers['moto-knowledge-2'], previousAnswers['moto-knowledge-2'])
-        && validModeratedAnswer(answers['moto-knowledge-3'], previousAnswers['moto-knowledge-3'])
-        && validModeratedAnswer(answers['moto-environment-1'], previousAnswers['moto-environment-1'])
-        && validModeratedAnswer(answers['moto-environment-2'], previousAnswers['moto-environment-2'])
-        && validModeratedAnswer(answers['moto-environment-3'], previousAnswers['moto-environment-3']);
-    }
-
-    function validModeratedAgencyAnswers(answers, previousAnswers, agencyType) {
-      return (
-          agencyType == 'road-safety'
-          && exactAnswerKeys(answers, ['agency-road-safety-1', 'agency-road-safety-2', 'agency-road-safety-3'])
-          && validModeratedAnswer(answers['agency-road-safety-1'], previousAnswers['agency-road-safety-1'])
-          && validModeratedAnswer(answers['agency-road-safety-2'], previousAnswers['agency-road-safety-2'])
-          && validModeratedAnswer(answers['agency-road-safety-3'], previousAnswers['agency-road-safety-3'])
-        ) || (
-          agencyType == 'education-area'
-          && exactAnswerKeys(answers, ['agency-education-area-4', 'agency-education-area-5', 'agency-education-area-6'])
-          && validModeratedAnswer(answers['agency-education-area-4'], previousAnswers['agency-education-area-4'])
-          && validModeratedAnswer(answers['agency-education-area-5'], previousAnswers['agency-education-area-5'])
-          && validModeratedAnswer(answers['agency-education-area-6'], previousAnswers['agency-education-area-6'])
-        ) || (
-          agencyType == 'transport'
-          && exactAnswerKeys(answers, ['agency-transport-7', 'agency-transport-8', 'agency-transport-9'])
-          && validModeratedAnswer(answers['agency-transport-7'], previousAnswers['agency-transport-7'])
-          && validModeratedAnswer(answers['agency-transport-8'], previousAnswers['agency-transport-8'])
-          && validModeratedAnswer(answers['agency-transport-9'], previousAnswers['agency-transport-9'])
-        ) || (
-          agencyType == 'local-admin'
-          && exactAnswerKeys(answers, ['agency-local-admin-10', 'agency-local-admin-11', 'agency-local-admin-12'])
-          && validModeratedAnswer(answers['agency-local-admin-10'], previousAnswers['agency-local-admin-10'])
-          && validModeratedAnswer(answers['agency-local-admin-11'], previousAnswers['agency-local-admin-11'])
-          && validModeratedAnswer(answers['agency-local-admin-12'], previousAnswers['agency-local-admin-12'])
-        );
-    }
-
-    function validCommentModeration() {
-      let data = request.resource.data;
-      let previous = resource.data;
-      return isAdmin()
-        && data.diff(previous).affectedKeys().hasOnly(['answers'])
-        && data.answers is map
-        && previous.answers is map
-        && (
-          (data.topicId == 'bus' && validModeratedBusAnswers(data.answers, previous.answers))
-          || (data.topicId == 'trip' && validModeratedTripAnswers(data.answers, previous.answers))
-          || (data.topicId == 'moto' && validModeratedMotoAnswers(data.answers, previous.answers))
-          || (data.topicId == 'agency' && validModeratedAgencyAnswers(data.answers, previous.answers, data.agencyType))
-        );
-    }
 
     // schema 1 รองรับ client รุ่นก่อนหน้าในช่วง rolling deploy; schema 2 ย้ายข้อมูลผู้ให้ข้อมูลออกจากเอกสารผลประเมิน
     function validSubmissionV1() {
@@ -487,17 +371,18 @@ service cloud.firestore {
       // Dashboard อ่านได้เฉพาะผู้ดูแลโครงการหรืออีเมลที่อนุญาตเป็นรายบุคคล
       allow read: if hasDashboardAccess();
 
-      // ผู้ตอบสร้างได้อย่างเดียว ส่วน Admin ลบได้เฉพาะข้อความประกอบโดยคะแนนต้องคงเดิม
+      // ผู้ตอบสร้างได้อย่างเดียว ส่วน Admin ลบแบบประเมินทั้งชุดได้จากหน้าจัดการ
       allow create: if submissionId.size() == 36 && validSubmission();
-      allow update: if validCommentModeration();
-      allow delete: if false;
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     match /submission_assessors/{submissionId} {
       // ข้อมูลติดต่อใช้สิทธิ์เดียวกับ Dashboard เพราะระบบอนุญาตเฉพาะรายอีเมล
       allow read: if hasPrivateDashboardAccess();
       allow create: if submissionId.size() == 36 && validPrivateAssessor(submissionId);
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     match /benchmarks/{benchmarkId} {

@@ -9,13 +9,13 @@ import {
   type AccessEntry,
 } from "@/lib/integrations/access-control-repository";
 import {
-  deleteAllAssessmentComments,
-  deleteAssessmentComment,
-  subscribeAssessmentComments,
-  type AssessmentComment,
-} from "@/lib/integrations/comment-moderation-repository";
+  deleteAllAssessmentSubmissions,
+  deleteAssessmentSubmission,
+  subscribeAssessmentSubmissions,
+  type AssessmentSubmission,
+} from "@/lib/integrations/submission-moderation-repository";
 
-const COMMENTS_PER_PAGE = 20;
+const SUBMISSIONS_PER_PAGE = 20;
 
 function friendlyAdminError(error: unknown) {
   const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
@@ -46,12 +46,12 @@ function ViewerList({ entries, onRemove }: { entries: AccessEntry[]; onRemove: (
   );
 }
 
-type PendingCommentDeletion =
-  | { type: "one"; comment: AssessmentComment }
+type PendingSubmissionDeletion =
+  | { type: "one"; submission: AssessmentSubmission }
   | { type: "all"; count: number };
 
 function ConfirmationDialog({ pending, busy, onCancel, onConfirm }: {
-  pending: PendingCommentDeletion | null;
+  pending: PendingSubmissionDeletion | null;
   busy: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -74,15 +74,15 @@ function ConfirmationDialog({ pending, busy, onCancel, onConfirm }: {
         <span className="confirmation-icon" aria-hidden="true">!</span>
         <div>
           <p className="section-kicker">โปรดยืนยันอีกครั้ง</p>
-          <h2 id="confirmation-title">{deletingAll ? `ลบความคิดเห็นทั้งหมด ${pending.count.toLocaleString("th-TH")} รายการหรือไม่` : "ลบความคิดเห็นนี้หรือไม่"}</h2>
+          <h2 id="confirmation-title">{deletingAll ? `ลบแบบประเมินทั้งหมด ${pending.count.toLocaleString("th-TH")} ชุดหรือไม่` : "ลบแบบประเมินชุดนี้หรือไม่"}</h2>
           <p id="confirmation-description">{deletingAll
-            ? "ข้อความเหตุผลและข้อมูลประกอบทั้งหมดจะถูกลบออกจากผลประเมิน แต่คะแนนและผลสรุปจะยังคงเดิม"
-            : "ข้อความนี้จะถูกลบออกจากผลประเมิน แต่คะแนนของข้อนี้และผลสรุปจะยังคงเดิม"}</p>
-          {!deletingAll ? <blockquote>{pending.comment.text}</blockquote> : null}
-          <strong className="confirmation-warning">เมื่อลบแล้วจะไม่สามารถกู้คืนข้อความได้</strong>
+            ? "ผลคะแนน คำตอบ เหตุผลประกอบ และข้อมูลผู้ประเมินของทุกคนจะถูกลบออกจากระบบ"
+            : "ผลคะแนน คำตอบ เหตุผลประกอบ และข้อมูลผู้ประเมินของแบบประเมินชุดนี้จะถูกลบออกจากระบบ"}</p>
+          {!deletingAll ? <div className="confirmation-record"><strong>{pending.submission.institution}</strong><span>{pending.submission.province} · {pending.submission.topicLabel}</span><span>ผู้ประเมิน {pending.submission.assessorName || "ไม่ระบุ"} · วันที่ {pending.submission.assessmentDate || "—"}</span></div> : null}
+          <strong className="confirmation-warning">เมื่อลบแล้วจะไม่สามารถกู้คืนข้อมูลแบบประเมินได้</strong>
           <div className="confirmation-actions">
             <button className="btn btn-secondary" type="button" autoFocus disabled={busy} onClick={onCancel}>ยกเลิก</button>
-            <button className="btn btn-danger" type="button" disabled={busy} onClick={onConfirm}>{busy ? "กำลังลบ…" : deletingAll ? "ยืนยันลบทั้งหมด" : "ยืนยันลบความคิดเห็น"}</button>
+            <button className="btn btn-danger" type="button" disabled={busy} onClick={onConfirm}>{busy ? "กำลังลบ…" : deletingAll ? "ยืนยันลบแบบประเมินทั้งหมด" : "ยืนยันลบแบบประเมินนี้"}</button>
           </div>
         </div>
       </section>
@@ -90,31 +90,37 @@ function ConfirmationDialog({ pending, busy, onCancel, onConfirm }: {
   );
 }
 
-function CommentList({ comments, busy, onDelete }: {
-  comments: AssessmentComment[];
+function SubmissionList({ submissions, busy, onDelete }: {
+  submissions: AssessmentSubmission[];
   busy: boolean;
-  onDelete: (comment: AssessmentComment) => void;
+  onDelete: (submission: AssessmentSubmission) => void;
 }) {
   return (
-    <ul className="admin-comment-list">
-      {comments.map((comment) => (
-        <li key={comment.id}>
-          <div className="admin-comment-head">
-            <div>
-              <span className="admin-comment-number">ข้อ {comment.questionNumber}</span>
-              <strong>{comment.questionTitle}</strong>
+    <ul className="admin-submission-list">
+      {submissions.map((submission) => {
+        const explanations = submission.questionResults.filter((question) => question.explanation.trim());
+        return (
+          <li key={submission.id}>
+            <div className="admin-submission-head">
+              <div>
+                <span className="admin-submission-type">{submission.topicLabel}</span>
+                <strong>{submission.institution}</strong>
+                <small>เลขอ้างอิง {submission.id.slice(0, 8).toUpperCase()}</small>
+              </div>
+              <button className="admin-remove-button" type="button" disabled={busy} onClick={() => onDelete(submission)}>ลบแบบประเมินนี้</button>
             </div>
-            <button className="admin-remove-button" type="button" disabled={busy} onClick={() => onDelete(comment)}>ลบความคิดเห็น</button>
-          </div>
-          <blockquote>{comment.text}</blockquote>
-          <div className="admin-comment-meta">
-            <span>{comment.institution}</span>
-            <span>{comment.province}</span>
-            <span>{comment.topicLabel}</span>
-            <span>วันที่ประเมิน {comment.assessmentDate || "—"}</span>
-          </div>
-        </li>
-      ))}
+            <div className="admin-submission-summary">
+              <div><span>ผลคะแนน</span><strong>{submission.score.toFixed(1)}%</strong><small>ระดับ {submission.grade}</small></div>
+              <div><span>ผู้ประเมิน</span><strong>{submission.assessorName || "ไม่ระบุ"}</strong><small>{submission.respondentRole || "ไม่ระบุบทบาท"}</small></div>
+              <div><span>พื้นที่และวันที่</span><strong>{submission.province}</strong><small>{submission.assessmentDate || "—"}</small></div>
+            </div>
+            <details className="admin-submission-details">
+              <summary>ดูเหตุผลประกอบทั้งหมด {explanations.length.toLocaleString("th-TH")} ข้อ</summary>
+              {explanations.length ? <div>{explanations.map((question) => <article key={question.id}><strong>ข้อ {question.number} · {question.title}</strong><p>{question.explanation}</p></article>)}</div> : <p>แบบประเมินชุดนี้ไม่มีข้อความเหตุผลประกอบ</p>}
+            </details>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -128,12 +134,12 @@ export function AdminWorkspace() {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [query, setQuery] = useState("");
-  const [comments, setComments] = useState<AssessmentComment[]>([]);
-  const [commentsLoading, setCommentsLoading] = useState(true);
-  const [commentQuery, setCommentQuery] = useState("");
-  const [commentPage, setCommentPage] = useState(1);
-  const [commentBusy, setCommentBusy] = useState(false);
-  const [pendingCommentDeletion, setPendingCommentDeletion] = useState<PendingCommentDeletion | null>(null);
+  const [submissions, setSubmissions] = useState<AssessmentSubmission[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(true);
+  const [submissionQuery, setSubmissionQuery] = useState("");
+  const [submissionPage, setSubmissionPage] = useState(1);
+  const [submissionBusy, setSubmissionBusy] = useState(false);
+  const [pendingSubmissionDeletion, setPendingSubmissionDeletion] = useState<PendingSubmissionDeletion | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -166,21 +172,21 @@ export function AdminWorkspace() {
     let active = true;
     let unsubscribe: (() => void) | undefined;
 
-    void subscribeAssessmentComments((nextComments) => {
+    void subscribeAssessmentSubmissions((nextSubmissions) => {
       if (!active) return;
-      setComments(nextComments);
-      setCommentsLoading(false);
+      setSubmissions(nextSubmissions);
+      setSubmissionsLoading(false);
     }, (nextError) => {
       if (!active) return;
       setError(friendlyAdminError(nextError));
-      setCommentsLoading(false);
+      setSubmissionsLoading(false);
     }).then((nextUnsubscribe) => {
       if (active) unsubscribe = nextUnsubscribe;
       else nextUnsubscribe();
     }).catch((nextError) => {
       if (!active) return;
       setError(friendlyAdminError(nextError));
-      setCommentsLoading(false);
+      setSubmissionsLoading(false);
     });
 
     return () => {
@@ -195,15 +201,15 @@ export function AdminWorkspace() {
     return viewers.filter((entry) => `${entry.name} ${entry.email}`.toLocaleLowerCase("th").includes(normalizedQuery));
   }, [query, viewers]);
 
-  const filteredComments = useMemo(() => {
-    const normalizedQuery = commentQuery.trim().toLocaleLowerCase("th");
-    if (!normalizedQuery) return comments;
-    return comments.filter((comment) => `${comment.text} ${comment.institution} ${comment.province} ${comment.topicLabel} ${comment.questionTitle}`.toLocaleLowerCase("th").includes(normalizedQuery));
-  }, [commentQuery, comments]);
-  const totalCommentPages = Math.max(1, Math.ceil(filteredComments.length / COMMENTS_PER_PAGE));
-  const activeCommentPage = Math.min(commentPage, totalCommentPages);
-  const firstCommentIndex = (activeCommentPage - 1) * COMMENTS_PER_PAGE;
-  const paginatedComments = filteredComments.slice(firstCommentIndex, firstCommentIndex + COMMENTS_PER_PAGE);
+  const filteredSubmissions = useMemo(() => {
+    const normalizedQuery = submissionQuery.trim().toLocaleLowerCase("th");
+    if (!normalizedQuery) return submissions;
+    return submissions.filter((submission) => `${submission.institution} ${submission.province} ${submission.topicLabel} ${submission.assessorName} ${submission.respondentRole} ${submission.questionResults.map((question) => `${question.title} ${question.explanation}`).join(" ")}`.toLocaleLowerCase("th").includes(normalizedQuery));
+  }, [submissionQuery, submissions]);
+  const totalSubmissionPages = Math.max(1, Math.ceil(filteredSubmissions.length / SUBMISSIONS_PER_PAGE));
+  const activeSubmissionPage = Math.min(submissionPage, totalSubmissionPages);
+  const firstSubmissionIndex = (activeSubmissionPage - 1) * SUBMISSIONS_PER_PAGE;
+  const paginatedSubmissions = filteredSubmissions.slice(firstSubmissionIndex, firstSubmissionIndex + SUBMISSIONS_PER_PAGE);
 
   async function submitViewer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -234,24 +240,24 @@ export function AdminWorkspace() {
     }).finally(() => setBusy(false));
   }
 
-  async function confirmCommentDeletion() {
-    if (!pendingCommentDeletion || commentBusy) return;
-    setCommentBusy(true);
+  async function confirmSubmissionDeletion() {
+    if (!pendingSubmissionDeletion || submissionBusy) return;
+    setSubmissionBusy(true);
     setError("");
     setStatus("");
     try {
-      if (pendingCommentDeletion.type === "one") {
-        await deleteAssessmentComment(pendingCommentDeletion.comment);
-        setStatus("ลบความคิดเห็นที่เลือกแล้ว โดยคะแนนและผลประเมินยังคงเดิม");
+      if (pendingSubmissionDeletion.type === "one") {
+        await deleteAssessmentSubmission(pendingSubmissionDeletion.submission);
+        setStatus("ลบแบบประเมินที่เลือก พร้อมข้อมูลผู้ประเมินเรียบร้อยแล้ว");
       } else {
-        await deleteAllAssessmentComments(comments);
-        setStatus(`ลบความคิดเห็นทั้งหมด ${comments.length.toLocaleString("th-TH")} รายการแล้ว โดยคะแนนและผลประเมินยังคงเดิม`);
+        await deleteAllAssessmentSubmissions(submissions);
+        setStatus(`ลบแบบประเมินทั้งหมด ${submissions.length.toLocaleString("th-TH")} ชุด พร้อมข้อมูลผู้ประเมินเรียบร้อยแล้ว`);
       }
-      setPendingCommentDeletion(null);
+      setPendingSubmissionDeletion(null);
     } catch (nextError) {
       setError(friendlyAdminError(nextError));
     } finally {
-      setCommentBusy(false);
+      setSubmissionBusy(false);
     }
   }
 
@@ -320,45 +326,45 @@ export function AdminWorkspace() {
         </div>
       </section>
 
-      <section className="panel admin-comments-panel" aria-labelledby="admin-comments-title">
-        <div className="admin-comments-heading">
+      <section className="panel admin-submissions-panel" aria-labelledby="admin-submissions-title">
+        <div className="admin-submissions-heading">
           <div>
             <p className="section-kicker">ข้อมูลจากแบบประเมิน</p>
-            <h2 id="admin-comments-title">จัดการความคิดเห็นและเหตุผลประกอบ</h2>
-            <p>ตรวจสอบข้อความที่ผู้ตอบระบุในแต่ละข้อ การลบข้อความจะไม่เปลี่ยนคะแนนหรือผลสรุปของแบบประเมิน</p>
+            <h2 id="admin-submissions-title">จัดการรายการแบบประเมิน</h2>
+            <p>หนึ่งรายการหมายถึงแบบประเมินหนึ่งชุดของผู้ตอบหนึ่งคน การลบจะนำผลคะแนน คำตอบ เหตุผลประกอบ และข้อมูลผู้ประเมินของชุดนั้นออกทั้งหมด</p>
           </div>
-          <div className="admin-comment-count" aria-label={`มีความคิดเห็น ${comments.length} รายการ`}>
-            <span>ความคิดเห็นทั้งหมด</span>
-            <strong>{commentsLoading ? "—" : comments.length.toLocaleString("th-TH")}</strong>
-            <small>รายการที่ยังมีข้อความ</small>
+          <div className="admin-submission-count" aria-label={`มีแบบประเมิน ${submissions.length} ชุด`}>
+            <span>แบบประเมินทั้งหมด</span>
+            <strong>{submissionsLoading ? "—" : submissions.length.toLocaleString("th-TH")}</strong>
+            <small>ชุดที่บันทึกในระบบ</small>
           </div>
         </div>
 
-        <div className="admin-comments-toolbar">
-          <label className="admin-search-field" htmlFor="comment-search">
-            <span>ค้นหาความคิดเห็น สถานศึกษา หรือจังหวัด</span>
-            <input id="comment-search" type="search" placeholder="พิมพ์คำที่ต้องการค้นหา" value={commentQuery} onChange={(event) => { setCommentQuery(event.target.value); setCommentPage(1); }} />
+        <div className="admin-submissions-toolbar">
+          <label className="admin-search-field" htmlFor="submission-search">
+            <span>ค้นหาสถานศึกษา ผู้ประเมิน จังหวัด หรือข้อความประกอบ</span>
+            <input id="submission-search" type="search" placeholder="พิมพ์คำที่ต้องการค้นหา" value={submissionQuery} onChange={(event) => { setSubmissionQuery(event.target.value); setSubmissionPage(1); }} />
           </label>
-          <button className="btn btn-danger-outline" type="button" disabled={commentsLoading || commentBusy || comments.length === 0} onClick={() => setPendingCommentDeletion({ type: "all", count: comments.length })}>ลบความคิดเห็นทั้งหมด</button>
+          <button className="btn btn-danger-outline" type="button" disabled={submissionsLoading || submissionBusy || submissions.length === 0} onClick={() => setPendingSubmissionDeletion({ type: "all", count: submissions.length })}>ลบแบบประเมินทั้งหมด</button>
         </div>
 
-        {commentsLoading ? <p className="admin-empty-state" role="status">กำลังโหลดความคิดเห็น…</p> : null}
-        {!commentsLoading && comments.length === 0 ? <div className="admin-empty-state admin-empty-card"><strong>ยังไม่มีความคิดเห็น</strong><span>เมื่อมีการส่งแบบประเมินพร้อมเหตุผลประกอบ รายการจะแสดงที่ส่วนนี้</span></div> : null}
-        {!commentsLoading && comments.length > 0 && filteredComments.length === 0 ? <div className="admin-empty-state admin-empty-card"><strong>ไม่พบความคิดเห็นที่ค้นหา</strong><span>ลองใช้ข้อความบางส่วน ชื่อสถานศึกษา หรือจังหวัด</span></div> : null}
-        {!commentsLoading && filteredComments.length > 0 ? <CommentList comments={paginatedComments} busy={commentBusy} onDelete={(comment) => setPendingCommentDeletion({ type: "one", comment })} /> : null}
-        {!commentsLoading && filteredComments.length > 0 ? (
-          <nav className="admin-pagination" aria-label="แบ่งหน้ารายการความคิดเห็น">
-            <p>แสดงรายการ {(firstCommentIndex + 1).toLocaleString("th-TH")}–{Math.min(firstCommentIndex + COMMENTS_PER_PAGE, filteredComments.length).toLocaleString("th-TH")} จาก {filteredComments.length.toLocaleString("th-TH")} รายการ</p>
+        {submissionsLoading ? <p className="admin-empty-state" role="status">กำลังโหลดรายการแบบประเมิน…</p> : null}
+        {!submissionsLoading && submissions.length === 0 ? <div className="admin-empty-state admin-empty-card"><strong>ยังไม่มีแบบประเมิน</strong><span>เมื่อมีผู้ส่งแบบประเมิน รายการจะแสดงที่ส่วนนี้</span></div> : null}
+        {!submissionsLoading && submissions.length > 0 && filteredSubmissions.length === 0 ? <div className="admin-empty-state admin-empty-card"><strong>ไม่พบแบบประเมินที่ค้นหา</strong><span>ลองใช้ชื่อสถานศึกษา ผู้ประเมิน จังหวัด หรือข้อความบางส่วน</span></div> : null}
+        {!submissionsLoading && filteredSubmissions.length > 0 ? <SubmissionList submissions={paginatedSubmissions} busy={submissionBusy} onDelete={(submission) => setPendingSubmissionDeletion({ type: "one", submission })} /> : null}
+        {!submissionsLoading && filteredSubmissions.length > 0 ? (
+          <nav className="admin-pagination" aria-label="แบ่งหน้ารายการแบบประเมิน">
+            <p>แสดงรายการ {(firstSubmissionIndex + 1).toLocaleString("th-TH")}–{Math.min(firstSubmissionIndex + SUBMISSIONS_PER_PAGE, filteredSubmissions.length).toLocaleString("th-TH")} จาก {filteredSubmissions.length.toLocaleString("th-TH")} ชุด</p>
             <div>
-              <button className="btn btn-secondary" type="button" disabled={activeCommentPage === 1} onClick={() => setCommentPage(Math.max(1, activeCommentPage - 1))}>← ก่อนหน้า</button>
-              <span aria-live="polite">หน้า {activeCommentPage.toLocaleString("th-TH")} จาก {totalCommentPages.toLocaleString("th-TH")}</span>
-              <button className="btn btn-secondary" type="button" disabled={activeCommentPage === totalCommentPages} onClick={() => setCommentPage(Math.min(totalCommentPages, activeCommentPage + 1))}>ถัดไป →</button>
+              <button className="btn btn-secondary" type="button" disabled={activeSubmissionPage === 1} onClick={() => setSubmissionPage(Math.max(1, activeSubmissionPage - 1))}>← ก่อนหน้า</button>
+              <span aria-live="polite">หน้า {activeSubmissionPage.toLocaleString("th-TH")} จาก {totalSubmissionPages.toLocaleString("th-TH")}</span>
+              <button className="btn btn-secondary" type="button" disabled={activeSubmissionPage === totalSubmissionPages} onClick={() => setSubmissionPage(Math.min(totalSubmissionPages, activeSubmissionPage + 1))}>ถัดไป →</button>
             </div>
           </nav>
         ) : null}
       </section>
 
-      <ConfirmationDialog pending={pendingCommentDeletion} busy={commentBusy} onCancel={() => setPendingCommentDeletion(null)} onConfirm={() => void confirmCommentDeletion()} />
+      <ConfirmationDialog pending={pendingSubmissionDeletion} busy={submissionBusy} onCancel={() => setPendingSubmissionDeletion(null)} onConfirm={() => void confirmSubmissionDeletion()} />
     </main>
   );
 }
