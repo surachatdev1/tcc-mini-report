@@ -8,6 +8,12 @@ import {
   subscribeDashboardViewers,
   type AccessEntry,
 } from "@/lib/integrations/access-control-repository";
+import {
+  deleteAllAssessmentComments,
+  deleteAssessmentComment,
+  subscribeAssessmentComments,
+  type AssessmentComment,
+} from "@/lib/integrations/comment-moderation-repository";
 
 function friendlyAdminError(error: unknown) {
   const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
@@ -38,6 +44,79 @@ function ViewerList({ entries, onRemove }: { entries: AccessEntry[]; onRemove: (
   );
 }
 
+type PendingCommentDeletion =
+  | { type: "one"; comment: AssessmentComment }
+  | { type: "all"; count: number };
+
+function ConfirmationDialog({ pending, busy, onCancel, onConfirm }: {
+  pending: PendingCommentDeletion | null;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    if (!pending) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape" && !busy) onCancel();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [busy, onCancel, pending]);
+
+  if (!pending) return null;
+  const deletingAll = pending.type === "all";
+
+  return (
+    <div className="confirmation-backdrop">
+      <section className="confirmation-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmation-title" aria-describedby="confirmation-description">
+        <span className="confirmation-icon" aria-hidden="true">!</span>
+        <div>
+          <p className="section-kicker">โปรดยืนยันอีกครั้ง</p>
+          <h2 id="confirmation-title">{deletingAll ? `ลบความคิดเห็นทั้งหมด ${pending.count.toLocaleString("th-TH")} รายการหรือไม่` : "ลบความคิดเห็นนี้หรือไม่"}</h2>
+          <p id="confirmation-description">{deletingAll
+            ? "ข้อความเหตุผลและข้อมูลประกอบทั้งหมดจะถูกลบออกจากผลประเมิน แต่คะแนนและผลสรุปจะยังคงเดิม"
+            : "ข้อความนี้จะถูกลบออกจากผลประเมิน แต่คะแนนของข้อนี้และผลสรุปจะยังคงเดิม"}</p>
+          {!deletingAll ? <blockquote>{pending.comment.text}</blockquote> : null}
+          <strong className="confirmation-warning">เมื่อลบแล้วจะไม่สามารถกู้คืนข้อความได้</strong>
+          <div className="confirmation-actions">
+            <button className="btn btn-secondary" type="button" autoFocus disabled={busy} onClick={onCancel}>ยกเลิก</button>
+            <button className="btn btn-danger" type="button" disabled={busy} onClick={onConfirm}>{busy ? "กำลังลบ…" : deletingAll ? "ยืนยันลบทั้งหมด" : "ยืนยันลบความคิดเห็น"}</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CommentList({ comments, busy, onDelete }: {
+  comments: AssessmentComment[];
+  busy: boolean;
+  onDelete: (comment: AssessmentComment) => void;
+}) {
+  return (
+    <ul className="admin-comment-list">
+      {comments.map((comment) => (
+        <li key={comment.id}>
+          <div className="admin-comment-head">
+            <div>
+              <span className="admin-comment-number">ข้อ {comment.questionNumber}</span>
+              <strong>{comment.questionTitle}</strong>
+            </div>
+            <button className="admin-remove-button" type="button" disabled={busy} onClick={() => onDelete(comment)}>ลบความคิดเห็น</button>
+          </div>
+          <blockquote>{comment.text}</blockquote>
+          <div className="admin-comment-meta">
+            <span>{comment.institution}</span>
+            <span>{comment.province}</span>
+            <span>{comment.topicLabel}</span>
+            <span>วันที่ประเมิน {comment.assessmentDate || "—"}</span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function AdminWorkspace() {
   const [viewers, setViewers] = useState<AccessEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +126,11 @@ export function AdminWorkspace() {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [query, setQuery] = useState("");
+  const [comments, setComments] = useState<AssessmentComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [commentQuery, setCommentQuery] = useState("");
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [pendingCommentDeletion, setPendingCommentDeletion] = useState<PendingCommentDeletion | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -75,11 +159,44 @@ export function AdminWorkspace() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
+
+    void subscribeAssessmentComments((nextComments) => {
+      if (!active) return;
+      setComments(nextComments);
+      setCommentsLoading(false);
+    }, (nextError) => {
+      if (!active) return;
+      setError(friendlyAdminError(nextError));
+      setCommentsLoading(false);
+    }).then((nextUnsubscribe) => {
+      if (active) unsubscribe = nextUnsubscribe;
+      else nextUnsubscribe();
+    }).catch((nextError) => {
+      if (!active) return;
+      setError(friendlyAdminError(nextError));
+      setCommentsLoading(false);
+    });
+
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, []);
+
   const filteredViewers = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("th");
     if (!normalizedQuery) return viewers;
     return viewers.filter((entry) => `${entry.name} ${entry.email}`.toLocaleLowerCase("th").includes(normalizedQuery));
   }, [query, viewers]);
+
+  const filteredComments = useMemo(() => {
+    const normalizedQuery = commentQuery.trim().toLocaleLowerCase("th");
+    if (!normalizedQuery) return comments;
+    return comments.filter((comment) => `${comment.text} ${comment.institution} ${comment.province} ${comment.topicLabel} ${comment.questionTitle}`.toLocaleLowerCase("th").includes(normalizedQuery));
+  }, [commentQuery, comments]);
 
   async function submitViewer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -108,6 +225,27 @@ export function AdminWorkspace() {
     }).catch((nextError) => {
       setError(friendlyAdminError(nextError));
     }).finally(() => setBusy(false));
+  }
+
+  async function confirmCommentDeletion() {
+    if (!pendingCommentDeletion || commentBusy) return;
+    setCommentBusy(true);
+    setError("");
+    setStatus("");
+    try {
+      if (pendingCommentDeletion.type === "one") {
+        await deleteAssessmentComment(pendingCommentDeletion.comment);
+        setStatus("ลบความคิดเห็นที่เลือกแล้ว โดยคะแนนและผลประเมินยังคงเดิม");
+      } else {
+        await deleteAllAssessmentComments(comments);
+        setStatus(`ลบความคิดเห็นทั้งหมด ${comments.length.toLocaleString("th-TH")} รายการแล้ว โดยคะแนนและผลประเมินยังคงเดิม`);
+      }
+      setPendingCommentDeletion(null);
+    } catch (nextError) {
+      setError(friendlyAdminError(nextError));
+    } finally {
+      setCommentBusy(false);
+    }
   }
 
   return (
@@ -174,6 +312,36 @@ export function AdminWorkspace() {
           {!loading && filteredViewers.length > 0 ? <ViewerList entries={filteredViewers} onRemove={removeViewer} /> : null}
         </div>
       </section>
+
+      <section className="panel admin-comments-panel" aria-labelledby="admin-comments-title">
+        <div className="admin-comments-heading">
+          <div>
+            <p className="section-kicker">ข้อมูลจากแบบประเมิน</p>
+            <h2 id="admin-comments-title">จัดการความคิดเห็นและเหตุผลประกอบ</h2>
+            <p>ตรวจสอบข้อความที่ผู้ตอบระบุในแต่ละข้อ การลบข้อความจะไม่เปลี่ยนคะแนนหรือผลสรุปของแบบประเมิน</p>
+          </div>
+          <div className="admin-comment-count" aria-label={`มีความคิดเห็น ${comments.length} รายการ`}>
+            <span>ความคิดเห็นทั้งหมด</span>
+            <strong>{commentsLoading ? "—" : comments.length.toLocaleString("th-TH")}</strong>
+            <small>รายการที่ยังมีข้อความ</small>
+          </div>
+        </div>
+
+        <div className="admin-comments-toolbar">
+          <label className="admin-search-field" htmlFor="comment-search">
+            <span>ค้นหาความคิดเห็น สถานศึกษา หรือจังหวัด</span>
+            <input id="comment-search" type="search" placeholder="พิมพ์คำที่ต้องการค้นหา" value={commentQuery} onChange={(event) => setCommentQuery(event.target.value)} />
+          </label>
+          <button className="btn btn-danger-outline" type="button" disabled={commentsLoading || commentBusy || comments.length === 0} onClick={() => setPendingCommentDeletion({ type: "all", count: comments.length })}>ลบความคิดเห็นทั้งหมด</button>
+        </div>
+
+        {commentsLoading ? <p className="admin-empty-state" role="status">กำลังโหลดความคิดเห็น…</p> : null}
+        {!commentsLoading && comments.length === 0 ? <div className="admin-empty-state admin-empty-card"><strong>ยังไม่มีความคิดเห็น</strong><span>เมื่อมีการส่งแบบประเมินพร้อมเหตุผลประกอบ รายการจะแสดงที่ส่วนนี้</span></div> : null}
+        {!commentsLoading && comments.length > 0 && filteredComments.length === 0 ? <div className="admin-empty-state admin-empty-card"><strong>ไม่พบความคิดเห็นที่ค้นหา</strong><span>ลองใช้ข้อความบางส่วน ชื่อสถานศึกษา หรือจังหวัด</span></div> : null}
+        {!commentsLoading && filteredComments.length > 0 ? <CommentList comments={filteredComments} busy={commentBusy} onDelete={(comment) => setPendingCommentDeletion({ type: "one", comment })} /> : null}
+      </section>
+
+      <ConfirmationDialog pending={pendingCommentDeletion} busy={commentBusy} onCancel={() => setPendingCommentDeletion(null)} onConfirm={() => void confirmCommentDeletion()} />
     </main>
   );
 }

@@ -10,6 +10,7 @@ const authGateSource = await readFile(new URL("../components/dashboard-auth-gate
 const protectedAreaSource = await readFile(new URL("../components/firebase-protected-area.tsx", import.meta.url), "utf8");
 const adminSource = await readFile(new URL("../components/admin-workspace.tsx", import.meta.url), "utf8");
 const accessRepositorySource = await readFile(new URL("../lib/integrations/access-control-repository.ts", import.meta.url), "utf8");
+const commentModerationSource = await readFile(new URL("../lib/integrations/comment-moderation-repository.ts", import.meta.url), "utf8");
 const firebaseSpaSource = await readFile(new URL("../firebase-spa/main.tsx", import.meta.url), "utf8");
 const dashboardSource = await readFile(new URL("../components/dashboard-workspace.tsx", import.meta.url), "utf8");
 const dashboardRepositorySource = await readFile(new URL("../lib/integrations/dashboard-repository.ts", import.meta.url), "utf8");
@@ -73,7 +74,8 @@ test("Firestore ให้เฉพาะผู้มีสิทธิ์อ่�
   assert.doesNotMatch(rules, /dashboard_domains|currentDomain/);
   assert.match(rules, /allow read: if hasDashboardAccess\(\);/);
   assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && validSubmission\(\);/);
-  assert.match(rules, /allow update, delete: if false;/);
+  assert.match(rules, /allow update: if validCommentModeration\(\);/);
+  assert.match(rules, /allow delete: if false;/);
   assert.match(rules, /match \/benchmarks\/\{benchmarkId\}[\s\S]*allow read: if true;/);
   assert.doesNotMatch(rules, /allow\s+(read,\s*)?write:\s*if\s+true/);
 });
@@ -115,6 +117,25 @@ test("Admin เจ้าของโครงการจัดการ Viewer 
   assert.match(rules, /allow create, update: if isAdmin\(\) && validMemberPolicy\(email\);/);
   assert.match(rules, /allow list: if isAdmin\(\);/);
   assert.doesNotMatch(rules, /dashboard_admins|dashboard_domains|isSuperAdmin/);
+});
+
+test("Admin ตรวจสอบและลบความคิดเห็นได้โดยต้องยืนยัน และไม่เปลี่ยนคะแนน", () => {
+  assert.match(adminSource, /จัดการความคิดเห็นและเหตุผลประกอบ/);
+  assert.match(adminSource, /deleteAssessmentComment/);
+  assert.match(adminSource, /deleteAllAssessmentComments/);
+  assert.match(adminSource, /ลบความคิดเห็นทั้งหมด/);
+  assert.match(adminSource, /role="alertdialog"/);
+  assert.match(adminSource, /เมื่อลบแล้วจะไม่สามารถกู้คืนข้อความได้/);
+  assert.match(commentModerationSource, /isAdminEmail/);
+  assert.match(commentModerationSource, /answers\.\$\{comment\.questionId\}\.explanation/);
+  assert.match(commentModerationSource, /offset \+= 400/);
+  assert.doesNotMatch(commentModerationSource, /deleteDoc/);
+  assert.match(rules, /function validCommentModeration\(\)/);
+  assert.match(rules, /data\.diff\(previous\)\.affectedKeys\(\)\.hasOnly\(\['answers'\]\)/);
+  assert.match(rules, /answer\.score == previousAnswer\.score/);
+  assert.match(rules, /answer\.explanation == ''/);
+  assert.match(rules, /allow update: if validCommentModeration\(\);/);
+  assert.match(rules, /allow delete: if false;/);
 });
 
 test("เมนูสาธารณะแสดงเฉพาะแบบประเมินและ Dashboard", () => {
@@ -209,7 +230,8 @@ test("ผู้ประเมินสาธารณะบันทึกผ�
   assert.doesNotMatch(assessmentRepositorySource, /Firebase ปฏิเสธการบันทึก/);
   assert.doesNotMatch(assessmentRepositorySource, /ยังไม่ได้ตั้งค่า Firebase สำหรับเว็บไซต์นี้/);
   assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && validSubmission\(\);/);
-  assert.match(rules, /allow update, delete: if false;/);
+  assert.match(rules, /allow update: if validCommentModeration\(\);/);
+  assert.match(rules, /allow delete: if false;/);
   const publicWriteStart = assessmentRepositorySource.indexOf("batch.set(documentRef");
   const privateWriteStart = assessmentRepositorySource.indexOf("batch.set(assessorDocumentRef");
   const publicWrite = assessmentRepositorySource.slice(publicWriteStart, privateWriteStart);
