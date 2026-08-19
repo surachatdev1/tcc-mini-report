@@ -124,6 +124,9 @@ test("Admin ตรวจสอบและลบความคิดเห็�
   assert.match(adminSource, /deleteAssessmentComment/);
   assert.match(adminSource, /deleteAllAssessmentComments/);
   assert.match(adminSource, /ลบความคิดเห็นทั้งหมด/);
+  assert.match(adminSource, /const COMMENTS_PER_PAGE = 20/);
+  assert.match(adminSource, /แบ่งหน้ารายการความคิดเห็น/);
+  assert.match(adminSource, /หน้า \{activeCommentPage\.toLocaleString/);
   assert.match(adminSource, /role="alertdialog"/);
   assert.match(adminSource, /เมื่อลบแล้วจะไม่สามารถกู้คืนข้อความได้/);
   assert.match(commentModerationSource, /isAdminEmail/);

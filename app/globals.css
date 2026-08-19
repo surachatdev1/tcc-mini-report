@@ -1059,6 +1059,19 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   padding: 4px 9px;
   font-size: 13px;
 }
+.admin-pagination {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+.admin-pagination p { margin: 0; color: var(--muted); font-size: 14px; }
+.admin-pagination > div { display: flex; align-items: center; gap: 10px; }
+.admin-pagination .btn { min-height: 44px; padding-inline: 14px; }
+.admin-pagination span { min-width: 112px; color: var(--ink); text-align: center; font-weight: 600; }
 
 .confirmation-backdrop {
   position: fixed;
@@ -1131,6 +1144,10 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   .admin-comments-toolbar .btn { width: 100%; }
   .admin-comment-head { display: grid; }
   .admin-comment-head .admin-remove-button { width: 100%; }
+  .admin-pagination { display: grid; }
+  .admin-pagination > div { display: grid; grid-template-columns: 1fr; }
+  .admin-pagination .btn { width: 100%; }
+  .admin-pagination span { grid-row: 1; min-width: 0; padding-bottom: 2px; }
   .confirmation-dialog { grid-template-columns: 1fr; }
   .confirmation-actions { display: grid; grid-template-columns: 1fr; }
   .confirmation-actions .btn { width: 100%; }

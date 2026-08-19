@@ -15,6 +15,8 @@ import {
   type AssessmentComment,
 } from "@/lib/integrations/comment-moderation-repository";
 
+const COMMENTS_PER_PAGE = 20;
+
 function friendlyAdminError(error: unknown) {
   const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
   if (code.includes("permission-denied")) return "ไม่มีสิทธิ์แก้ไขรายการนี้ หรือ Firestore Rules รุ่นล่าสุดยังไม่ได้ Deploy";
@@ -129,6 +131,7 @@ export function AdminWorkspace() {
   const [comments, setComments] = useState<AssessmentComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [commentQuery, setCommentQuery] = useState("");
+  const [commentPage, setCommentPage] = useState(1);
   const [commentBusy, setCommentBusy] = useState(false);
   const [pendingCommentDeletion, setPendingCommentDeletion] = useState<PendingCommentDeletion | null>(null);
 
@@ -197,6 +200,10 @@ export function AdminWorkspace() {
     if (!normalizedQuery) return comments;
     return comments.filter((comment) => `${comment.text} ${comment.institution} ${comment.province} ${comment.topicLabel} ${comment.questionTitle}`.toLocaleLowerCase("th").includes(normalizedQuery));
   }, [commentQuery, comments]);
+  const totalCommentPages = Math.max(1, Math.ceil(filteredComments.length / COMMENTS_PER_PAGE));
+  const activeCommentPage = Math.min(commentPage, totalCommentPages);
+  const firstCommentIndex = (activeCommentPage - 1) * COMMENTS_PER_PAGE;
+  const paginatedComments = filteredComments.slice(firstCommentIndex, firstCommentIndex + COMMENTS_PER_PAGE);
 
   async function submitViewer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -330,7 +337,7 @@ export function AdminWorkspace() {
         <div className="admin-comments-toolbar">
           <label className="admin-search-field" htmlFor="comment-search">
             <span>ค้นหาความคิดเห็น สถานศึกษา หรือจังหวัด</span>
-            <input id="comment-search" type="search" placeholder="พิมพ์คำที่ต้องการค้นหา" value={commentQuery} onChange={(event) => setCommentQuery(event.target.value)} />
+            <input id="comment-search" type="search" placeholder="พิมพ์คำที่ต้องการค้นหา" value={commentQuery} onChange={(event) => { setCommentQuery(event.target.value); setCommentPage(1); }} />
           </label>
           <button className="btn btn-danger-outline" type="button" disabled={commentsLoading || commentBusy || comments.length === 0} onClick={() => setPendingCommentDeletion({ type: "all", count: comments.length })}>ลบความคิดเห็นทั้งหมด</button>
         </div>
@@ -338,7 +345,17 @@ export function AdminWorkspace() {
         {commentsLoading ? <p className="admin-empty-state" role="status">กำลังโหลดความคิดเห็น…</p> : null}
         {!commentsLoading && comments.length === 0 ? <div className="admin-empty-state admin-empty-card"><strong>ยังไม่มีความคิดเห็น</strong><span>เมื่อมีการส่งแบบประเมินพร้อมเหตุผลประกอบ รายการจะแสดงที่ส่วนนี้</span></div> : null}
         {!commentsLoading && comments.length > 0 && filteredComments.length === 0 ? <div className="admin-empty-state admin-empty-card"><strong>ไม่พบความคิดเห็นที่ค้นหา</strong><span>ลองใช้ข้อความบางส่วน ชื่อสถานศึกษา หรือจังหวัด</span></div> : null}
-        {!commentsLoading && filteredComments.length > 0 ? <CommentList comments={filteredComments} busy={commentBusy} onDelete={(comment) => setPendingCommentDeletion({ type: "one", comment })} /> : null}
+        {!commentsLoading && filteredComments.length > 0 ? <CommentList comments={paginatedComments} busy={commentBusy} onDelete={(comment) => setPendingCommentDeletion({ type: "one", comment })} /> : null}
+        {!commentsLoading && filteredComments.length > 0 ? (
+          <nav className="admin-pagination" aria-label="แบ่งหน้ารายการความคิดเห็น">
+            <p>แสดงรายการ {(firstCommentIndex + 1).toLocaleString("th-TH")}–{Math.min(firstCommentIndex + COMMENTS_PER_PAGE, filteredComments.length).toLocaleString("th-TH")} จาก {filteredComments.length.toLocaleString("th-TH")} รายการ</p>
+            <div>
+              <button className="btn btn-secondary" type="button" disabled={activeCommentPage === 1} onClick={() => setCommentPage(Math.max(1, activeCommentPage - 1))}>← ก่อนหน้า</button>
+              <span aria-live="polite">หน้า {activeCommentPage.toLocaleString("th-TH")} จาก {totalCommentPages.toLocaleString("th-TH")}</span>
+              <button className="btn btn-secondary" type="button" disabled={activeCommentPage === totalCommentPages} onClick={() => setCommentPage(Math.min(totalCommentPages, activeCommentPage + 1))}>ถัดไป →</button>
+            </div>
+          </nav>
+        ) : null}
       </section>
 
       <ConfirmationDialog pending={pendingCommentDeletion} busy={commentBusy} onCancel={() => setPendingCommentDeletion(null)} onConfirm={() => void confirmCommentDeletion()} />
