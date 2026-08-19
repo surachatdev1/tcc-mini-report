@@ -124,6 +124,12 @@ test("Admin ลบแบบประเมินหนึ่งชุดหร�
   assert.match(adminSource, /deleteAssessmentSubmission/);
   assert.match(adminSource, /deleteAllAssessmentSubmissions/);
   assert.match(adminSource, /ลบแบบประเมินทั้งหมด/);
+  assert.match(adminSource, /<details className="admin-submission-record">/);
+  assert.match(adminSource, /สถานศึกษา/);
+  assert.match(adminSource, /ผู้ประเมิน/);
+  assert.match(adminSource, /ประเภทการประเมิน/);
+  assert.match(adminSource, /ดูรายละเอียด/);
+  assert.match(adminSource, /คำตอบและเหตุผลประกอบรายข้อ/);
   assert.match(adminSource, /const SUBMISSIONS_PER_PAGE = 20/);
   assert.match(adminSource, /แบ่งหน้ารายการแบบประเมิน/);
   assert.match(adminSource, /หน้า \{activeSubmissionPage\.toLocaleString/);

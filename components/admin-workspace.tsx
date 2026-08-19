@@ -101,22 +101,61 @@ function SubmissionList({ submissions, busy, onDelete }: {
         const explanations = submission.questionResults.filter((question) => question.explanation.trim());
         return (
           <li key={submission.id}>
-            <div className="admin-submission-head">
-              <div>
-                <span className="admin-submission-type">{submission.topicLabel}</span>
-                <strong>{submission.institution}</strong>
-                <small>เลขอ้างอิง {submission.id.slice(0, 8).toUpperCase()}</small>
+            <details className="admin-submission-record">
+              <summary className="admin-submission-row">
+                <span className="admin-submission-row-field admin-submission-school">
+                  <small>สถานศึกษา</small>
+                  <strong>{submission.institution}</strong>
+                </span>
+                <span className="admin-submission-row-field">
+                  <small>ผู้ประเมิน</small>
+                  <strong>{submission.assessorName || "ไม่ระบุชื่อ"}</strong>
+                  <span>{submission.respondentRole || "ไม่ระบุบทบาท"}</span>
+                </span>
+                <span className="admin-submission-row-field">
+                  <small>ประเภทการประเมิน</small>
+                  <strong className="admin-submission-type">{submission.topicLabel}</strong>
+                </span>
+                <span className="admin-submission-row-field">
+                  <small>พื้นที่และวันที่</small>
+                  <strong>{submission.province}</strong>
+                  <span>{submission.assessmentDate || "—"}</span>
+                </span>
+                <span className="admin-submission-open-label" aria-hidden="true">
+                  <span className="when-closed">ดูรายละเอียด</span>
+                  <span className="when-open">ซ่อนรายละเอียด</span>
+                  <span className="admin-submission-chevron">⌄</span>
+                </span>
+              </summary>
+
+              <div className="admin-submission-expanded">
+                <div className="admin-submission-head">
+                  <div>
+                    <strong>รายละเอียดแบบประเมิน</strong>
+                    <small>เลขอ้างอิง {submission.id.slice(0, 8).toUpperCase()} · บันทึกเมื่อ {new Date(submission.createdAt).toLocaleString("th-TH")}</small>
+                  </div>
+                  <button className="admin-remove-button" type="button" disabled={busy} onClick={() => onDelete(submission)}>ลบแบบประเมินนี้</button>
+                </div>
+                <div className="admin-submission-summary">
+                  <div><span>ผลคะแนนรวม</span><strong>{submission.score.toFixed(1)}%</strong><small>ระดับ {submission.grade}</small></div>
+                  <div><span>ตำแหน่ง</span><strong>{submission.position || "ไม่ระบุ"}</strong><small>{submission.assessorPhone || "ไม่ระบุเบอร์โทรศัพท์"}</small></div>
+                  <div><span>เหตุผลประกอบ</span><strong>{explanations.length.toLocaleString("th-TH")} ข้อ</strong><small>จากคำถามทั้งหมด {submission.questionResults.length.toLocaleString("th-TH")} ข้อ</small></div>
+                </div>
+                <section className="admin-submission-details" aria-label="คำตอบและเหตุผลประกอบรายข้อ">
+                  <h3>คำตอบและเหตุผลประกอบรายข้อ</h3>
+                  <div>{submission.questionResults.map((question) => (
+                    <article key={question.id}>
+                      <div className="admin-question-result-head">
+                        <strong>ข้อ {question.number} · {question.title}</strong>
+                        <span>ระดับ {question.score ?? "—"}/3 · {question.level}</span>
+                      </div>
+                      {question.selectedDescription ? <p className="admin-selected-answer">คำตอบที่เลือก: {question.selectedDescription}</p> : null}
+                      <p><strong>เหตุผลประกอบ:</strong> {question.explanation.trim() || "ไม่ได้ระบุ"}</p>
+                      {question.recommendation ? <p className="admin-question-recommendation"><strong>ข้อเสนอแนะ:</strong> {question.recommendation}</p> : null}
+                    </article>
+                  ))}</div>
+                </section>
               </div>
-              <button className="admin-remove-button" type="button" disabled={busy} onClick={() => onDelete(submission)}>ลบแบบประเมินนี้</button>
-            </div>
-            <div className="admin-submission-summary">
-              <div><span>ผลคะแนน</span><strong>{submission.score.toFixed(1)}%</strong><small>ระดับ {submission.grade}</small></div>
-              <div><span>ผู้ประเมิน</span><strong>{submission.assessorName || "ไม่ระบุ"}</strong><small>{submission.respondentRole || "ไม่ระบุบทบาท"}</small></div>
-              <div><span>พื้นที่และวันที่</span><strong>{submission.province}</strong><small>{submission.assessmentDate || "—"}</small></div>
-            </div>
-            <details className="admin-submission-details">
-              <summary>ดูเหตุผลประกอบทั้งหมด {explanations.length.toLocaleString("th-TH")} ข้อ</summary>
-              {explanations.length ? <div>{explanations.map((question) => <article key={question.id}><strong>ข้อ {question.number} · {question.title}</strong><p>{question.explanation}</p></article>)}</div> : <p>แบบประเมินชุดนี้ไม่มีข้อความเหตุผลประกอบ</p>}
             </details>
           </li>
         );

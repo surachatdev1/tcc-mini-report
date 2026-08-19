@@ -1026,8 +1026,34 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #fff;
-  padding: 16px;
+  overflow: hidden;
 }
+.admin-submission-record > summary { list-style: none; }
+.admin-submission-record > summary::-webkit-details-marker { display: none; }
+.admin-submission-row {
+  display: grid;
+  grid-template-columns: minmax(210px,1.35fr) minmax(165px,.9fr) minmax(180px,1fr) minmax(130px,.7fr) auto;
+  gap: 18px;
+  align-items: center;
+  min-height: 88px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background-color .18s ease;
+}
+.admin-submission-row:hover { background: #f8fbfa; }
+.admin-submission-record[open] > .admin-submission-row { border-bottom: 1px solid var(--line); background: var(--surface-soft); }
+.admin-submission-row-field { display: grid; min-width: 0; gap: 2px; }
+.admin-submission-row-field small { color: var(--muted); font-size: 12px; font-weight: 600; }
+.admin-submission-row-field > strong:not(.admin-submission-type) { overflow: hidden; color: var(--ink); line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.admin-submission-row-field > span { overflow: hidden; color: var(--muted); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-submission-school > strong { font-size: 17px; }
+.admin-submission-open-label { display: inline-flex; align-items: center; justify-content: flex-end; gap: 7px; color: var(--brand-strong); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.admin-submission-open-label .when-open { display: none; }
+.admin-submission-record[open] .admin-submission-open-label .when-closed { display: none; }
+.admin-submission-record[open] .admin-submission-open-label .when-open { display: inline; }
+.admin-submission-chevron { display: inline-block; font-size: 20px; line-height: 1; transition: transform .18s ease; }
+.admin-submission-record[open] .admin-submission-chevron { transform: rotate(180deg); }
+.admin-submission-expanded { padding: 16px; }
 .admin-submission-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
 .admin-submission-head > div { display: grid; min-width: 0; gap: 4px; }
 .admin-submission-head strong { font-size: 18px; line-height: 1.45; }
@@ -1051,13 +1077,16 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
 .admin-submission-summary > div { display: grid; border-radius: 10px; background: var(--surface-soft); padding: 10px 12px; }
 .admin-submission-summary span, .admin-submission-summary small { color: var(--muted); font-size: 13px; }
 .admin-submission-summary strong { margin-block: 2px; line-height: 1.4; }
-.admin-submission-details { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
-.admin-submission-details summary { color: var(--brand-strong); cursor: pointer; font-weight: 700; }
+.admin-submission-details { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+.admin-submission-details h3 { margin: 0; font-size: 17px; }
 .admin-submission-details > div { display: grid; gap: 9px; margin-top: 12px; }
 .admin-submission-details article { border-left: 4px solid var(--accent); border-radius: 0 9px 9px 0; background: #fffaf0; padding: 11px 13px; }
 .admin-submission-details article strong { line-height: 1.5; }
 .admin-submission-details article p { margin: 5px 0 0; color: #4b4026; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
-.admin-submission-details > p { margin: 10px 0 0; color: var(--muted); }
+.admin-question-result-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
+.admin-question-result-head > span { flex: 0 0 auto; border-radius: 999px; background: #fff; color: var(--brand-strong); padding: 3px 9px; font-size: 12px; font-weight: 700; }
+.admin-submission-details .admin-selected-answer { color: var(--muted); }
+.admin-submission-details .admin-question-recommendation { border-radius: 7px; background: #fff; padding: 8px 10px; }
 .confirmation-record {
   display: grid;
   gap: 3px;
@@ -1126,6 +1155,9 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
 @media (max-width: 900px) {
   .admin-viewer-panel, .admin-page-header, .admin-submissions-heading { grid-template-columns: 1fr; }
   .admin-add-column { position: static; }
+  .admin-submission-row { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-submission-school { grid-column: 1 / -1; }
+  .admin-submission-open-label { grid-column: 1 / -1; justify-content: flex-start; border-top: 1px solid var(--line); padding-top: 9px; }
 }
 
 @media (max-width: 640px) {
@@ -1141,9 +1173,14 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   .admin-remove-button { width: 100%; }
   .admin-submissions-toolbar { grid-template-columns: 1fr; }
   .admin-submissions-toolbar .btn { width: 100%; }
+  .admin-submission-row { grid-template-columns: 1fr; gap: 11px; }
+  .admin-submission-school, .admin-submission-open-label { grid-column: auto; }
+  .admin-submission-row-field > strong:not(.admin-submission-type), .admin-submission-row-field > span { white-space: normal; }
   .admin-submission-head { display: grid; }
   .admin-submission-head .admin-remove-button { width: 100%; }
   .admin-submission-summary { grid-template-columns: 1fr; }
+  .admin-question-result-head { display: grid; }
+  .admin-question-result-head > span { width: fit-content; }
   .admin-pagination { display: grid; }
   .admin-pagination > div { display: grid; grid-template-columns: 1fr; }
   .admin-pagination .btn { width: 100%; }
@@ -1155,5 +1192,5 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
 
 @media (prefers-reduced-motion: reduce) {
   .dashboard-login-card, .admin-page-header, .admin-viewer-panel, .admin-submissions-panel { animation: none; }
-  .google-signin-button, .admin-access-list li { transition: none; }
+  .google-signin-button, .admin-access-list li, .admin-submission-row, .admin-submission-chevron { transition: none; }
 }
