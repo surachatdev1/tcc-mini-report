@@ -16,7 +16,8 @@ service cloud.firestore {
     function isProjectAdminEmail(email) {
       return email in [
         'surachat.dev1@gmail.com',
-        'nuonnaka@gmail.com'
+        'nuonnaka@gmail.com',
+        'busssafety69@gmail.com'
       ];
     }
 

@@ -108,11 +108,13 @@ test("Admin เจ้าของโครงการจัดการ Viewer 
   assert.doesNotMatch(accessRepositorySource, /dashboard_admins|dashboard_domains|createUserWithEmailAndPassword/);
   assert.match(accessRolesSource, /surachat\.dev1@gmail\.com/);
   assert.match(accessRolesSource, /nuonnaka@gmail\.com/);
+  assert.match(accessRolesSource, /busssafety69@gmail\.com/);
   assert.match(accessRepositorySource, /isAdminEmail/);
   assert.match(rules, /request\.auth\.token\.get\('email_verified', false\) == true/);
   assert.match(rules, /function isProjectAdminEmail\(email\)/);
   assert.match(rules, /surachat\.dev1@gmail\.com/);
   assert.match(rules, /nuonnaka@gmail\.com/);
+  assert.match(rules, /busssafety69@gmail\.com/);
   assert.match(rules, /allow create, update: if isAdmin\(\) && validMemberPolicy\(email\);/);
   assert.match(rules, /allow list: if isAdmin\(\);/);
   assert.doesNotMatch(rules, /dashboard_admins|dashboard_domains|isSuperAdmin/);

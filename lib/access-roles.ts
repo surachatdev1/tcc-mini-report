@@ -1,6 +1,7 @@
 export const ADMIN_EMAILS = [
   "surachat.dev1@gmail.com",
   "nuonnaka@gmail.com",
+  "busssafety69@gmail.com",
 ] as const;
 
 export type SystemRole = "admin" | "viewer" | "none";
