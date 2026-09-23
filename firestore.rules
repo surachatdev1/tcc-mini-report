@@ -71,15 +71,19 @@ service cloud.firestore {
     }
 
     function validAnswer(answer) {
+      // Cache repeated field lookups to stay below the Rules expression budget
+      // when validating a complete 12-question submission.
+      let score = answer.score;
+      let explanation = answer.explanation;
+      let length = explanation.size();
       return answer is map
-        && answer.keys().hasAll(['score', 'explanation'])
+        // Required fields are accessed above: a missing field fails closed.
         && answer.keys().hasOnly(['score', 'explanation'])
-        && answer.score is int
-        && answer.score >= 0
-        && answer.score <= 3
-        && answer.explanation is string
-        && answer.explanation.size() >= 1
-        && answer.explanation.size() <= 500;
+        && score is int
+        && score in [0, 1, 2, 3]
+        && explanation is string
+        && length >= 1
+        && length <= 500;
     }
 
     function exactAnswerKeys(answers, keys) {

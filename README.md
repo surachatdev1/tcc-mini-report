@@ -33,6 +33,7 @@ npm run firebase:deploy
 - `npm run firebase:release` ตรวจโค้ด ทดสอบ Deploy และ Smoke test ครบในคำสั่งเดียว
 - `npm run schools:import` อัปเดตรายชื่อสถานศึกษา 12 จังหวัดจากข้อมูลภาครัฐ
 - `npm test` ตรวจ Firebase build สูตรคะแนน ความครบถ้วนของเกณฑ์ และข้อมูลสถานศึกษา
+- `npm run test:rules` ตรวจการส่งแบบประเมินครบทุกประเภทและสิทธิ์ข้อมูลกับ Firestore Emulator (ต้องมี Java 21+) โดยไม่เขียนข้อมูลเข้าโปรเจกต์จริง
 - `npm run test:sites` ตรวจ build ของ Sites เฉพาะใน checkout ที่มี `.openai/hosting.json`
 
 ## หลักการข้อมูล
