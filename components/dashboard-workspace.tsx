@@ -249,32 +249,7 @@ export function DashboardWorkspace() {
 
       {source === "live" ? <>
 
-      <section className="export-panel" aria-labelledby="export-title">
-        <div className="excel-mark" aria-hidden="true"><span>X</span></div>
-        <div className="export-copy">
-          <h2 id="export-title">ส่งออกข้อมูลเป็น Excel</h2>
-          <p>{personalDataVisible
-            ? "ไฟล์รายการผลประเมินมีชื่อผู้ให้ข้อมูล ตำแหน่ง และเบอร์โทรศัพท์ โปรดจัดเก็บอย่างเหมาะสม"
-            : "ไฟล์เป็นไปตามเงื่อนไขค้นหาของตารางผลประเมิน และไม่รวมข้อมูลส่วนบุคคล"}</p>
-        </div>
-        <div className="export-actions">
-          <button type="button" className="btn btn-primary export-all-button" disabled={exportDisabled} onClick={() => void exportExcel("all")}>
-            <span aria-hidden="true">↓</span> ดาวน์โหลดข้อมูลรวม
-          </button>
-          <div className="export-section-control">
-            <label htmlFor="export-section">เลือกข้อมูลแต่ละส่วน</label>
-            <div>
-              <select id="export-section" value={exportScope} onChange={(event) => setExportScope(event.target.value as Exclude<DashboardExportScope, "all">)}>
-                {exportOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-              </select>
-              <button type="button" className="btn btn-secondary" disabled={exportDisabled} onClick={() => void exportExcel(exportScope)}>
-                <span aria-hidden="true">↓</span> ดาวน์โหลดส่วนนี้
-              </button>
-            </div>
-          </div>
-        </div>
-        <p className={`export-status ${exportState}`} aria-live="polite">{exportMessage || (filtered.length ? `พร้อมส่งออก ${filtered.length} รายการตามตัวกรอง` : "ยังไม่มีข้อมูลสำหรับส่งออก")}</p>
-      </section>
+
 
       <section className="kpi-grid" aria-label="ตัวเลขสรุป">
         <article className="kpi-card"><span>ผลที่ส่งแล้ว</span><strong>{metrics.submissions}</strong><small>รายการตามตัวกรอง</small></article>
@@ -326,10 +301,10 @@ export function DashboardWorkspace() {
         </div>
       </section>
 
-      <section className="panel compact-panel table-panel">
-        <div className="panel-heading"><div><p className="section-kicker">รายการตามผลค้นหา</p><h2>ผลประเมินและผู้ให้ข้อมูล</h2><p>{personalDataVisible ? "แสดงข้อมูลติดต่อเฉพาะบัญชีที่ได้รับสิทธิ์รายบุคคล" : "บัญชีนี้เห็นเฉพาะข้อมูลสรุป ไม่แสดงข้อมูลส่วนบุคคล"}</p></div></div>
+      <section className="panel compact-panel table-panel assessment-results" aria-labelledby="assessment-results-title">
+        <div className="panel-heading"><div><p className="section-kicker">รายการตามผลค้นหา</p><h2 id="assessment-results-title">ผลประเมินและผู้ให้ข้อมูล</h2><p>{personalDataVisible ? "แสดงข้อมูลติดต่อเฉพาะบัญชีที่ได้รับสิทธิ์รายบุคคล" : "บัญชีนี้เห็นเฉพาะข้อมูลสรุป ไม่แสดงข้อมูลส่วนบุคคล"}</p></div></div>
         <section className="advanced-search record-search" id="dashboard-search" aria-labelledby="search-title">
-        <div className="advanced-search-heading"><div><h2 id="search-title">ค้นหาขั้นสูง</h2><p>เริ่มต้นค้นหาทั้งหมด (Search all) · เลือกเงื่อนไขแล้วกดค้นหา · Excel ส่งออกผลค้นหาครบทุกหน้า</p></div>{activeFilterCount > 0 ? <span className="search-count">ใช้ {activeFilterCount} ตัวกรอง</span> : null}</div>
+        <div className="advanced-search-heading"><div><h2 id="search-title">ค้นหาขั้นสูง</h2><p>เว้นว่างเพื่อค้นหาทั้งหมด หรือเลือกเงื่อนไขแล้วกดค้นหา</p></div>{activeFilterCount > 0 ? <span className="search-count">ใช้ {activeFilterCount} ตัวกรอง</span> : null}</div>
         <form onSubmit={event => {
           event.preventDefault();
           if (invalidDates || (draftFilters.affiliation !== "all" && directoryState !== "ready")) return;
@@ -347,11 +322,37 @@ export function DashboardWorkspace() {
             {personalDataVisible ? <>
               <label className="field"><span>หน้าที่ / ตำแหน่ง</span><input type="search" value={draftFilters.role} onChange={event => updateFilter("role", event.target.value)} placeholder="พิมพ์หน้าที่หรือตำแหน่ง" /></label>
               <label className="field"><span>เบอร์โทร</span><input type="search" inputMode="tel" value={draftFilters.phone} onChange={event => updateFilter("phone", event.target.value)} placeholder="เบอร์โทรทั้งหมดหรือบางส่วน" /></label>
-            </> : null}
+            <section className="export-panel" aria-labelledby="export-title">
+        <div className="excel-mark" aria-hidden="true"><span>X</span></div>
+        <div className="export-copy">
+          <h2 id="export-title">ส่งออกข้อมูลเป็น Excel</h2>
+          <p>{personalDataVisible
+            ? "ไฟล์รายการผลประเมินมีชื่อผู้ให้ข้อมูล ตำแหน่ง และเบอร์โทรศัพท์ โปรดจัดเก็บอย่างเหมาะสม"
+            : "ไฟล์เป็นไปตามเงื่อนไขค้นหาของตารางผลประเมิน และไม่รวมข้อมูลส่วนบุคคล"}</p>
+        </div>
+        <div className="export-actions">
+          <button type="button" className="btn btn-primary export-all-button" disabled={exportDisabled} onClick={() => void exportExcel("all")}>
+            <span aria-hidden="true">↓</span> ดาวน์โหลดข้อมูลรวม
+          </button>
+          <div className="export-section-control">
+            <label htmlFor="export-section">เลือกข้อมูลแต่ละส่วน</label>
+            <div>
+              <select id="export-section" value={exportScope} onChange={(event) => setExportScope(event.target.value as Exclude<DashboardExportScope, "all">)}>
+                {exportOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+              </select>
+              <button type="button" className="btn btn-secondary" disabled={exportDisabled} onClick={() => void exportExcel(exportScope)}>
+                <span aria-hidden="true">↓</span> ดาวน์โหลดส่วนนี้
+              </button>
+            </div>
+          </div>
+        </div>
+        <p className={`export-status ${exportState}`} aria-live="polite">{exportMessage || (filtered.length ? `พร้อมส่งออก ${filtered.length} รายการตามตัวกรอง` : "ยังไม่มีข้อมูลสำหรับส่งออก")}</p>
+      </section>
+      </> : null}
             {personalDataVisible ? <datalist id="dashboard-assessors">{responsibleOptions.map(name => <option key={name} value={name} />)}</datalist> : null}
-            <label className="field"><span>ผลประเมิน</span><select value={draftFilters.grade} onChange={event => updateFilter("grade", event.target.value as DashboardFilters["grade"])}><option value="all">ทุกระดับผล</option>{(["A", "B", "C", "D"] as const).map(grade => <option key={grade} value={grade}>ระดับ {grade}</option>)}</select></label>
-            <label className="field"><span>วันที่ประเมิน ตั้งแต่</span><input type="date" value={draftFilters.dateFrom} onChange={event => updateFilter("dateFrom", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
-            <label className="field"><span>วันที่ประเมิน ถึง</span><input type="date" value={draftFilters.dateTo} onChange={event => updateFilter("dateTo", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
+            <label className="field filter-range"><span>ผลประเมิน</span><select value={draftFilters.grade} onChange={event => updateFilter("grade", event.target.value as DashboardFilters["grade"])}><option value="all">ทุกระดับผล</option>{(["A", "B", "C", "D"] as const).map(grade => <option key={grade} value={grade}>ระดับ {grade}</option>)}</select></label>
+            <label className="field filter-range"><span>วันที่ประเมิน ตั้งแต่</span><input type="date" value={draftFilters.dateFrom} onChange={event => updateFilter("dateFrom", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
+            <label className="field filter-range"><span>วันที่ประเมิน ถึง</span><input type="date" value={draftFilters.dateTo} onChange={event => updateFilter("dateTo", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
           </div>
           <p className="filter-help" id="affiliation-help">สังกัดอ้างอิงทะเบียนโรงเรียนจากชื่อและจังหวัด แสดงเฉพาะ สพฐ. / เอกชนที่จับคู่ได้</p>
           {directoryState === "loading" ? <p className="filter-help" role="status">กำลังโหลดข้อมูลสังกัด… ตัวกรองอื่นยังใช้งานได้</p> : null}
@@ -361,7 +362,7 @@ export function DashboardWorkspace() {
         </form>
       </section>
         <div className="record-table-toolbar">
-          <p>ผลค้นหา <strong>{filtered.length.toLocaleString("th-TH")}</strong> รายการ</p>
+          <p>ผลค้นหา <strong>{filtered.length.toLocaleString("th-TH")}</strong> รายการ<small>Export ครบทุกหน้าตามเงื่อนไขค้นหา</small></p>
           <div className="record-table-controls">
             <button type="button" className="btn btn-secondary" disabled={exportDisabled} onClick={() => void exportExcel("assessments")}>↓ Export ผลค้นหา</button>
             <label>เรียงตาม <select value={visibleSortKey} onChange={event => changeSort(event.target.value as DashboardSortKey)}>{sortOptions.filter(option => !option.personal || personalDataVisible).map(option => <option key={option.key} value={option.key}>{option.label}</option>)}</select></label>
@@ -369,7 +370,7 @@ export function DashboardWorkspace() {
             <label>แสดง <select aria-label="จำนวนรายการต่อหน้า" value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }}>{pageSizes.map(size => <option key={size} value={size}>{size}</option>)}</select> รายการ</label>
           </div>
         </div>
-        {recent.length ? <div className="table-scroll record-table-scroll" role="region" aria-label="ตารางผลประเมิน เลื่อนแนวนอนเพื่อดูทุกคอลัมน์" tabIndex={0}><table className={`assessment-record-table ${personalDataVisible ? "with-personal-data" : "summary-data"}`}>
+        {recent.length ? <div className="table-scroll record-table-scroll" role="region" aria-label="ตารางผลประเมิน เลื่อนเพื่อดูรายการและคอลัมน์เพิ่มเติม" tabIndex={0}><table className={`assessment-record-table ${personalDataVisible ? "with-personal-data" : "summary-data"}`}>
           <colgroup><col className="col-reference" /><col className="col-institution" /><col className="col-province" /><col className="col-topic" />{personalDataVisible ? <><col className="col-assessor" /><col className="col-role" /><col className="col-phone" /></> : null}<col className="col-date" /><col className="col-score" /></colgroup>
           <thead><tr>{sortHeader("reference", "เลขอ้างอิง")}{sortHeader("institution", "สถานศึกษา / หน่วยงาน")}{sortHeader("province", "จังหวัด")}{sortHeader("topicLabel", "แบบประเมิน")}{personalDataVisible ? <>{sortHeader("assessorName", "ผู้ให้ข้อมูล")}{sortHeader("respondentRole", "หน้าที่ / ตำแหน่ง")}{sortHeader("assessorPhone", "เบอร์โทร")}</> : null}{sortHeader("assessmentDate", "วันที่ประเมิน")}{sortHeader("score", "ผล")}</tr></thead>
           <tbody>{recent.map((record) => <tr key={record.id}>

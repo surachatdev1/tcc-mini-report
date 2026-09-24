@@ -1273,3 +1273,42 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
 }
 
 .table-panel .record-search { margin: 16px 0 0; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+
+/* Search, result controls and rows share one responsive content width. */
+.dashboard-shell { width: min(1440px, calc(100% - 48px)); }
+.assessment-results { min-width: 0; padding: 24px; }
+.assessment-results .record-search { padding: 20px; background: #f7faf9; border: 1px solid var(--line); border-radius: 10px; }
+.record-search .advanced-search-heading { margin-bottom: 16px; }
+.record-search .advanced-search-heading h2 { font-size: 18px; }
+.record-search .advanced-search-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px 16px; }
+.record-search .field { grid-column: span 3; gap: 6px; font-size: 14px; }
+.record-search .field.filter-range { grid-column: span 4; }
+.record-search input, .record-search select { min-height: 44px; font-size: 15px; }
+.record-search .filter-help { margin: 12px 0 0; }
+.record-search .advanced-search-actions { margin-top: 14px; padding-top: 14px; }
+.assessment-results .record-table-toolbar { margin: 18px 0 12px; align-items: flex-end; }
+.record-table-toolbar p small { display: block; color: var(--muted); margin-top: 4px; font-size: 13px; }
+.assessment-results .record-table-controls { gap: 8px 12px; }
+.assessment-results .record-table-scroll { max-height: min(65vh, 720px); overflow: auto; }
+.assessment-results .assessment-record-table { border-collapse: separate; border-spacing: 0; }
+.assessment-results .assessment-record-table.with-personal-data { min-width: 1160px; }
+.assessment-results .assessment-record-table th { position: sticky; top: 0; z-index: 1; box-shadow: 0 1px 0 var(--line); }
+.assessment-results .assessment-record-table td { padding: 14px 10px; }
+.assessment-results .table-sort-button { padding: 12px 10px; font-size: 14px; }
+.assessment-results .with-personal-data .col-institution { width: 15%; }
+.assessment-results .with-personal-data .col-score { width: 7%; }
+.assessment-results .record-pagination { padding-top: 14px; margin-top: 14px; }
+.dashboard-shell > .export-panel { margin-top: 20px; }
+@media (max-width: 1100px) {
+  .record-search .field, .record-search .field.filter-range { grid-column: span 6; }
+  .assessment-results .record-table-controls { width: 100%; }
+}
+@media (max-width: 600px) {
+  .dashboard-shell { width: calc(100% - 24px); }
+  .assessment-results { padding: 14px; }
+  .assessment-results .record-search { padding: 14px; }
+  .record-search .field, .record-search .field.filter-range { grid-column: 1 / -1; }
+  .assessment-results .record-table-controls { align-items: stretch; }
+  .assessment-results .record-table-controls > button:first-child { width: 100%; }
+  .assessment-results .record-table-controls label { flex-wrap: wrap; }
+}
