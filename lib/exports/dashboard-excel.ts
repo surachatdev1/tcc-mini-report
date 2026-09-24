@@ -18,6 +18,7 @@ export type DashboardExportInput = {
   provinceLabel: string;
   topicLabel: string;
   includePersonalData?: boolean;
+  filterSummary?: string;
 };
 
 type CellValue = string | number | Date | null;
@@ -139,7 +140,7 @@ function dataCell(value: CellValue, column: ColumnSpec, rowIndex: number): CellO
 
 export async function createDashboardWorkbook(input: DashboardExportInput): Promise<DashboardWorkbook> {
   const sheets: Sheet<ArrayBuffer>[] = [];
-  const meta = `ตัวกรอง: จังหวัด ${input.provinceLabel} · แบบประเมิน ${input.topicLabel} · ส่งออกเมื่อ ${generatedAtText()}`;
+  const meta = `ตัวกรอง: จังหวัด ${input.provinceLabel} · แบบประเมิน ${input.topicLabel}${input.filterSummary ? ` · ${input.filterSummary}` : ""} · ส่งออกเมื่อ ${generatedAtText()}`;
 
   function addTableSheet(name: string, title: string, columns: ColumnSpec[], rows: CellValue[][]) {
     const data: Cell[][] = [

@@ -80,3 +80,12 @@ test("Excel รายส่วนสร้างเฉพาะ worksheet ที
   assert.deepEqual(workbook.sheets.map((sheet) => sheet.sheet), ["ตามจังหวัด"]);
   assert.equal((workbook.sheets[0].data[4][2] as { value?: unknown }).value, 1);
 });
+
+test("Excel ระบุเงื่อนไขค้นหาขั้นสูงและส่งออกเฉพาะรายการที่ส่งเข้าไป", async () => {
+  const workbook = await createDashboardWorkbook({
+    scope: "assessments", records: [record], provinceLabel: "กรุงเทพมหานคร", topicLabel: "รถรับ–ส่งนักเรียน",
+    includePersonalData: true, filterSummary: "ผล: C · ตั้งแต่: 2026-08-15 · ถึง: 2026-08-15",
+  });
+  assert.match(String((workbook.sheets[0].data[1][0] as { value: string }).value), /ผล: C · ตั้งแต่: 2026-08-15/);
+  assert.equal(workbook.sheets[0].data.length, 5);
+});

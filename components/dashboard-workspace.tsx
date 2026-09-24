@@ -13,6 +13,10 @@ import {
   type DashboardExportScope,
 } from "@/lib/exports/dashboard-excel";
 
+import { getSchoolsByProvince } from "@/lib/school-directory";
+import { affiliationIndex, affiliationLabels, emptyDashboardFilters, filterDashboardRecords, recordAffiliation, type Affiliation, type DashboardFilters } from "@/lib/dashboard-filters";
+
+const PAGE_SIZE = 20;
 const topicOptions: Array<{ id: "all" | TopicId; label: string }> = [
   { id: "all", label: "ทุกแบบประเมิน" },
   { id: "bus", label: "รถรับ–ส่งนักเรียน" },
@@ -52,8 +56,24 @@ export function DashboardWorkspace() {
   const [loadError, setLoadError] = useState("");
   const [personalDataVisible, setPersonalDataVisible] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [province, setProvince] = useState("all");
-  const [topicId, setTopicId] = useState<"all" | TopicId>("all");
+  const [draftFilters, setDraftFilters] = useState<DashboardFilters>(emptyDashboardFilters);
+  const [filters, setFilters] = useState<DashboardFilters>(emptyDashboardFilters);
+  const [page, setPage] = useState(1);
+  const [directories, setDirectories] = useState<Record<string, Map<string, Affiliation>>>({});
+  const [directoryStatus, setDirectoryStatus] = useState<{ key: string; retry: number; state: "ready" | "error" } | null>(null);
+  const [directoryRetry, setDirectoryRetry] = useState(0);
+  const { province, topicId } = filters;
+  const invalidDates = Boolean(draftFilters.dateFrom && draftFilters.dateTo && draftFilters.dateFrom > draftFilters.dateTo);
+  const activeFilterCount = Object.entries(filters).filter(([key, value]) => value !== emptyDashboardFilters[key as keyof DashboardFilters] && (key !== "responsible" || personalDataVisible)).length;
+  function updateFilter<K extends keyof DashboardFilters>(key: K, value: DashboardFilters[K]) {
+    setDraftFilters(current => ({ ...current, [key]: value }));
+  }
+  function clearFilters() {
+    setDraftFilters(emptyDashboardFilters);
+    setFilters(emptyDashboardFilters);
+    setPage(1);
+    setExportMessage("");
+  }
   const [exportScope, setExportScope] = useState<Exclude<DashboardExportScope, "all">>("provinces");
   const [exportState, setExportState] = useState<"idle" | "working" | "done" | "error">("idle");
   const [exportMessage, setExportMessage] = useState("");
@@ -67,7 +87,7 @@ export function DashboardWorkspace() {
 
   useEffect(() => {
     let active = true;
-    let unsubscribe = () => undefined;
+    let unsubscribe: () => void = () => undefined;
 
     void dashboardRepository.subscribe((payload) => {
       if (!active) return;
@@ -92,10 +112,20 @@ export function DashboardWorkspace() {
     };
   }, [reloadKey]);
 
-  const filtered = useMemo(() => records.filter((record) =>
-    (province === "all" || record.province === province) &&
-    (topicId === "all" || record.topicId === topicId)
-  ), [records, province, topicId]);
+  const directoryProvinces = useMemo(() => JSON.stringify([...new Set(records.filter(record => record.topicId !== "agency").map(record => record.province))].sort()), [records]);
+  const directoryState = directoryStatus?.key === directoryProvinces && directoryStatus.retry === directoryRetry ? directoryStatus.state : "loading";
+  useEffect(() => {
+    let active = true;
+    const names: string[] = JSON.parse(directoryProvinces);
+    void Promise.all(names.map(async name => [name, affiliationIndex(await getSchoolsByProvince(name))] as const))
+      .then(entries => { if (active) { setDirectories(Object.fromEntries(entries)); setDirectoryStatus({ key: directoryProvinces, retry: directoryRetry, state: "ready" }); } })
+      .catch(() => { if (active) setDirectoryStatus({ key: directoryProvinces, retry: directoryRetry, state: "error" }); });
+    return () => { active = false; };
+  }, [directoryProvinces, directoryRetry]);
+
+  const filtered = useMemo(() => filters.affiliation !== "all" && directoryState !== "ready" ? [] : filterDashboardRecords(records, filters, directories, personalDataVisible), [records, filters, directories, personalDataVisible, directoryState]);
+  const institutionOptions = useMemo(() => [...new Set(records.filter(record => draftFilters.province === "all" || record.province === draftFilters.province).map(record => record.institution))].sort((a, b) => a.localeCompare(b, "th")), [records, draftFilters.province]);
+  const responsibleOptions = useMemo(() => personalDataVisible ? [...new Set(records.map(record => record.assessorName).filter(Boolean))].sort((a, b) => a.localeCompare(b, "th")) : [], [records, personalDataVisible]);
 
   const metrics = useMemo(() => ({
     submissions: filtered.length,
@@ -127,9 +157,11 @@ export function DashboardWorkspace() {
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
   }, [filtered]);
 
-  const recent = useMemo(() => [...filtered]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 20), [filtered]);
+  const sortedRecords = useMemo(() => [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() || a.id.localeCompare(b.id)), [filtered]);
+  const totalPages = Math.max(1, Math.ceil(sortedRecords.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const recent = sortedRecords.slice(pageStart, pageStart + PAGE_SIZE);
 
   async function exportExcel(scope: DashboardExportScope) {
     if (!filtered.length || exportState === "working") return;
@@ -140,6 +172,14 @@ export function DashboardWorkspace() {
         scope,
         records: filtered,
         includePersonalData: personalDataVisible,
+        filterSummary: [
+          filters.institution.trim() && `โรงเรียน/หน่วยงาน: ${filters.institution.trim()}`,
+          filters.affiliation !== "all" && `สังกัด: ${affiliationLabels[filters.affiliation]}`,
+          personalDataVisible && filters.responsible.trim() && `ผู้รับผิดชอบ: ${filters.responsible.trim()}`,
+          filters.grade !== "all" && `ผล: ${filters.grade}`,
+          filters.dateFrom && `ตั้งแต่: ${filters.dateFrom}`,
+          filters.dateTo && `ถึง: ${filters.dateTo}`,
+        ].filter(Boolean).join(" · "),
         provinceLabel: province === "all" ? "ทุกจังหวัด" : province,
         topicLabel: topicOptions.find((option) => option.id === topicId)?.label ?? "ทุกแบบประเมิน",
       });
@@ -187,20 +227,32 @@ export function DashboardWorkspace() {
         </section>
       ) : null}
 
-      {source === "live" ? <><section className="filter-bar" aria-label="ตัวกรองข้อมูล">
-        <label className="field">
-          <span>จังหวัด</span>
-          <select value={province} onChange={(event) => setProvince(event.target.value)}>
-            <option value="all">ทุกจังหวัด (12 จังหวัดนำร่อง)</option>
-            {provinces.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-        </label>
-        <label className="field">
-          <span>ประเภทแบบประเมิน</span>
-          <select value={topicId} onChange={(event) => setTopicId(event.target.value as "all" | TopicId)}>
-            {topicOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-          </select>
-        </label>
+      {source === "live" ? <><section className="advanced-search panel" id="dashboard-search" aria-labelledby="search-title">
+        <div className="advanced-search-heading"><div><h2 id="search-title">ค้นหาขั้นสูง</h2><p>เลือกหลายเงื่อนไขร่วมกัน · ตาราง สรุปผล และ Excel ใช้ผลค้นหาเดียวกัน</p></div>{activeFilterCount > 0 ? <span className="search-count">ใช้ {activeFilterCount} ตัวกรอง</span> : null}</div>
+        <form onSubmit={event => {
+          event.preventDefault();
+          if (invalidDates || (draftFilters.affiliation !== "all" && directoryState !== "ready")) return;
+          setFilters({ ...draftFilters, responsible: personalDataVisible ? draftFilters.responsible : "" });
+          setPage(1); setExportMessage("");
+        }}>
+          <div className="advanced-search-grid">
+            <label className="field"><span>โรงเรียน / หน่วยงาน</span><input type="search" list="dashboard-institutions" value={draftFilters.institution} onChange={event => updateFilter("institution", event.target.value)} placeholder="พิมพ์ชื่อหรือบางส่วนของชื่อ" /></label>
+            <datalist id="dashboard-institutions">{institutionOptions.map(name => <option key={name} value={name} />)}</datalist>
+            <label className="field"><span>สังกัดสถานศึกษา</span><select value={draftFilters.affiliation} onChange={event => updateFilter("affiliation", event.target.value as DashboardFilters["affiliation"])} disabled={directoryState !== "ready"} aria-describedby="affiliation-help"><option value="all">ทุกสังกัด</option>{Object.entries(affiliationLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="field"><span>จังหวัด</span><select value={draftFilters.province} onChange={event => updateFilter("province", event.target.value)}><option value="all">ทุกจังหวัด</option>{provinces.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
+            <label className="field"><span>ประเภทแบบประเมิน</span><select value={draftFilters.topicId} onChange={event => updateFilter("topicId", event.target.value as DashboardFilters["topicId"])}>{topicOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
+            {personalDataVisible ? <label className="field"><span>ผู้รับผิดชอบ / ผู้ให้ข้อมูล</span><input type="search" list="dashboard-assessors" value={draftFilters.responsible} onChange={event => updateFilter("responsible", event.target.value)} placeholder="ชื่อ หน้าที่ หรือตำแหน่ง" /></label> : null}
+            {personalDataVisible ? <datalist id="dashboard-assessors">{responsibleOptions.map(name => <option key={name} value={name} />)}</datalist> : null}
+            <label className="field"><span>ผลประเมิน</span><select value={draftFilters.grade} onChange={event => updateFilter("grade", event.target.value as DashboardFilters["grade"])}><option value="all">ทุกระดับผล</option>{(["A", "B", "C", "D"] as const).map(grade => <option key={grade} value={grade}>ระดับ {grade}</option>)}</select></label>
+            <label className="field"><span>วันที่ประเมิน ตั้งแต่</span><input type="date" value={draftFilters.dateFrom} onChange={event => updateFilter("dateFrom", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
+            <label className="field"><span>วันที่ประเมิน ถึง</span><input type="date" value={draftFilters.dateTo} onChange={event => updateFilter("dateTo", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
+          </div>
+          <p className="filter-help" id="affiliation-help">สังกัดอ้างอิงทะเบียนโรงเรียนจากชื่อและจังหวัด แสดงเฉพาะ สพฐ. / เอกชนที่จับคู่ได้</p>
+          {directoryState === "loading" ? <p className="filter-help" role="status">กำลังโหลดข้อมูลสังกัด… ตัวกรองอื่นยังใช้งานได้</p> : null}
+          {directoryState === "error" ? <p className="filter-error" role="alert">โหลดข้อมูลสังกัดไม่สำเร็จ <button type="button" className="btn btn-secondary" onClick={() => setDirectoryRetry(value => value + 1)}>ลองโหลดสังกัดอีกครั้ง</button></p> : null}
+          {invalidDates ? <p className="filter-error" role="alert" id="date-filter-error">วันที่เริ่มต้นต้องไม่อยู่หลังวันที่สิ้นสุด</p> : null}
+          <div className="advanced-search-actions"><p role="status">พบ <strong>{filtered.length.toLocaleString("th-TH")}</strong> จาก {records.length.toLocaleString("th-TH")} รายการ</p><button type="button" className="btn btn-secondary" onClick={clearFilters}>ล้างตัวกรอง</button><button type="submit" className="btn btn-primary" disabled={invalidDates || (draftFilters.affiliation !== "all" && directoryState !== "ready")}>ค้นหา</button></div>
+        </form>
       </section>
 
       <section className="export-panel" aria-labelledby="export-title">
@@ -281,15 +333,17 @@ export function DashboardWorkspace() {
       </section>
 
       <section className="panel compact-panel table-panel">
-        <div className="panel-heading"><div><p className="section-kicker">รายการล่าสุด</p><h2>ผลประเมินและผู้ให้ข้อมูล</h2><p>{personalDataVisible ? "แสดงข้อมูลติดต่อเฉพาะบัญชีที่ได้รับสิทธิ์รายบุคคล" : "บัญชีนี้เห็นเฉพาะข้อมูลสรุป ไม่แสดงข้อมูลส่วนบุคคล"}</p></div></div>
+        <div className="panel-heading"><div><p className="section-kicker">รายการตามผลค้นหา</p><h2>ผลประเมินและผู้ให้ข้อมูล</h2><p>{personalDataVisible ? "แสดงข้อมูลติดต่อเฉพาะบัญชีที่ได้รับสิทธิ์รายบุคคล" : "บัญชีนี้เห็นเฉพาะข้อมูลสรุป ไม่แสดงข้อมูลส่วนบุคคล"}</p></div></div>
+        <p className="filter-help"><a href="#dashboard-search">เปลี่ยนเงื่อนไขค้นหา</a> · พบ {filtered.length} รายการ</p>
         {recent.length ? <div className="table-scroll"><table className="assessment-record-table">
-          <thead><tr><th>เลขอ้างอิง</th><th>สถานศึกษา / หน่วยงาน</th><th>จังหวัด</th><th>แบบประเมิน</th>{personalDataVisible ? <><th>ผู้ให้ข้อมูล</th><th>หน้าที่ / ตำแหน่ง</th><th>เบอร์โทร</th></> : null}<th>วันที่</th><th>ผล</th></tr></thead>
+          <thead><tr><th>เลขอ้างอิง</th><th>สถานศึกษา / หน่วยงาน</th><th>สังกัด</th><th>จังหวัด</th><th>แบบประเมิน</th>{personalDataVisible ? <><th>ผู้ให้ข้อมูล</th><th>หน้าที่ / ตำแหน่ง</th><th>เบอร์โทร</th></> : null}<th>วันที่</th><th>ผล</th></tr></thead>
           <tbody>{recent.map((record) => <tr key={record.id}>
-            <td><strong>{referenceCode(record)}</strong></td><td>{record.institution}</td><td>{record.province}</td><td>{record.topicLabel}</td>
+            <td><strong>{referenceCode(record)}</strong></td><td>{record.institution}</td><td>{directoryState === "ready" ? affiliationLabels[recordAffiliation(record, directories)] : directoryState === "error" ? "โหลดสังกัดไม่สำเร็จ" : "กำลังตรวจสอบสังกัด"}</td><td>{record.province}</td><td>{record.topicLabel}</td>
             {personalDataVisible ? <><td>{record.assessorName || "ไม่ระบุ"}</td><td><strong>{record.respondentRole || "ไม่ระบุ"}</strong>{record.position ? <small>{record.position}</small> : null}</td><td>{record.assessorPhone || "ไม่ระบุ"}</td></> : null}
             <td>{formatDate(record.assessmentDate || record.createdAt)}</td><td><b className={`text-grade-${record.grade.toLowerCase()}`}>{record.score.toFixed(1)} · {record.grade}</b></td>
           </tr>)}</tbody>
-        </table></div> : <p className="empty-state">ยังไม่มีข้อมูลตามตัวกรองนี้</p>}
+        </table></div> : <div className="empty-state"><p>ไม่พบรายการที่ตรงกับเงื่อนไข ลองลดตัวกรองหรือเปลี่ยนช่วงวันที่</p><button type="button" className="btn btn-secondary" onClick={clearFilters}>ล้างตัวกรองทั้งหมด</button></div>}
+        {filtered.length > 0 ? <nav className="search-pagination" aria-label="หน้ารายการผลประเมิน"><p>แสดง {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} จาก {filtered.length} รายการ</p><div><button type="button" className="btn btn-secondary" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>ก่อนหน้า</button><span>หน้า {currentPage} / {totalPages}</span><button type="button" className="btn btn-secondary" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>ถัดไป</button></div></nav> : null}
       </section>
       </> : null}
     </main>

@@ -1194,3 +1194,29 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   .dashboard-login-card, .admin-page-header, .admin-viewer-panel, .admin-submissions-panel { animation: none; }
   .google-signin-button, .admin-access-list li, .admin-submission-row, .admin-submission-chevron { transition: none; }
 }
+
+/* Advanced dashboard search */
+.advanced-search { padding: 24px; margin-bottom: 20px; scroll-margin-top: 90px; }
+.advanced-search-heading, .advanced-search-actions, .search-pagination { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.advanced-search-heading { margin-bottom: 20px; }
+.advanced-search-heading h2 { margin: 0 0 6px; font-size: 1.25rem; }
+.advanced-search-heading p, .advanced-search-actions p, .search-pagination p { margin: 0; }
+.advanced-search-heading p, .filter-help { color: var(--muted); font-size: .875rem; }
+.advanced-search-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.advanced-search-grid .field { min-width: 0; }
+.advanced-search-grid input, .advanced-search-grid select { width: 100%; min-width: 0; }
+.advanced-search-grid datalist { display: none; }
+.search-count { padding: 6px 12px; border-radius: 24px; background: #edf5f3; color: #215d52; font-size: .85rem; }
+.advanced-search-actions { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 16px; }
+.advanced-search-actions p { margin-right: auto; }
+.filter-error { color: #a22d36; font-size: .9rem; }
+.search-pagination { padding: 18px 0 0; border-top: 1px solid var(--line); margin-top: 16px; font-size: .9rem; }
+.search-pagination > div { display: flex; align-items: center; gap: 12px; }
+@media (max-width: 1050px) { .advanced-search-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .advanced-search { padding: 18px; }
+  .advanced-search-grid { grid-template-columns: 1fr; }
+  .advanced-search-actions p { width: 100%; }
+  .advanced-search-actions .btn { flex: 1; }
+  .search-pagination > div { width: 100%; justify-content: space-between; gap: 8px; }
+}
