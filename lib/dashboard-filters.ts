@@ -9,14 +9,19 @@ export const affiliationLabels: Record<Affiliation, string> = {
   agency: "หน่วยงานกำกับ (ไม่ใช่สถานศึกษา)",
 };
 export type DashboardFilters = {
+  reference: string; role: string; phone: string;
   institution: string; affiliation: "all" | Affiliation; province: string;
   topicId: "all" | DashboardRecord["topicId"]; responsible: string;
   grade: "all" | DashboardRecord["grade"]; dateFrom: string; dateTo: string;
 };
 export const emptyDashboardFilters: DashboardFilters = {
+  reference: "", role: "", phone: "",
   institution: "", affiliation: "all", province: "all", topicId: "all",
   responsible: "", grade: "all", dateFrom: "", dateTo: "",
 };
+export function assessmentReference(record: DashboardRecord) {
+  return `ST-${record.assessmentDate.replaceAll("-", "").slice(2) || "000000"}-${record.id.slice(0, 6).toUpperCase()}`;
+}
 export function normalizeSearch(value: string) {
   return value.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("th");
 }
@@ -45,13 +50,19 @@ export function assessmentDay(record: DashboardRecord) {
 export function filterDashboardRecords(records: DashboardRecord[], filters: DashboardFilters, directories: Record<string, Map<string, Affiliation>> = {}, includePersonalData = true) {
   const institution = normalizeSearch(filters.institution);
   const responsible = includePersonalData ? normalizeSearch(filters.responsible) : "";
+  const reference = normalizeSearch(filters.reference);
+  const role = includePersonalData ? normalizeSearch(filters.role) : "";
+  const phone = includePersonalData ? filters.phone.replace(/[\s()-]/g, "") : "";
   return records.filter(record => {
     const day = assessmentDay(record);
-    return (!institution || normalizeSearch(record.institution).includes(institution))
+    return (!reference || normalizeSearch(assessmentReference(record)).includes(reference))
+      && (!role || normalizeSearch(`${record.respondentRole} ${record.position}`).includes(role))
+      && (!phone || (record.assessorPhone || "").replace(/[\s()-]/g, "").includes(phone))
+      && (!institution || normalizeSearch(record.institution).includes(institution))
       && (filters.province === "all" || record.province === filters.province)
       && (filters.topicId === "all" || record.topicId === filters.topicId)
       && (filters.affiliation === "all" || recordAffiliation(record, directories) === filters.affiliation)
-      && (!responsible || normalizeSearch(`${record.assessorName} ${record.respondentRole} ${record.position}`).includes(responsible))
+      && (!responsible || normalizeSearch(record.assessorName || "").includes(responsible))
       && (filters.grade === "all" || record.grade === filters.grade)
       && (!filters.dateFrom || day >= filters.dateFrom)
       && (!filters.dateTo || Boolean(day && day <= filters.dateTo));

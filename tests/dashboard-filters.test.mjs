@@ -17,7 +17,7 @@ test('each field filters independently and clearing returns all records', () => 
   assert.deepEqual(find({ province: 'ลำปาง' }), ['3']);
   assert.deepEqual(find({ topicId: 'agency' }), ['4']);
   assert.deepEqual(find({ responsible: 'มานี' }), ['3']);
-  assert.deepEqual(find({ responsible: 'หัวหน้างาน' }), ['1','2','3','4']);
+  assert.deepEqual(find({ role: 'หัวหน้างาน' }), ['1','2','3','4']);
   assert.deepEqual(find({ grade: 'A' }), ['4']);
   assert.deepEqual(find({}), ['1','2','3','4']);
 });
@@ -44,4 +44,13 @@ test('filtering does not mutate source records or truncate to the first page', (
   assert.equal(find({ grade: 'B' }, many).length, 45);
   assert.equal(many.length, 45);
   assert.equal(find({}, []).length, 0);
+});
+
+ test('column-specific criteria combine while default searches all', () => {
+  const rows = [{ ...base, id: 'abc123xx', assessorPhone: '081-234-5678' }, { ...base, id: 'def456xx', assessorName: 'หัวหน้างาน', position: 'อื่น', assessorPhone: '0999999999' }];
+  assert.deepEqual(find({}, rows), ['abc123xx', 'def456xx']);
+  assert.deepEqual(find({ reference: 'st-260924-ABC123', phone: '081 234', role: 'หัวหน้างาน', responsible: 'สมชาย' }, rows), ['abc123xx']);
+  assert.deepEqual(find({ responsible: 'หัวหน้างาน' }, rows), ['def456xx']);
+  assert.deepEqual(find({ role: 'หัวหน้างาน', phone: '081' }, rows, false), ['abc123xx', 'def456xx']);
+  assert.deepEqual(find({ reference: 'missing' }, rows), []);
 });

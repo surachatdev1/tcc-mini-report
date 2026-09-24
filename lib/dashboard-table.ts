@@ -1,13 +1,11 @@
 import type { DashboardRecord } from "./integrations/dashboard-repository";
-import { affiliationLabels, assessmentDay, recordAffiliation, type Affiliation } from "./dashboard-filters.ts";
+import { assessmentReference, affiliationLabels, assessmentDay, recordAffiliation, type Affiliation } from "./dashboard-filters.ts";
 
 export type DashboardSortKey = "reference" | "institution" | "affiliation" | "province" | "topicLabel" | "assessorName" | "respondentRole" | "assessorPhone" | "assessmentDate" | "score";
 export type SortDirection = "asc" | "desc";
 export const pageSizes = [10, 20, 50, 100] as const;
 const collator = new Intl.Collator("th", { numeric: true, sensitivity: "base" });
-export function assessmentReference(record: DashboardRecord) {
-  return `ST-${record.assessmentDate.replaceAll("-", "").slice(2) || "000000"}-${record.id.slice(0, 6).toUpperCase()}`;
-}
+export { assessmentReference } from "./dashboard-filters.ts";
 export function sortDashboardRecords(records: DashboardRecord[], key: DashboardSortKey, direction: SortDirection, directories: Record<string, Map<string, Affiliation>> = {}) {
   function value(record: DashboardRecord): string | number {
     if (key === "reference") return assessmentReference(record);

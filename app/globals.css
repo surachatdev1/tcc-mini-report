@@ -1230,16 +1230,17 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
 .record-table-controls .sort-direction { min-height: 40px; padding: 7px 12px; font-size: .85rem; }
 .record-table-scroll { border: 1px solid var(--line); border-radius: 12px; }
 .assessment-record-table { width: 100%; table-layout: fixed; }
-.assessment-record-table.with-personal-data { min-width: 1120px; }
+.assessment-record-table.with-personal-data { min-width: 1220px; }
 .assessment-record-table.summary-data { min-width: 820px; }
-.assessment-record-table .col-reference { width: 12%; }
-.assessment-record-table .col-institution { width: 19%; }
+.assessment-record-table .col-reference { width: 11%; }
+.assessment-record-table .col-institution { width: 16%; }
 .assessment-record-table .col-province { width: 9%; }
 .assessment-record-table .col-topic { width: 14%; }
-.assessment-record-table .col-assessor { width: 19%; }
-.assessment-record-table .col-phone { width: 10%; }
-.assessment-record-table .col-date { width: 10%; }
-.assessment-record-table .col-score { width: 7%; }
+.assessment-record-table .col-assessor { width: 13%; }
+.assessment-record-table .col-role { width: 14%; }
+.assessment-record-table .col-phone { width: 9%; }
+.assessment-record-table .col-date { width: 8%; }
+.assessment-record-table .col-score { width: 6%; }
 .assessment-record-table.summary-data .col-reference { width: 14%; }
 .assessment-record-table.summary-data .col-institution { width: 28%; }
 .assessment-record-table.summary-data .col-province { width: 12%; }
@@ -1256,7 +1257,7 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
 .sort-indicator { color: #798981; flex-shrink: 0; }
 .sort-indicator.active { color: #165c3b; }
 .assessment-record-table .record-reference { font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; }
-.assessment-record-table .record-phone, .assessment-record-table .record-date, .assessment-record-table .record-score { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.assessment-record-table .record-phone, .assessment-record-table .record-score { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .assessment-record-table .record-score { text-align: right; }
 .record-pagination .pagination-buttons { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .pagination-buttons button { min-width: 36px; min-height: 36px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: white; color: inherit; font: inherit; cursor: pointer; }
