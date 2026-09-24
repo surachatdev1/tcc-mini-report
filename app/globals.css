@@ -1312,3 +1312,85 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   .assessment-results .record-table-controls > button:first-child { width: 100%; }
   .assessment-results .record-table-controls label { flex-wrap: wrap; }
 }
+
+/* Shared proportions for the two management pages. */
+:is(.dashboard-shell, .admin-page) {
+  --management-control-height: 48px;
+  --management-panel-padding: 24px;
+  width: min(1440px, calc(100% - 48px));
+  padding-block: 20px 40px;
+  font-size: 16px;
+}
+.dashboard-utility-wrap { width: min(1440px, calc(100% - 48px)); }
+:is(.dashboard-shell, .admin-page) > .panel { min-width: 0; padding: var(--management-panel-padding); }
+:is(.dashboard-shell, .admin-page) .panel-heading h2 { font-size: 22px; line-height: 1.4; }
+:is(.dashboard-shell, .admin-page) .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--management-control-height);
+  padding: 11px 18px;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 24px;
+  text-align: center;
+}
+:is(.dashboard-shell, .admin-page) .btn-secondary:hover:not(:disabled) { border-color: var(--brand); background: var(--surface-soft); }
+:is(.dashboard-shell, .admin-page) :is(input:not([type="checkbox"]), select) {
+  min-width: 0;
+  max-width: 100%;
+  height: var(--management-control-height);
+  min-height: var(--management-control-height);
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 24px;
+}
+.dashboard-shell .record-table-controls { align-items: center; }
+.dashboard-shell .export-actions button > span { margin: 0; font-size: 18px; }
+.dashboard-shell .export-panel { grid-template-columns: 52px minmax(0,1fr); gap: 16px; padding: 24px; }
+.dashboard-shell .export-copy { min-width: 0; }
+.dashboard-shell .export-actions { grid-column: 2; justify-content: flex-start; flex-wrap: wrap; align-items: end; }
+.dashboard-shell .export-section-control { min-width: 0; }
+.dashboard-shell .export-section-control > div { flex-wrap: wrap; }
+.dashboard-shell .export-section-control select { flex: 1 1 210px; }
+.dashboard-shell .export-status { grid-column: 2; }
+.dashboard-shell .kpi-card { min-height: 112px; padding: 18px 20px; }
+.dashboard-shell .topic-summary-card { min-height: 128px; padding: 18px 20px; }
+.dashboard-shell .kpi-card strong { font-size: 32px; }
+.admin-page-header { grid-template-columns: minmax(0,1fr) minmax(200px,260px); padding: 24px; gap: 24px; }
+.admin-page-header h1 { font-size: clamp(26px,2.4vw,34px); }
+.admin-count-card { min-height: 112px; padding: 16px 20px; }
+.admin-count-card strong { font-size: 36px; }
+.admin-viewer-panel { grid-template-columns: minmax(260px,1fr) minmax(0,2fr); gap: 24px; }
+.admin-add-column { min-width: 0; }
+.admin-directory-head { grid-template-columns: minmax(0,1fr); gap: 12px; }
+.admin-directory-head .admin-search-field { width: 100%; }
+.admin-submissions-heading { grid-template-columns: minmax(0,1fr) minmax(180px,240px); gap: 24px; }
+.admin-submissions-toolbar { grid-template-columns: minmax(0,1fr) auto; padding: 20px; gap: 16px; }
+.admin-submission-row { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.1fr) minmax(0,.8fr) 100px; gap: 16px; }
+@media (max-width: 1100px) {
+  .admin-viewer-panel { grid-template-columns: minmax(240px,1fr) minmax(0,1.6fr); }
+}
+@media (max-width: 900px) {
+  .admin-viewer-panel, .admin-page-header, .admin-submissions-heading { grid-template-columns: minmax(0,1fr); }
+  .admin-count-card { min-height: 0; }
+  .admin-submission-row { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 640px) {
+  :is(.dashboard-shell, .admin-page) { --management-panel-padding: 16px; width: calc(100% - 24px); padding-block: 16px 28px; }
+  .dashboard-utility-wrap { width: calc(100% - 24px); }
+  .admin-page-header { padding: 20px; }
+  .admin-submissions-toolbar { grid-template-columns: minmax(0,1fr); padding: 16px; }
+  .admin-submission-row { grid-template-columns: minmax(0,1fr); }
+  .dashboard-shell .export-panel { padding: 16px; grid-template-columns: minmax(0,1fr); }
+  .dashboard-shell .export-actions, .dashboard-shell .export-status { grid-column: 1; }
+  .dashboard-shell .export-actions, .dashboard-shell .export-section-control { width: 100%; }
+  .dashboard-shell .record-table-controls { gap: 10px; }
+  .dashboard-shell .record-table-controls > label { width: 100%; justify-content: space-between; }
+  .dashboard-shell .record-table-controls > label select { flex: 1; max-width: none; }
+}
