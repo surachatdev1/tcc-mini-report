@@ -1194,3 +1194,79 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   .dashboard-login-card, .admin-page-header, .admin-viewer-panel, .admin-submissions-panel { animation: none; }
   .google-signin-button, .admin-access-list li, .admin-submission-row, .admin-submission-chevron { transition: none; }
 }
+
+/* Advanced dashboard search */
+.advanced-search { padding: 24px; margin-bottom: 20px; scroll-margin-top: 90px; }
+.advanced-search-heading, .advanced-search-actions, .search-pagination { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.advanced-search-heading { margin-bottom: 20px; }
+.advanced-search-heading h2 { margin: 0 0 6px; font-size: 1.25rem; }
+.advanced-search-heading p, .advanced-search-actions p, .search-pagination p { margin: 0; }
+.advanced-search-heading p, .filter-help { color: var(--muted); font-size: .875rem; }
+.advanced-search-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.advanced-search-grid .field { min-width: 0; }
+.advanced-search-grid input, .advanced-search-grid select { width: 100%; min-width: 0; }
+.advanced-search-grid datalist { display: none; }
+.search-count { padding: 6px 12px; border-radius: 24px; background: #edf5f3; color: #215d52; font-size: .85rem; }
+.advanced-search-actions { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 16px; }
+.advanced-search-actions p { margin-right: auto; }
+.filter-error { color: #a22d36; font-size: .9rem; }
+.search-pagination { padding: 18px 0 0; border-top: 1px solid var(--line); margin-top: 16px; font-size: .9rem; }
+.search-pagination > div { display: flex; align-items: center; gap: 12px; }
+@media (max-width: 1050px) { .advanced-search-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .advanced-search { padding: 18px; }
+  .advanced-search-grid { grid-template-columns: 1fr; }
+  .advanced-search-actions p { width: 100%; }
+  .advanced-search-actions .btn { flex: 1; }
+  .search-pagination > div { width: 100%; justify-content: space-between; gap: 8px; }
+}
+
+/* Compact assessment table with sortable columns and numbered pagination. */
+.record-table-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.record-table-toolbar p { margin: 0; font-size: .9rem; }
+.record-table-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.record-table-controls label { display: flex; align-items: center; gap: 8px; font-size: .875rem; }
+.record-table-controls select { min-height: 40px; padding: 7px 28px 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: white; color: inherit; font: inherit; }
+.record-table-controls .sort-direction { min-height: 40px; padding: 7px 12px; font-size: .85rem; }
+.record-table-scroll { border: 1px solid var(--line); border-radius: 12px; }
+.assessment-record-table { width: 100%; table-layout: fixed; }
+.assessment-record-table.with-personal-data { min-width: 1120px; }
+.assessment-record-table.summary-data { min-width: 820px; }
+.assessment-record-table .col-reference { width: 12%; }
+.assessment-record-table .col-institution { width: 19%; }
+.assessment-record-table .col-province { width: 9%; }
+.assessment-record-table .col-topic { width: 14%; }
+.assessment-record-table .col-assessor { width: 19%; }
+.assessment-record-table .col-phone { width: 10%; }
+.assessment-record-table .col-date { width: 10%; }
+.assessment-record-table .col-score { width: 7%; }
+.assessment-record-table.summary-data .col-reference { width: 14%; }
+.assessment-record-table.summary-data .col-institution { width: 28%; }
+.assessment-record-table.summary-data .col-province { width: 12%; }
+.assessment-record-table.summary-data .col-topic { width: 22%; }
+.assessment-record-table.summary-data .col-date { width: 14%; }
+.assessment-record-table.summary-data .col-score { width: 10%; }
+.assessment-record-table th { padding: 0; background: #f3f7f5; }
+.assessment-record-table td { padding: 14px 12px; font-size: 14px; line-height: 1.6; vertical-align: top; overflow-wrap: anywhere; }
+.assessment-record-table td small { margin-top: 4px; font-size: 12px; line-height: 1.6; font-weight: 400; }
+.assessment-record-table tbody tr:hover { background: #f8fbf9; }
+.table-sort-button { display: flex; align-items: center; justify-content: space-between; gap: 5px; width: 100%; min-height: 48px; padding: 12px; border: 0; color: inherit; font: inherit; font-size: 13px; font-weight: 600; text-align: left; background: transparent; cursor: pointer; }
+.table-sort-button:hover { background: #e8f1ec; }
+.table-sort-button:focus-visible, .pagination-buttons button:focus-visible, .record-table-scroll:focus-visible { outline: 2px solid #237352; outline-offset: -2px; }
+.sort-indicator { color: #798981; flex-shrink: 0; }
+.sort-indicator.active { color: #165c3b; }
+.assessment-record-table .record-reference { font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.assessment-record-table .record-phone, .assessment-record-table .record-date, .assessment-record-table .record-score { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.assessment-record-table .record-score { text-align: right; }
+.record-pagination .pagination-buttons { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.pagination-buttons button { min-width: 36px; min-height: 36px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: white; color: inherit; font: inherit; cursor: pointer; }
+.pagination-buttons button[aria-current="page"] { background: #165c3b; border-color: #165c3b; color: white; font-weight: 700; }
+.pagination-buttons button:disabled { opacity: .4; cursor: not-allowed; }
+.pagination-buttons button:not(:disabled):not([aria-current="page"]):hover { background: #edf5f0; }
+@media (max-width: 600px) {
+  .record-table-controls { width: 100%; }
+  .record-table-controls label:first-child { flex: 1; }
+  .record-table-controls label:first-child select { max-width: 180px; width: 100%; }
+  .record-pagination .pagination-buttons { justify-content: flex-start; gap: 4px; }
+  .pagination-buttons button { min-width: 32px; min-height: 40px; }
+}

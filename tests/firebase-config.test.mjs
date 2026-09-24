@@ -261,9 +261,11 @@ test("Firestore rules รู้จัก question id ทุกข้อในร
     }
   }
   assert.match(rules, /validAnswer\(answer\)/);
-  assert.match(rules, /answer\.explanation\.size\(\) >= 1/);
-  assert.match(rules, /answer\.explanation\.size\(\) <= 500/);
-  assert.doesNotMatch(rules, /answer\.explanation\.size\(\) >= 10/);
+  assert.match(rules, /let explanation = answer\.explanation;/);
+  assert.match(rules, /let length = explanation\.size\(\);/);
+  assert.match(rules, /length >= 1/);
+  assert.match(rules, /length <= 500/);
+  assert.doesNotMatch(rules, /length >= 10/);
 });
 
 test("เหตุผลและข้อมูลประกอบเป็นข้อมูลบังคับทั้งในฟอร์ม repository และ Firestore rules", () => {
@@ -281,5 +283,7 @@ test("เหตุผลและข้อมูลประกอบเป็�
   assert.match(formSource, /summary\.complete && missingExplanationCount === 0/);
   assert.match(assessmentRepositorySource, /if \(!explanation\)/);
   assert.match(assessmentRepositorySource, /กรุณาระบุเหตุผลหรือข้อมูลประกอบข้อ/);
-  assert.match(rules, /answer\.explanation\.size\(\) >= 1/);
+  assert.match(rules, /let explanation = answer\.explanation;/);
+  assert.match(rules, /let length = explanation\.size\(\);/);
+  assert.match(rules, /length >= 1/);
 });
