@@ -1271,3 +1271,5 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   .record-pagination .pagination-buttons { justify-content: flex-start; gap: 4px; }
   .pagination-buttons button { min-width: 32px; min-height: 40px; }
 }
+
+.table-panel .record-search { margin: 16px 0 0; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }

@@ -247,38 +247,7 @@ export function DashboardWorkspace() {
         </section>
       ) : null}
 
-      {source === "live" ? <><section className="advanced-search panel" id="dashboard-search" aria-labelledby="search-title">
-        <div className="advanced-search-heading"><div><h2 id="search-title">ค้นหาขั้นสูง</h2><p>เริ่มต้นค้นหาทั้งหมด (Search all) · เลือกเงื่อนไขแล้วกดค้นหา · Excel ส่งออกผลค้นหาครบทุกหน้า</p></div>{activeFilterCount > 0 ? <span className="search-count">ใช้ {activeFilterCount} ตัวกรอง</span> : null}</div>
-        <form onSubmit={event => {
-          event.preventDefault();
-          if (invalidDates || (draftFilters.affiliation !== "all" && directoryState !== "ready")) return;
-          setFilters({ ...draftFilters, responsible: personalDataVisible ? draftFilters.responsible : "", role: personalDataVisible ? draftFilters.role : "", phone: personalDataVisible ? draftFilters.phone : "" });
-          setPage(1); setExportMessage("");
-        }}>
-          <div className="advanced-search-grid">
-            <label className="field"><span>เลขอ้างอิง</span><input type="search" value={draftFilters.reference} onChange={event => updateFilter("reference", event.target.value)} placeholder="เลขอ้างอิงทั้งหมดหรือบางส่วน" /></label>
-            <label className="field"><span>โรงเรียน / หน่วยงาน</span><input type="search" list="dashboard-institutions" value={draftFilters.institution} onChange={event => updateFilter("institution", event.target.value)} placeholder="พิมพ์ชื่อหรือบางส่วนของชื่อ" /></label>
-            <datalist id="dashboard-institutions">{institutionOptions.map(name => <option key={name} value={name} />)}</datalist>
-            <label className="field"><span>สังกัดสถานศึกษา</span><select value={draftFilters.affiliation} onChange={event => updateFilter("affiliation", event.target.value as DashboardFilters["affiliation"])} disabled={directoryState !== "ready"} aria-describedby="affiliation-help"><option value="all">ทุกสังกัด</option>{Object.entries(affiliationLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <label className="field"><span>จังหวัด</span><select value={draftFilters.province} onChange={event => updateFilter("province", event.target.value)}><option value="all">ทุกจังหวัด</option>{provinces.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
-            <label className="field"><span>ประเภทแบบประเมิน</span><select value={draftFilters.topicId} onChange={event => updateFilter("topicId", event.target.value as DashboardFilters["topicId"])}>{topicOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
-            {personalDataVisible ? <label className="field"><span>ผู้รับผิดชอบ / ผู้ให้ข้อมูล</span><input type="search" list="dashboard-assessors" value={draftFilters.responsible} onChange={event => updateFilter("responsible", event.target.value)} placeholder="ชื่อผู้ให้ข้อมูลทั้งหมดหรือบางส่วน" /></label> : null}
-            {personalDataVisible ? <>
-              <label className="field"><span>หน้าที่ / ตำแหน่ง</span><input type="search" value={draftFilters.role} onChange={event => updateFilter("role", event.target.value)} placeholder="พิมพ์หน้าที่หรือตำแหน่ง" /></label>
-              <label className="field"><span>เบอร์โทร</span><input type="search" inputMode="tel" value={draftFilters.phone} onChange={event => updateFilter("phone", event.target.value)} placeholder="เบอร์โทรทั้งหมดหรือบางส่วน" /></label>
-            </> : null}
-            {personalDataVisible ? <datalist id="dashboard-assessors">{responsibleOptions.map(name => <option key={name} value={name} />)}</datalist> : null}
-            <label className="field"><span>ผลประเมิน</span><select value={draftFilters.grade} onChange={event => updateFilter("grade", event.target.value as DashboardFilters["grade"])}><option value="all">ทุกระดับผล</option>{(["A", "B", "C", "D"] as const).map(grade => <option key={grade} value={grade}>ระดับ {grade}</option>)}</select></label>
-            <label className="field"><span>วันที่ประเมิน ตั้งแต่</span><input type="date" value={draftFilters.dateFrom} onChange={event => updateFilter("dateFrom", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
-            <label className="field"><span>วันที่ประเมิน ถึง</span><input type="date" value={draftFilters.dateTo} onChange={event => updateFilter("dateTo", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
-          </div>
-          <p className="filter-help" id="affiliation-help">สังกัดอ้างอิงทะเบียนโรงเรียนจากชื่อและจังหวัด แสดงเฉพาะ สพฐ. / เอกชนที่จับคู่ได้</p>
-          {directoryState === "loading" ? <p className="filter-help" role="status">กำลังโหลดข้อมูลสังกัด… ตัวกรองอื่นยังใช้งานได้</p> : null}
-          {directoryState === "error" ? <p className="filter-error" role="alert">โหลดข้อมูลสังกัดไม่สำเร็จ <button type="button" className="btn btn-secondary" onClick={() => setDirectoryRetry(value => value + 1)}>ลองโหลดสังกัดอีกครั้ง</button></p> : null}
-          {invalidDates ? <p className="filter-error" role="alert" id="date-filter-error">วันที่เริ่มต้นต้องไม่อยู่หลังวันที่สิ้นสุด</p> : null}
-          <div className="advanced-search-actions"><p role="status">พบ <strong>{filtered.length.toLocaleString("th-TH")}</strong> จาก {records.length.toLocaleString("th-TH")} รายการ</p><button type="button" className="btn btn-secondary" onClick={clearFilters}>ล้างตัวกรอง</button><button type="submit" className="btn btn-primary" disabled={invalidDates || (draftFilters.affiliation !== "all" && directoryState !== "ready")}>ค้นหา</button></div>
-        </form>
-      </section>
+      {source === "live" ? <>
 
       <section className="export-panel" aria-labelledby="export-title">
         <div className="excel-mark" aria-hidden="true"><span>X</span></div>
@@ -286,7 +255,7 @@ export function DashboardWorkspace() {
           <h2 id="export-title">ส่งออกข้อมูลเป็น Excel</h2>
           <p>{personalDataVisible
             ? "ไฟล์รายการผลประเมินมีชื่อผู้ให้ข้อมูล ตำแหน่ง และเบอร์โทรศัพท์ โปรดจัดเก็บอย่างเหมาะสม"
-            : "ไฟล์เป็นไปตามตัวกรองด้านบน และไม่รวมข้อมูลส่วนบุคคล"}</p>
+            : "ไฟล์เป็นไปตามเงื่อนไขค้นหาของตารางผลประเมิน และไม่รวมข้อมูลส่วนบุคคล"}</p>
         </div>
         <div className="export-actions">
           <button type="button" className="btn btn-primary export-all-button" disabled={exportDisabled} onClick={() => void exportExcel("all")}>
@@ -359,8 +328,40 @@ export function DashboardWorkspace() {
 
       <section className="panel compact-panel table-panel">
         <div className="panel-heading"><div><p className="section-kicker">รายการตามผลค้นหา</p><h2>ผลประเมินและผู้ให้ข้อมูล</h2><p>{personalDataVisible ? "แสดงข้อมูลติดต่อเฉพาะบัญชีที่ได้รับสิทธิ์รายบุคคล" : "บัญชีนี้เห็นเฉพาะข้อมูลสรุป ไม่แสดงข้อมูลส่วนบุคคล"}</p></div></div>
+        <section className="advanced-search record-search" id="dashboard-search" aria-labelledby="search-title">
+        <div className="advanced-search-heading"><div><h2 id="search-title">ค้นหาขั้นสูง</h2><p>เริ่มต้นค้นหาทั้งหมด (Search all) · เลือกเงื่อนไขแล้วกดค้นหา · Excel ส่งออกผลค้นหาครบทุกหน้า</p></div>{activeFilterCount > 0 ? <span className="search-count">ใช้ {activeFilterCount} ตัวกรอง</span> : null}</div>
+        <form onSubmit={event => {
+          event.preventDefault();
+          if (invalidDates || (draftFilters.affiliation !== "all" && directoryState !== "ready")) return;
+          setFilters({ ...draftFilters, responsible: personalDataVisible ? draftFilters.responsible : "", role: personalDataVisible ? draftFilters.role : "", phone: personalDataVisible ? draftFilters.phone : "" });
+          setPage(1); setExportMessage("");
+        }}>
+          <div className="advanced-search-grid">
+            <label className="field"><span>เลขอ้างอิง</span><input type="search" value={draftFilters.reference} onChange={event => updateFilter("reference", event.target.value)} placeholder="เลขอ้างอิงทั้งหมดหรือบางส่วน" /></label>
+            <label className="field"><span>โรงเรียน / หน่วยงาน</span><input type="search" list="dashboard-institutions" value={draftFilters.institution} onChange={event => updateFilter("institution", event.target.value)} placeholder="พิมพ์ชื่อหรือบางส่วนของชื่อ" /></label>
+            <datalist id="dashboard-institutions">{institutionOptions.map(name => <option key={name} value={name} />)}</datalist>
+            <label className="field"><span>สังกัดสถานศึกษา</span><select value={draftFilters.affiliation} onChange={event => updateFilter("affiliation", event.target.value as DashboardFilters["affiliation"])} disabled={directoryState !== "ready"} aria-describedby="affiliation-help"><option value="all">ทุกสังกัด</option>{Object.entries(affiliationLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="field"><span>จังหวัด</span><select value={draftFilters.province} onChange={event => updateFilter("province", event.target.value)}><option value="all">ทุกจังหวัด</option>{provinces.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
+            <label className="field"><span>ประเภทแบบประเมิน</span><select value={draftFilters.topicId} onChange={event => updateFilter("topicId", event.target.value as DashboardFilters["topicId"])}>{topicOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
+            {personalDataVisible ? <label className="field"><span>ผู้รับผิดชอบ / ผู้ให้ข้อมูล</span><input type="search" list="dashboard-assessors" value={draftFilters.responsible} onChange={event => updateFilter("responsible", event.target.value)} placeholder="ชื่อผู้ให้ข้อมูลทั้งหมดหรือบางส่วน" /></label> : null}
+            {personalDataVisible ? <>
+              <label className="field"><span>หน้าที่ / ตำแหน่ง</span><input type="search" value={draftFilters.role} onChange={event => updateFilter("role", event.target.value)} placeholder="พิมพ์หน้าที่หรือตำแหน่ง" /></label>
+              <label className="field"><span>เบอร์โทร</span><input type="search" inputMode="tel" value={draftFilters.phone} onChange={event => updateFilter("phone", event.target.value)} placeholder="เบอร์โทรทั้งหมดหรือบางส่วน" /></label>
+            </> : null}
+            {personalDataVisible ? <datalist id="dashboard-assessors">{responsibleOptions.map(name => <option key={name} value={name} />)}</datalist> : null}
+            <label className="field"><span>ผลประเมิน</span><select value={draftFilters.grade} onChange={event => updateFilter("grade", event.target.value as DashboardFilters["grade"])}><option value="all">ทุกระดับผล</option>{(["A", "B", "C", "D"] as const).map(grade => <option key={grade} value={grade}>ระดับ {grade}</option>)}</select></label>
+            <label className="field"><span>วันที่ประเมิน ตั้งแต่</span><input type="date" value={draftFilters.dateFrom} onChange={event => updateFilter("dateFrom", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
+            <label className="field"><span>วันที่ประเมิน ถึง</span><input type="date" value={draftFilters.dateTo} onChange={event => updateFilter("dateTo", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
+          </div>
+          <p className="filter-help" id="affiliation-help">สังกัดอ้างอิงทะเบียนโรงเรียนจากชื่อและจังหวัด แสดงเฉพาะ สพฐ. / เอกชนที่จับคู่ได้</p>
+          {directoryState === "loading" ? <p className="filter-help" role="status">กำลังโหลดข้อมูลสังกัด… ตัวกรองอื่นยังใช้งานได้</p> : null}
+          {directoryState === "error" ? <p className="filter-error" role="alert">โหลดข้อมูลสังกัดไม่สำเร็จ <button type="button" className="btn btn-secondary" onClick={() => setDirectoryRetry(value => value + 1)}>ลองโหลดสังกัดอีกครั้ง</button></p> : null}
+          {invalidDates ? <p className="filter-error" role="alert" id="date-filter-error">วันที่เริ่มต้นต้องไม่อยู่หลังวันที่สิ้นสุด</p> : null}
+          <div className="advanced-search-actions"><p role="status">พบ <strong>{filtered.length.toLocaleString("th-TH")}</strong> จาก {records.length.toLocaleString("th-TH")} รายการ</p><button type="button" className="btn btn-secondary" onClick={clearFilters}>ล้างตัวกรอง</button><button type="submit" className="btn btn-primary" disabled={invalidDates || (draftFilters.affiliation !== "all" && directoryState !== "ready")}>ค้นหา</button></div>
+        </form>
+      </section>
         <div className="record-table-toolbar">
-          <p><a href="#dashboard-search">ตัวกรองค้นหา</a> · พบ <strong>{filtered.length.toLocaleString("th-TH")}</strong> รายการ</p>
+          <p>ผลค้นหา <strong>{filtered.length.toLocaleString("th-TH")}</strong> รายการ</p>
           <div className="record-table-controls">
             <button type="button" className="btn btn-secondary" disabled={exportDisabled} onClick={() => void exportExcel("assessments")}>↓ Export ผลค้นหา</button>
             <label>เรียงตาม <select value={visibleSortKey} onChange={event => changeSort(event.target.value as DashboardSortKey)}>{sortOptions.filter(option => !option.personal || personalDataVisible).map(option => <option key={option.key} value={option.key}>{option.label}</option>)}</select></label>
