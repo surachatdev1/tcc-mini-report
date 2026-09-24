@@ -16,7 +16,15 @@ import {
 import { getSchoolsByProvince } from "@/lib/school-directory";
 import { affiliationIndex, affiliationLabels, emptyDashboardFilters, filterDashboardRecords, recordAffiliation, type Affiliation, type DashboardFilters } from "@/lib/dashboard-filters";
 
-const PAGE_SIZE = 20;
+import { assessmentReference, pageSizes, paginationItems, sortDashboardRecords, type DashboardSortKey, type SortDirection } from "@/lib/dashboard-table";
+
+const sortOptions: Array<{ key: DashboardSortKey; label: string; personal?: boolean }> = [
+  { key: "assessmentDate", label: "วันที่ประเมิน" }, { key: "score", label: "คะแนนผลประเมิน" },
+  { key: "institution", label: "สถานศึกษา / หน่วยงาน" }, { key: "affiliation", label: "สังกัด" },
+  { key: "province", label: "จังหวัด" }, { key: "topicLabel", label: "แบบประเมิน" },
+  { key: "assessorName", label: "ผู้ให้ข้อมูล", personal: true }, { key: "respondentRole", label: "หน้าที่ / ตำแหน่ง", personal: true },
+  { key: "assessorPhone", label: "เบอร์โทร", personal: true }, { key: "reference", label: "เลขอ้างอิง" },
+];
 const topicOptions: Array<{ id: "all" | TopicId; label: string }> = [
   { id: "all", label: "ทุกแบบประเมิน" },
   { id: "bus", label: "รถรับ–ส่งนักเรียน" },
@@ -45,10 +53,6 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short", year: "2-digit" }).format(date);
 }
 
-function referenceCode(record: DashboardRecord) {
-  const date = record.assessmentDate.replaceAll("-", "").slice(2) || "000000";
-  return `ST-${date}-${record.id.slice(0, 6).toUpperCase()}`;
-}
 
 export function DashboardWorkspace() {
   const [records, setRecords] = useState<DashboardRecord[]>([]);
@@ -59,6 +63,19 @@ export function DashboardWorkspace() {
   const [draftFilters, setDraftFilters] = useState<DashboardFilters>(emptyDashboardFilters);
   const [filters, setFilters] = useState<DashboardFilters>(emptyDashboardFilters);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [sortKey, setSortKey] = useState<DashboardSortKey>("assessmentDate");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const visibleSortKey = !personalDataVisible && sortOptions.find(option => option.key === sortKey)?.personal ? "assessmentDate" : sortKey;
+  function changeSort(key: DashboardSortKey) {
+    setSortDirection(key === visibleSortKey ? (sortDirection === "asc" ? "desc" : "asc") : (key === "score" || key === "assessmentDate" ? "desc" : "asc"));
+    setSortKey(key);
+    setPage(1);
+  }
+  function sortHeader(key: DashboardSortKey, label: string) {
+    const active = visibleSortKey === key;
+    return <th scope="col" aria-sort={active ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}><button type="button" className="table-sort-button" onClick={() => changeSort(key)} aria-label={`${label}: เรียง${(active ? sortDirection === "asc" : key === "score" || key === "assessmentDate") ? "จากมากไปน้อย" : "จากน้อยไปมาก"}`}><span>{label}</span><span aria-hidden="true" className={active ? "sort-indicator active" : "sort-indicator"}>{active ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}</span></button></th>;
+  }
   const [directories, setDirectories] = useState<Record<string, Map<string, Affiliation>>>({});
   const [directoryStatus, setDirectoryStatus] = useState<{ key: string; retry: number; state: "ready" | "error" } | null>(null);
   const [directoryRetry, setDirectoryRetry] = useState(0);
@@ -157,11 +174,11 @@ export function DashboardWorkspace() {
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
   }, [filtered]);
 
-  const sortedRecords = useMemo(() => [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() || a.id.localeCompare(b.id)), [filtered]);
-  const totalPages = Math.max(1, Math.ceil(sortedRecords.length / PAGE_SIZE));
+  const sortedRecords = useMemo(() => sortDashboardRecords(filtered, visibleSortKey, sortDirection, directories), [filtered, visibleSortKey, sortDirection, directories]);
+  const totalPages = Math.max(1, Math.ceil(sortedRecords.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageStart = (currentPage - 1) * PAGE_SIZE;
-  const recent = sortedRecords.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageStart = (currentPage - 1) * pageSize;
+  const recent = sortedRecords.slice(pageStart, pageStart + pageSize);
 
   async function exportExcel(scope: DashboardExportScope) {
     if (!filtered.length || exportState === "working") return;
@@ -170,7 +187,7 @@ export function DashboardWorkspace() {
     try {
       await downloadDashboardExcel({
         scope,
-        records: filtered,
+        records: sortedRecords,
         includePersonalData: personalDataVisible,
         filterSummary: [
           filters.institution.trim() && `โรงเรียน/หน่วยงาน: ${filters.institution.trim()}`,
@@ -334,16 +351,35 @@ export function DashboardWorkspace() {
 
       <section className="panel compact-panel table-panel">
         <div className="panel-heading"><div><p className="section-kicker">รายการตามผลค้นหา</p><h2>ผลประเมินและผู้ให้ข้อมูล</h2><p>{personalDataVisible ? "แสดงข้อมูลติดต่อเฉพาะบัญชีที่ได้รับสิทธิ์รายบุคคล" : "บัญชีนี้เห็นเฉพาะข้อมูลสรุป ไม่แสดงข้อมูลส่วนบุคคล"}</p></div></div>
-        <p className="filter-help"><a href="#dashboard-search">เปลี่ยนเงื่อนไขค้นหา</a> · พบ {filtered.length} รายการ</p>
-        {recent.length ? <div className="table-scroll"><table className="assessment-record-table">
-          <thead><tr><th>เลขอ้างอิง</th><th>สถานศึกษา / หน่วยงาน</th><th>สังกัด</th><th>จังหวัด</th><th>แบบประเมิน</th>{personalDataVisible ? <><th>ผู้ให้ข้อมูล</th><th>หน้าที่ / ตำแหน่ง</th><th>เบอร์โทร</th></> : null}<th>วันที่</th><th>ผล</th></tr></thead>
+        <div className="record-table-toolbar">
+          <p><a href="#dashboard-search">ตัวกรองค้นหา</a> · พบ <strong>{filtered.length.toLocaleString("th-TH")}</strong> รายการ</p>
+          <div className="record-table-controls">
+            <label>เรียงตาม <select value={visibleSortKey} onChange={event => changeSort(event.target.value as DashboardSortKey)}>{sortOptions.filter(option => !option.personal || personalDataVisible).map(option => <option key={option.key} value={option.key}>{option.label}</option>)}</select></label>
+            <button type="button" className="btn btn-secondary sort-direction" onClick={() => changeSort(visibleSortKey)} aria-label="สลับทิศทางการเรียง">{sortDirection === "asc" ? "↑ น้อยไปมาก" : "↓ มากไปน้อย"}</button>
+            <label>แสดง <select aria-label="จำนวนรายการต่อหน้า" value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }}>{pageSizes.map(size => <option key={size} value={size}>{size}</option>)}</select> รายการ</label>
+          </div>
+        </div>
+        {recent.length ? <div className="table-scroll record-table-scroll" role="region" aria-label="ตารางผลประเมิน เลื่อนแนวนอนเพื่อดูทุกคอลัมน์" tabIndex={0}><table className={`assessment-record-table ${personalDataVisible ? "with-personal-data" : "summary-data"}`}>
+          <colgroup><col className="col-reference" /><col className="col-institution" /><col className="col-province" /><col className="col-topic" />{personalDataVisible ? <><col className="col-assessor" /><col className="col-phone" /></> : null}<col className="col-date" /><col className="col-score" /></colgroup>
+          <thead><tr>{sortHeader("reference", "เลขอ้างอิง")}{sortHeader("institution", "สถานศึกษา / สังกัด")}{sortHeader("province", "จังหวัด")}{sortHeader("topicLabel", "แบบประเมิน")}{personalDataVisible ? <>{sortHeader("assessorName", "ผู้ให้ข้อมูล / หน้าที่")}{sortHeader("assessorPhone", "เบอร์โทร")}</> : null}{sortHeader("assessmentDate", "วันที่ประเมิน")}{sortHeader("score", "ผล")}</tr></thead>
           <tbody>{recent.map((record) => <tr key={record.id}>
-            <td><strong>{referenceCode(record)}</strong></td><td>{record.institution}</td><td>{directoryState === "ready" ? affiliationLabels[recordAffiliation(record, directories)] : directoryState === "error" ? "โหลดสังกัดไม่สำเร็จ" : "กำลังตรวจสอบสังกัด"}</td><td>{record.province}</td><td>{record.topicLabel}</td>
-            {personalDataVisible ? <><td>{record.assessorName || "ไม่ระบุ"}</td><td><strong>{record.respondentRole || "ไม่ระบุ"}</strong>{record.position ? <small>{record.position}</small> : null}</td><td>{record.assessorPhone || "ไม่ระบุ"}</td></> : null}
-            <td>{formatDate(record.assessmentDate || record.createdAt)}</td><td><b className={`text-grade-${record.grade.toLowerCase()}`}>{record.score.toFixed(1)} · {record.grade}</b></td>
+            <td className="record-reference">{assessmentReference(record)}</td>
+            <td><strong>{record.institution}</strong><small>{directoryState === "ready" ? (recordAffiliation(record, directories) === "obec" ? "สพฐ." : affiliationLabels[recordAffiliation(record, directories)]) : directoryState === "error" ? "โหลดสังกัดไม่สำเร็จ" : "กำลังตรวจสอบสังกัด"}</small></td>
+            <td>{record.province}</td><td>{record.topicLabel}</td>
+            {personalDataVisible ? <><td><strong>{record.assessorName || "ไม่ระบุ"}</strong><small>{record.respondentRole || "ไม่ระบุหน้าที่"}{record.position ? ` · ${record.position}` : ""}</small></td><td className="record-phone">{record.assessorPhone || "ไม่ระบุ"}</td></> : null}
+            <td className="record-date">{formatDate(record.assessmentDate || record.createdAt)}</td><td className="record-score"><b className={`text-grade-${record.grade.toLowerCase()}`}>{record.score.toFixed(1)} · {record.grade}</b></td>
           </tr>)}</tbody>
         </table></div> : <div className="empty-state"><p>ไม่พบรายการที่ตรงกับเงื่อนไข ลองลดตัวกรองหรือเปลี่ยนช่วงวันที่</p><button type="button" className="btn btn-secondary" onClick={clearFilters}>ล้างตัวกรองทั้งหมด</button></div>}
-        {filtered.length > 0 ? <nav className="search-pagination" aria-label="หน้ารายการผลประเมิน"><p>แสดง {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} จาก {filtered.length} รายการ</p><div><button type="button" className="btn btn-secondary" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>ก่อนหน้า</button><span>หน้า {currentPage} / {totalPages}</span><button type="button" className="btn btn-secondary" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>ถัดไป</button></div></nav> : null}
+        {filtered.length > 0 ? <nav className="search-pagination record-pagination" aria-label="หน้ารายการผลประเมิน">
+          <p role="status">แสดง {pageStart + 1}–{Math.min(pageStart + pageSize, filtered.length)} จาก {filtered.length.toLocaleString("th-TH")} รายการ · หน้า {currentPage}/{totalPages}</p>
+          <div className="pagination-buttons">
+            <button type="button" aria-label="หน้าแรก" disabled={currentPage === 1} onClick={() => setPage(1)}>«</button>
+            <button type="button" aria-label="หน้าก่อนหน้า" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</button>
+            {paginationItems(currentPage, totalPages).map(item => typeof item === "number" ? <button key={item} type="button" aria-label={`หน้า ${item}`} aria-current={item === currentPage ? "page" : undefined} onClick={() => setPage(item)}>{item}</button> : <span key={item} aria-hidden="true">…</span>)}
+            <button type="button" aria-label="หน้าถัดไป" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>›</button>
+            <button type="button" aria-label="หน้าสุดท้าย" disabled={currentPage === totalPages} onClick={() => setPage(totalPages)}>»</button>
+          </div>
+        </nav> : null}
       </section>
       </> : null}
     </main>
