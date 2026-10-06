@@ -17,7 +17,7 @@ service cloud.firestore {
       return email in [
         'surachat.dev1@gmail.com',
         'nuonnaka@gmail.com',
-        'busssafety69@gmail.com'
+        'pbusssafety69@gmail.com'
       ];
     }
 

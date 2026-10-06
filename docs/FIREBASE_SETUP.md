@@ -11,7 +11,7 @@ Admin เจ้าของโครงการถูกกำหนดถา�
 
 - `surachat.dev1@gmail.com`
 - `nuonnaka@gmail.com`
-- `busssafety69@gmail.com`
+- `pbusssafety69@gmail.com`
 
 ## 1. ตั้งค่า Firebase Console
 

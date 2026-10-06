@@ -3,10 +3,11 @@ import test from "node:test";
 import { ADMIN_EMAILS, isAdminEmail, systemRoleLabel } from "../lib/access-roles.ts";
 
 test("กำหนด Admin เจ้าของโครงการถาวรสามบัญชีโดยไม่สนตัวพิมพ์ใหญ่เล็ก", () => {
-  assert.deepEqual(ADMIN_EMAILS, ["surachat.dev1@gmail.com", "nuonnaka@gmail.com", "busssafety69@gmail.com"]);
+  assert.deepEqual(ADMIN_EMAILS, ["surachat.dev1@gmail.com", "nuonnaka@gmail.com", "pbusssafety69@gmail.com"]);
   assert.equal(isAdminEmail(" SURACHAT.DEV1@GMAIL.COM "), true);
   assert.equal(isAdminEmail("nuonnaka@gmail.com"), true);
-  assert.equal(isAdminEmail(" BUSSSAFETY69@GMAIL.COM "), true);
+  assert.equal(isAdminEmail(" PBUSSSAFETY69@GMAIL.COM "), true);
+  assert.equal(isAdminEmail("busssafety69@gmail.com"), false);
   assert.equal(isAdminEmail("another-admin@gmail.com"), false);
 });
 
