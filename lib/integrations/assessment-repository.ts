@@ -46,12 +46,8 @@ export type AssessmentRecord = {
 };
 
 export interface AssessmentRepository {
-  saveDraft(payload: DraftPayload): Promise<void>;
-  loadDraft(): Promise<DraftPayload | null>;
   submit(payload: SubmissionInput): Promise<AssessmentRecord>;
 }
-
-const DRAFT_KEY = "tcc-assessment-draft-v5";
 
 function firestoreWriteError(error: unknown) {
   const code = typeof error === "object" && error && "code" in error
@@ -59,7 +55,7 @@ function firestoreWriteError(error: unknown) {
     : "";
 
   if (code.includes("permission-denied")) {
-    return new Error("ขออภัย ขณะนี้ระบบยังไม่พร้อมรับแบบประเมิน กรุณาลองใหม่อีกครั้ง หากยังพบปัญหา โปรดติดต่อผู้ดูแลระบบ");
+    return new Error("ยังยืนยันการส่งไม่ได้ อาจเป็นข้อจำกัดสิทธิ์หรือรายการนี้ถูกบันทึกแล้ว กรุณาให้ผู้ดูแลตรวจสอบรหัสอ้างอิงก่อนเริ่มรายการใหม่");
   }
   if (code.includes("unavailable") || code.includes("network-request-failed")) {
     return new Error("ขออภัย ยังไม่สามารถเชื่อมต่อเพื่อส่งแบบประเมินได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง");
@@ -160,7 +156,6 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
     throw firestoreWriteError(error);
   }
 
-  window.localStorage.removeItem(DRAFT_KEY);
   return {
     id: payload.idempotencyKey,
     institution: payload.institution.trim(),
@@ -183,21 +178,8 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
   };
 }
 
-// ร่างเป็นข้อมูลชั่วคราวจึงเก็บในเครื่อง ส่วนผลยืนยันส่งไปยัง provider ที่กำหนด
+// ส่งผลไปยัง provider ที่กำหนด การจัดเก็บร่างแยกจากผลการส่งที่ยืนยันแล้ว
 export const assessmentRepository: AssessmentRepository = {
-  async saveDraft(payload) {
-    window.localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
-  },
-  async loadDraft() {
-    const saved = window.localStorage.getItem(DRAFT_KEY);
-    if (!saved) return null;
-    try {
-      const parsed = JSON.parse(saved) as Partial<DraftPayload>;
-      return { ...parsed, publicConsent: parsed.publicConsent === true } as DraftPayload;
-    } catch {
-      return null;
-    }
-  },
   async submit(payload) {
     if (shouldUseFirestore()) return submitToFirestore(payload);
 
@@ -210,7 +192,6 @@ export const assessmentRepository: AssessmentRepository = {
     if (!response.ok || !data.assessment) {
       throw new Error("ขออภัย ขณะนี้ยังไม่สามารถส่งแบบประเมินได้ กรุณาลองใหม่อีกครั้ง หากยังพบปัญหา โปรดติดต่อผู้ดูแลระบบ");
     }
-    window.localStorage.removeItem(DRAFT_KEY);
     return data.assessment;
   },
 };

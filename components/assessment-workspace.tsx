@@ -18,8 +18,8 @@ import { calculateScore, type Answer } from "@/lib/scoring";
 import {
   assessmentRepository,
   type AssessmentRecord,
-  type DraftPayload,
 } from "@/lib/integrations/assessment-repository";
+import { assessmentDraftStore, STORAGE_WARNING } from "@/lib/integrations/assessment-draft";
 import { SchoolCombobox } from "@/components/school-combobox";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -51,6 +51,12 @@ export function AssessmentWorkspace() {
   const [submitError, setSubmitError] = useState("");
   const [submitted, setSubmitted] = useState<AssessmentRecord | null>(null);
   const idempotencyKeyRef = useRef("");
+  const sendingRef = useRef(false);
+  const completedRef = useRef(false);
+  const attemptedRef = useRef(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftError, setDraftError] = useState("");
+  const [sendNotice, setSendNotice] = useState("");
 
   const topic = useMemo(() => getTopic(topicId, agencyType), [topicId, agencyType]);
   const summary = useMemo(() => calculateScore(answers, topic), [answers, topic]);
@@ -63,23 +69,82 @@ export function AssessmentWorkspace() {
   const readyToReview = summary.complete && missingExplanationCount === 0;
 
   useEffect(() => {
-    void assessmentRepository.loadDraft().then((draft) => {
-      if (!draft) return;
-      setInstitution(draft.institution);
-      setProvince(draft.province);
-      setAssessorName(draft.assessorName ?? "");
-      setAssessorPhone(draft.assessorPhone ?? "");
-      setRespondentRole(draft.respondentRole);
-      setPosition(draft.position);
-      setPublicConsent(draft.publicConsent);
-      setAssessmentDate(draft.assessmentDate);
-      setTopicId(draft.topicId);
-      setAudienceGroup(draft.topicId === "agency" ? "agency" : "school");
-      setAgencyType(draft.agencyType);
-      setAnswers(draft.answers);
-      setSaveState("กู้คืนร่างในเครื่องแล้ว");
+    // Defer state updates; Strict Mode's discarded effect must not restore twice.
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (!active) return;
+      try {
+        const draft = assessmentDraftStore.load();
+        idempotencyKeyRef.current = draft?.idempotencyKey ?? crypto.randomUUID();
+        if (draft) {
+          setInstitution(draft.institution);
+          setProvince(draft.province);
+          setAssessorName(draft.assessorName);
+          setAssessorPhone(draft.assessorPhone);
+          setRespondentRole(draft.respondentRole);
+          setPosition(draft.position);
+          setPublicConsent(draft.publicConsent);
+          setAssessmentDate(draft.assessmentDate);
+          setTopicId(draft.topicId);
+          setAudienceGroup(draft.topicId === "agency" ? "agency" : "school");
+          setAgencyType(draft.agencyType);
+          setAnswers(draft.answers);
+          attemptedRef.current = draft.submissionAttempted === true;
+          setSaveState("กู้คืนร่างในเครื่องแล้ว");
+          if (attemptedRef.current) {
+            setSubmitError(`กู้คืนรายการที่เคยกดส่งแล้ว หากยังไม่เห็นผลสามารถลองส่งด้วยรหัสเดิมได้ หากระบบปฏิเสธ กรุณาให้ผู้ดูแลตรวจสอบก่อนเริ่มรายการใหม่ รหัสอ้างอิง: ${idempotencyKeyRef.current}`);
+            setStep(2);
+          }
+        }
+        setDraftReady(true);
+      } catch (error) {
+        setDraftError(`${error instanceof Error ? error.message : STORAGE_WARNING} กรุณาตรวจสอบพื้นที่เก็บข้อมูลแล้วโหลดหน้าใหม่`);
+      }
     });
+    return () => { active = false; };
   }, []);
+
+  const currentDraft = useMemo(() => ({
+    institution, province, assessorName, assessorPhone, respondentRole, position,
+    assessmentDate, topicId, agencyType, answers, publicConsent,
+  }), [institution, province, assessorName, assessorPhone, respondentRole, position,
+    assessmentDate, topicId, agencyType, answers, publicConsent]);
+
+  useEffect(() => {
+    if (!draftReady || submitState === "saving" || submitState === "done") return;
+    const persist = () => {
+      if (sendingRef.current || completedRef.current) return;
+      try {
+        assessmentDraftStore.save({ ...currentDraft, idempotencyKey: idempotencyKeyRef.current,
+          submissionAttempted: attemptedRef.current });
+        setSaveState("บันทึกร่างอัตโนมัติในเครื่องนี้แล้ว");
+        setDraftError("");
+      } catch { setDraftError(STORAGE_WARNING); }
+    };
+    const timer = window.setTimeout(persist, 500);
+    const onVisibility = () => { if (document.visibilityState === "hidden") persist(); };
+    window.addEventListener("pagehide", persist);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("pagehide", persist);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [currentDraft, draftReady, submitState]);
+
+  useEffect(() => {
+    if (submitState !== "saving") return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    const slow = window.setTimeout(() => setSendNotice("ยังรอการยืนยันจากระบบ กรุณาตรวจสอบอินเทอร์เน็ตและเปิดหน้านี้ไว้ ระบบจะไม่สร้างรายการใหม่ระหว่างรอ"), 15000);
+    const offline = () => setSendNotice("การเชื่อมต่อขาดหาย กรุณาเชื่อมต่ออินเทอร์เน็ตและเปิดหน้านี้ไว้เพื่อรอการยืนยัน");
+    window.addEventListener("beforeunload", warn);
+    window.addEventListener("offline", offline);
+    return () => {
+      window.clearTimeout(slow);
+      window.removeEventListener("beforeunload", warn);
+      window.removeEventListener("offline", offline);
+    };
+  }, [submitState]);
 
   function openView(next: typeof view) {
     setView(next);
@@ -87,6 +152,7 @@ export function AssessmentWorkspace() {
   }
 
   function goToStep(next: number) {
+    if (sendingRef.current || (completedRef.current && next !== 3)) return;
     setStep(next);
     requestAnimationFrame(() => document.querySelector(".workspace")?.scrollIntoView({ block: "start" }));
   }
@@ -140,54 +206,71 @@ export function AssessmentWorkspace() {
     setSaveState("มีการแก้ไขที่ยังไม่ได้บันทึก");
   }
 
-  function draftPayload(): DraftPayload {
-    return {
-      institution,
-      province,
-      assessorName,
-      assessorPhone,
-      respondentRole,
-      position,
-      assessmentDate,
-      topicId,
-      agencyType,
-      answers,
-      publicConsent,
-    };
-  }
-
   async function saveDraft() {
-    setSaveState("กำลังบันทึกร่าง…");
-    await assessmentRepository.saveDraft(draftPayload());
-    setSaveState("บันทึกร่างในเครื่องนี้แล้ว");
+    if (!draftReady || sendingRef.current || completedRef.current) return;
+    try {
+      assessmentDraftStore.save({ ...currentDraft, idempotencyKey: idempotencyKeyRef.current,
+        submissionAttempted: attemptedRef.current });
+      setSaveState("บันทึกร่างในเครื่องนี้แล้ว");
+      setDraftError("");
+    } catch { setDraftError(STORAGE_WARNING); }
   }
 
   async function submitAssessment() {
-    if (!readyToReview || submitState === "saving") return;
-    setSubmitState("saving");
-    setSubmitError("");
+    if (!draftReady || !profileComplete || !readyToReview || sendingRef.current || completedRef.current) return;
+    // Persist BEFORE any network write. If storage is unavailable, do not risk an
+    // unrecoverable write whose key would disappear on refresh.
     try {
-      // เก็บ key เดิมเมื่อผู้ใช้กดลองใหม่หลังเครือข่ายสะดุด เพื่อไม่สร้างผลซ้ำ
-      idempotencyKeyRef.current ||= crypto.randomUUID();
+      assessmentDraftStore.save({ ...currentDraft, idempotencyKey: idempotencyKeyRef.current,
+        submissionAttempted: true });
+    } catch {
+      setDraftError(STORAGE_WARNING);
+      return;
+    }
+    sendingRef.current = true;
+    attemptedRef.current = true;
+    setSubmitState("saving");
+    setSaveState("บันทึกร่างและรหัสอ้างอิงในเครื่องแล้ว");
+    setSubmitError("");
+    setDraftError("");
+    setSendNotice(navigator.onLine ? "" : "ขณะนี้ไม่มีอินเทอร์เน็ต กรุณาเชื่อมต่อและเปิดหน้านี้ไว้เพื่อรอการยืนยัน");
+    try {
       const result = await assessmentRepository.submit({
-        ...draftPayload(),
+        ...currentDraft,
         idempotencyKey: idempotencyKeyRef.current,
       });
+      completedRef.current = true;
       setSubmitted(result);
       setSubmitState("done");
-      goToStep(3);
+      if (!assessmentDraftStore.complete(idempotencyKeyRef.current)) {
+        setDraftError("ส่งแบบประเมินสำเร็จแล้ว แต่ล้างร่างในเครื่องไม่ได้ กรุณาจดรหัสอ้างอิงและอย่าส่งรายการนี้ซ้ำ");
+      }
+      setStep(3);
+      requestAnimationFrame(() => document.querySelector(".workspace")?.scrollIntoView({ block: "start" }));
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "ขออภัย ขณะนี้ยังไม่สามารถส่งแบบประเมินได้ กรุณาลองใหม่อีกครั้ง หากยังพบปัญหา โปรดติดต่อผู้ดูแลระบบ");
+      setSubmitError(`${error instanceof Error ? error.message : "ยังยืนยันการส่งไม่ได้ กรุณาติดต่อผู้ดูแลระบบ"} รหัสอ้างอิง: ${idempotencyKeyRef.current}`);
       setSubmitState("error");
+    } finally {
+      sendingRef.current = false;
+      setSendNotice("");
     }
   }
 
   function startNewAssessment() {
+    if (sendingRef.current) return;
+    const nextKey = crypto.randomUUID();
+    try {
+      assessmentDraftStore.save({ ...currentDraft, answers: {}, idempotencyKey: nextKey,
+        submissionAttempted: false });
+    } catch { setDraftError(STORAGE_WARNING); return; }
+    idempotencyKeyRef.current = nextKey;
+    attemptedRef.current = false;
+    completedRef.current = false;
+    setDraftError("");
     setStep(0);
     resetAnswers();
     setSubmitState("idle");
     setSubmitError("");
-    idempotencyKeyRef.current = "";
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -228,6 +311,7 @@ export function AssessmentWorkspace() {
     saveState,
     submitState,
     submitError,
+    sendNotice,
     submitAssessment,
     submitted,
     onNewAssessment: startNewAssessment,
@@ -242,7 +326,8 @@ export function AssessmentWorkspace() {
           <button type="button" aria-current={view === "assessment" ? "page" : undefined} onClick={() => openView("assessment")}>แบบประเมิน</button>
           <button type="button" aria-current={view === "manual" ? "page" : undefined} onClick={() => openView("manual")}>วิธีใช้งาน</button>
         </div>
-        {view === "manual" ? <Manual /> : <AssessmentView {...sharedProps} />}
+        {draftError && <div className="status-message error" role="alert">{draftError}</div>}
+        {view === "manual" ? <Manual /> : draftReady ? <AssessmentView {...sharedProps} /> : <p role="status">กำลังเตรียมแบบประเมินและตรวจสอบร่างในเครื่อง…</p>}
       </main>
       <SiteFooter />
     </>
@@ -286,6 +371,7 @@ type ViewProps = {
   saveState: string;
   submitState: string;
   submitError: string;
+  sendNotice: string;
   submitAssessment: () => void;
   submitted: AssessmentRecord | null;
   onNewAssessment: () => void;
@@ -337,7 +423,7 @@ function AssessmentView(props: ViewProps) {
               type="button"
               key={label}
               aria-current={step === index ? "step" : undefined}
-              disabled={(index === 1 && !props.profileComplete) || (index > 1 && !props.readyToReview) || (index === 3 && !props.submitted)}
+              disabled={props.submitState === "saving" || (props.submitState === "done" && index !== 3) || (index === 1 && !props.profileComplete) || (index > 1 && !props.readyToReview) || (index === 3 && !props.submitted)}
               onClick={() => setStep(index)}
             >
               <span className="step-number">{index + 1}</span>
@@ -626,10 +712,12 @@ function ReviewStep(props: ViewProps) {
           </div>
         ))}
       </div>
+      <p className="save-state" role="status">{props.saveState}</p>
+      {props.sendNotice && <div className="status-message" role="status">{props.sendNotice}</div>}
       {props.submitError && <div className="status-message error" role="alert">{props.submitError}</div>}
       <div className="action-row">
-        <button className="btn btn-secondary" type="button" onClick={() => props.setStep(1)}>กลับไปแก้ไขคำตอบ</button>
-        <button className="btn btn-primary" type="button" disabled={props.submitState === "saving"} onClick={props.submitAssessment}>{props.submitState === "saving" ? "กำลังส่งแบบประเมิน…" : "ยืนยันส่งแบบประเมิน"}</button>
+        <button className="btn btn-secondary" type="button" disabled={props.submitState === "saving"} onClick={() => props.setStep(1)}>กลับไปแก้ไขคำตอบ</button>
+        <button className="btn btn-primary" type="button" disabled={props.submitState === "saving" || props.submitState === "done" || !props.profileComplete || !props.readyToReview} onClick={props.submitAssessment}>{props.submitState === "saving" ? "กำลังส่งแบบประเมิน…" : "ยืนยันส่งแบบประเมิน"}</button>
       </div>
     </section>
   );
