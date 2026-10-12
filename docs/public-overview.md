@@ -1,6 +1,6 @@
 # Public overview dashboard
 
-Route: `/dashboard/overview`. The existing `/dashboard` search and `/admin` remain protected by individual Google-account access.
+Route: `/dashboard/overview`. Anyone can view, search, open aggregate details and export without an account. Administrator authentication is only for preparing/updating the public dataset; it is never a viewer requirement. The existing `/dashboard` search and `/admin` remain protected by individual Google-account access.
 
 The approved design has one Overview menu, filters applied only by Search, vehicle icons beside headings, unobstructed charts, a province map and aggregate Excel export. All defaults are All. The fifth filter is result grade: education level is not stored in the assessment records.
 
