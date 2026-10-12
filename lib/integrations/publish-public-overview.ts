@@ -5,7 +5,7 @@ import { isAdminEmail } from "../access-roles";
 import { firestoreRecord, type DashboardRecord } from "./dashboard-repository";
 import { getFirebaseAuth, getFirebaseDb } from "./firebase-client";
 
-export async function publishPublicOverview() {
+async function buildAndPublishPublicOverview() {
   const auth = await getFirebaseAuth();
   if (!auth?.currentUser?.emailVerified || !isAdminEmail(auth.currentUser.email ?? "")) throw new Error("บัญชีนี้ไม่มีสิทธิ์เผยแพร่ภาพรวม");
   const db = await getFirebaseDb(); if (!db) throw new Error("เชื่อมต่อข้อมูลไม่สำเร็จ");
@@ -33,4 +33,34 @@ export async function publishPublicOverview() {
     tx.set(control, { revision: version });
   });
   return { assessments: records.length, cells: cells.length };
+}
+
+// A manual refresh and automatic initialization in the same tab share one write.
+let publication: Promise<{ assessments: number; cells: number }> | null = null;
+export function publishPublicOverview() {
+  if (!publication) publication = buildAndPublishPublicOverview().finally(() => { publication = null; });
+  return publication;
+}
+
+let freshnessCheck: Promise<{ assessments: number; cells: number } | null> | null = null;
+async function refreshFromSavedAssessments() {
+  const auth = await getFirebaseAuth();
+  if (!auth?.currentUser?.emailVerified || !isAdminEmail(auth.currentUser.email ?? "")) throw new Error("บัญชีนี้ไม่มีสิทธิ์เผยแพร่ภาพรวม");
+  const db = await getFirebaseDb(); if (!db) throw new Error("เชื่อมต่อข้อมูลไม่สำเร็จ");
+  const { collection, doc, getDoc, getDocs, limit, orderBy, query } = await import("firebase/firestore");
+  const manifest = await getDoc(doc(db, "public_overview", "current"));
+  const publishedAt = manifest.data()?.updatedAt?.toMillis?.() ?? 0;
+  if (manifest.exists() && publishedAt > 0) {
+    const latest = await getDocs(query(collection(db, "submissions"), orderBy("createdAt", "desc"), limit(1)));
+    const savedAt = latest.docs[0]?.data().createdAt?.toMillis?.() ?? 0;
+    if (savedAt <= publishedAt) return null;
+  }
+  // Uses the exact same source and decoder as the staff search dashboard.
+  return publishPublicOverview();
+}
+
+/** Refresh when an admin opens a protected page; anonymous visitors never read submissions. */
+export function ensurePublicOverviewFresh() {
+  if (!freshnessCheck) freshnessCheck = refreshFromSavedAssessments().finally(() => { freshnessCheck = null; });
+  return freshnessCheck;
 }

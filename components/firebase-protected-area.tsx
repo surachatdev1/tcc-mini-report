@@ -114,6 +114,25 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user?.uid || !access?.admin) return;
+    let active = true;
+    void import("@/lib/integrations/publish-public-overview").then(async ({ ensurePublicOverviewFresh }) => {
+      if (!active) return;
+      setOverviewBusy(true);
+      setOverviewStatus("กำลังตรวจสอบข้อมูลภาพรวมจากผลประเมินที่บันทึกไว้…");
+      try {
+        const result = await ensurePublicOverviewFresh();
+        if (active) setOverviewStatus(result
+          ? `อัปเดตภาพรวมสาธารณะจากข้อมูลที่บันทึกไว้แล้ว ${result.assessments.toLocaleString("th-TH")} ผลประเมิน`
+          : "ภาพรวมสาธารณะตรงกับผลประเมินล่าสุดแล้ว");
+      } catch (error) {
+        if (active) setOverviewStatus(error instanceof Error ? `อัปเดตภาพรวมอัตโนมัติไม่สำเร็จ: ${error.message}` : "อัปเดตภาพรวมไม่สำเร็จ กรุณากดอัปเดตภาพรวมสาธารณะอีกครั้ง");
+      } finally { if (active) setOverviewBusy(false); }
+    }).catch(() => { if (active) setOverviewStatus("โหลดส่วนอัปเดตภาพรวมไม่สำเร็จ กรุณาลองใหม่"); });
+    return () => { active = false; };
+  }, [user?.uid, access?.admin]);
+
   async function signInWithGoogle() {
     setError("");
     if (browserBlocksOAuthState()) {

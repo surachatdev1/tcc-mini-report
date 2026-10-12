@@ -8,7 +8,7 @@
 #tcc-overview button{cursor:pointer}
 #tcc-overview button:disabled{cursor:not-allowed;opacity:.55}
 #tcc-overview :is(button,a,select,[tabindex]):focus-visible{outline:3px solid #1687bd;outline-offset:3px}
-#tcc-overview .td-shell{display:grid;grid-template-columns:132px minmax(0,1fr);min-height:100dvh;max-width:1920px;margin:auto}
+#tcc-overview .td-shell{display:grid;grid-template-columns:132px minmax(0,1fr);width:100%;min-height:100dvh;margin:0}
 #tcc-overview .td-rail{background:linear-gradient(145deg,#1d3d5d,#163149);padding:22px 10px;display:flex;flex-direction:column;gap:28px;color:#d8e6f2}
 #tcc-overview .td-rail-brand{display:flex;justify-content:center}
 #tcc-overview .td-brand-mark{display:grid;place-items:center;width:64px;height:64px;color:#f2c979}
@@ -16,7 +16,8 @@
 #tcc-overview .td-home{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 8px;border-radius:9px;background:linear-gradient(110deg,#168adb,#159fcf);color:white;text-decoration:none;font-weight:600;min-height:44px}
 #tcc-overview .td-info{margin-top:auto;font-size:11px;line-height:1.85;padding-top:32px}
 #tcc-overview .td-ui-icon{width:18px;height:18px;flex-shrink:0}
-#tcc-overview .td-main{min-width:0;padding:22px 24px 16px;background:linear-gradient(120deg,#f3f8fd,#eaf4fc)}
+#tcc-overview .td-main{min-width:0;display:flex;flex-direction:column;padding:22px 24px 16px;background:linear-gradient(120deg,#f3f8fd,#eaf4fc)}
+#tcc-overview .td-main>*{flex-shrink:0}
 #tcc-overview .td-header{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:1px solid var(--line)}
 #tcc-overview .td-header>div:first-child{min-width:0}
 #tcc-overview .td-header p{font-size:13px;color:var(--muted);margin-top:6px}
@@ -135,12 +136,12 @@
 #tcc-overview .td-definition{font-size:12px;color:var(--muted);line-height:1.9;border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
 #tcc-overview .td-light{font-weight:400}
 #tcc-overview .td-gap-empty{font-size:13px;padding-block:30px;color:var(--muted)}
-#tcc-overview .td-footer{display:flex;justify-content:space-between;gap:12px 20px;align-items:center;flex-wrap:wrap;padding-top:16px;font-size:11px;color:var(--muted)}
+#tcc-overview .td-footer{margin-top:auto;display:flex;justify-content:space-between;gap:12px 20px;align-items:center;flex-wrap:wrap;padding-top:16px;font-size:11px;color:var(--muted)}
 #tcc-overview .td-footer-actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 #tcc-overview a{color:#296b92;text-underline-offset:3px}
 #tcc-overview .td-home{color:#fff}
 #tcc-overview .td-footer-actions button{font-size:12px}
-#tcc-overview .td-empty{display:grid;place-content:center;text-align:center;min-height:340px;gap:14px;padding:30px 20px}
+#tcc-overview .td-empty{flex:1;display:grid;place-content:center;text-align:center;min-height:340px;gap:14px;padding:30px 20px}
 #tcc-overview .td-empty button{justify-self:center}
 #tcc-overview .td-zero{padding:14px;background:#fff;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;font-size:14px}
 #tcc-overview .td-detail-dialog{width:min(880px,calc(100vw - 40px));max-height:calc(100dvh - 48px);padding:0;margin:auto;border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 90px #13355040;color:var(--ink);background:#fff;overflow:hidden}

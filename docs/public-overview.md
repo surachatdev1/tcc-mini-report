@@ -6,9 +6,9 @@ The approved design has one Overview menu, filters applied only by Search, vehic
 
 ## Publication
 
-Deploy Hosting, Firestore rules and indexes together. Sign in as an existing project administrator at `/dashboard` or `/admin`, then click **อัปเดตภาพรวมสาธารณะ**. Open `/dashboard/overview` without signing in to verify the result.
+Deploy Hosting, Firestore rules and indexes together. When an existing project administrator opens `/dashboard` or `/admin`, the system checks saved `submissions` and automatically publishes the first summary or refreshes a summary older than the latest submission. **อัปเดตภาพรวมสาธารณะ** remains available for manual refresh. Open `/dashboard/overview` without signing in to verify the result.
 
-New assessments do not automatically republish the snapshot. Administrators use the same button to refresh it. The footer displays the publication time. Before first publication, the page displays an explicit unpublished state, never sample data. No new backend service or Cloud Function is required, and assessment submission writes are unchanged.
+New assessments are included the next time an administrator opens a protected page or presses the refresh button. No background server job runs while every administrator is offline. The footer displays the publication time. Before first publication, the page displays an explicit unpublished state, never sample data. No new backend service or Cloud Function is required, and assessment submission writes are unchanged.
 
 Public readers access only the current aggregate version and its selected-year cells. They never read `submissions` or `submission_assessors`. Payloads contain no institution names, submission IDs, evaluator details or free-text answers.
 
@@ -53,3 +53,12 @@ npm run firebase:smoke
 The smoke check now verifies anonymous access to the manifest and published cells. A missing manifest (`404`) requires an administrator to publish the first snapshot. Search is disabled with an explanatory message until public data is available. Filters still apply only when Search is pressed.
 
 Summary cards, grade legends, bar segments, category cards and pilot provinces open an accessible detail dialog. Details preserve the applied year/type/affiliation/grade and expose only published aggregates. The full gaps table includes the numerator and eligible denominator. Individual submissions remain behind staff authentication. Icons use a shared SVG viewBox; charts and the map preserve their native aspect ratios across responsive layouts.
+
+## Stored record mapping
+
+- `submissions/{id}` stores `schemaVersion: 2`, `institution`, `province`, `assessmentDate` (`YYYY-MM-DD`), `topicId` (`bus`, `trip`, `moto`, `agency`), `agencyType`, `rubricVersion`, `answers`, `publicConsent`, and server `createdAt`.
+- Each answer contains `score` (0–3) and an explanation. Overall score and grade are recalculated with the original rubric by `firestoreRecord`, shared with staff search.
+- `submission_assessors/{id}` stores names, phone numbers, roles and positions separately. Overview does not read this collection.
+- Public filters use the saved assessment year, province and type; grade is recalculated and affiliation is resolved from the school directory. Anonymous search reads only the numeric output of that mapping.
+- An absent `public_overview/current` is an unpublished summary, not proof that `submissions` is empty. Opening a protected page as an admin now initializes it automatically.
+- The overview shell spans the viewport width and height, including empty/loading states and displays wider than 1920 px.
