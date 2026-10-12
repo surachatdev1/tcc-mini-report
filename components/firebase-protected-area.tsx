@@ -164,7 +164,10 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
       const result = await publishPublicOverview();
       setOverviewStatus(`เผยแพร่ภาพรวมสาธารณะแล้ว จาก ${result.assessments.toLocaleString("th-TH")} ผลประเมิน`);
     } catch (error) {
-      setOverviewStatus(error instanceof Error ? error.message : "เผยแพร่ภาพรวมไม่สำเร็จ");
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      setOverviewStatus(code.includes("permission-denied")
+        ? "เผยแพร่ไม่ได้: โปรด deploy Firestore Rules และ Indexes เวอร์ชันล่าสุดของ tcc-safe-travel แล้วลองอีกครั้ง"
+        : error instanceof Error ? error.message : "เผยแพร่ภาพรวมไม่สำเร็จ");
     } finally { setOverviewBusy(false); }
   }
 

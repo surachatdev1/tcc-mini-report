@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildPublicOverviewCells, defaultOverviewFilters, isPublicOverviewCell, selectPublicOverview } from "../lib/public-overview.ts";
+import { selectOverviewDetail } from "../lib/public-overview-details.ts";
+import { publicOverviewError } from "../lib/public-overview-errors.ts";
 import type { DashboardRecord } from "../lib/integrations/dashboard-repository.ts";
 function record(values: Partial<DashboardRecord> = {}): DashboardRecord {
   return { id: "private-id", institution: "โรงเรียนทดสอบ", province: "เชียงใหม่", assessorName: "ห้ามเผยแพร่ชื่อ", assessorPhone: "ห้ามเผยแพร่เบอร์", respondentRole: "ห้ามเผยแพร่บทบาท", position: "ห้ามเผยแพร่ตำแหน่ง", assessmentDate: "2026-10-12", topicId: "bus", topicLabel: "รถรับส่ง", agencyType: null, score: 60, grade: "C", createdAt: "2026-10-12T00:00:00Z", lowQuestions: [], categoryScores: [{ id: "driver", label: "ห้ามเผยแพร่ข้อความอิสระ", weight: 35, contribution: 0, percent: 60 }], questionResults: [{ id: "q1", title: "ห้ามเผยแพร่ข้อความอิสระ", explanation: "ห้ามเผยแพร่คำตอบ", requiresImprovement: true }] as DashboardRecord["questionResults"], ...values };
@@ -57,4 +59,31 @@ test("invalid published metrics are rejected instead of silently displayed", () 
   assert.equal(isPublicOverviewCell(broken), false);
   const invalidScore = structuredClone(valid); invalidScore.scopes.all_all.scoreSum = 101;
   assert.equal(isPublicOverviewCell(invalidScore), false);
+});
+
+test("detail rows respect the searched province instead of leaking the map context", () => {
+  const cells = buildPublicOverviewCells([record(), record({ province: "ลำปาง" })], affiliation);
+  const detail = selectOverviewDetail(cells, { ...defaultOverviewFilters, province: "เชียงใหม่" }, { title: "รายละเอียด" });
+  assert.equal(detail.summary.assessments, 1);
+  assert.deepEqual(detail.rows.map(([province]) => province), ["เชียงใหม่"]);
+});
+test("province and grade drill-down preserve year, affiliation and topic filters", () => {
+  const cells = buildPublicOverviewCells([record({ grade: "A" }), record({ grade: "D" }), record({ topicId: "trip", grade: "A" }), record({ province: "ลำปาง", grade: "A" }), record({ assessmentDate: "2025-01-01", grade: "A" })], affiliation);
+  const detail = selectOverviewDetail(cells, { ...defaultOverviewFilters, year: "2026", topic: "bus", affiliation: "obec" }, { title: "รายละเอียด", grade: "A", province: "เชียงใหม่" });
+  assert.equal(detail.summary.assessments, 1);
+  assert.equal(detail.filters.year, "2026");
+  assert.equal(detail.filters.affiliation, "obec");
+  assert.equal(detail.topics.trip, undefined);
+});
+test("category drill-down excludes provinces that have no applicable category", () => {
+  const cells = buildPublicOverviewCells([record(), record({ province: "ลำปาง", categoryScores: [] })], affiliation);
+  const detail = selectOverviewDetail(cells, defaultOverviewFilters, { title: "คนขับ", metric: { field: "domains", id: "driver", description: "" } });
+  assert.deepEqual(detail.rows.map(([province]) => province), ["เชียงใหม่"]);
+  assert.equal(detail.summary.domains.driver.count, 1);
+});
+test("load errors distinguish denied public access from offline failures", () => {
+  assert.match(publicOverviewError({ code: "permission-denied" }), /สิทธิ์อ่านข้อมูลสรุปสาธารณะ/);
+  assert.match(publicOverviewError({ code: "unavailable" }), /อินเทอร์เน็ต/);
+  assert.match(publicOverviewError(new Error("private implementation detail")), /กรุณาลองใหม่/);
+  assert.ok(!publicOverviewError(new Error("private implementation detail")).includes("private"));
 });

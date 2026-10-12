@@ -37,4 +37,22 @@ await checkPage("/dashboard");
 await checkPage("/dashboard/overview");
 await checkPage("/admin");
 await checkFirebaseConfig();
-console.log("Firebase Hosting smoke test passed.");
+// Checking HTML alone misses a hosting-only release with stale Firestore rules.
+const manifestUrl = "https://firestore.googleapis.com/v1/projects/tcc-safe-travel/databases/(default)/documents/public_overview/current";
+const publicResponse = await fetch(manifestUrl);
+if (publicResponse.status === 403 || publicResponse.status === 401) {
+  throw new Error("Public overview access denied. Deploy firestore:rules and firestore:indexes for tcc-safe-travel; verify App Check configuration if access is still denied.");
+}
+if (publicResponse.status === 404) {
+  console.warn("Public overview rules allow access, but no summary is published. Sign in as an administrator and click อัปเดตภาพรวมสาธารณะ.");
+} else {
+  if (!publicResponse.ok) throw new Error(`Public overview returned HTTP ${publicResponse.status}`);
+  const manifest = await publicResponse.json();
+  const version = manifest.fields?.version?.stringValue;
+  if (!version || !/^[a-f0-9-]{36}$/i.test(version)) throw new Error("Invalid public overview version");
+  const cellsUrl = `https://firestore.googleapis.com/v1/projects/tcc-safe-travel/databases/(default)/documents/public_overview_versions/${version}/cells?pageSize=1`;
+  const cellsResponse = await fetch(cellsUrl);
+  if (!cellsResponse.ok) throw new Error(`Published overview cells returned HTTP ${cellsResponse.status}`);
+  console.log("PASS anonymous access to public overview manifest and published cells");
+}
+console.log("Firebase Hosting and public overview smoke test passed.");

@@ -40,3 +40,16 @@ Run `npx firebase login` first if needed. Node 22.13+; Java 21+ for Firestore Em
 Validation: `npm run test:firebase`; `npm run test:rules`; browser widths 320/390/768/1024/1536 px; explicit Search/reset; Excel output; empty/error/unpublished states; public vs protected routes. Emulator integration covers actual Admin publication, guest aggregate queries, deletion invalidation and republishing.
 
 Geometry: apisit/thailand.json (MIT), notice at `/notices/thailand-map-license.txt`. Decorative illustrations come from the user-supplied approved reference; data and charts are real components.
+
+## Troubleshooting public search
+
+A page shell loading successfully does not mean Firestore is ready. If the public manifest returns `403 PERMISSION_DENIED`, deploy the rules and indexes as well as Hosting; verify App Check configuration if access remains denied. Do not open raw `submissions` to anonymous readers.
+
+```sh
+npx firebase deploy --only hosting,firestore:rules,firestore:indexes --project tcc-safe-travel
+npm run firebase:smoke
+```
+
+The smoke check now verifies anonymous access to the manifest and published cells. A missing manifest (`404`) requires an administrator to publish the first snapshot. Search is disabled with an explanatory message until public data is available. Filters still apply only when Search is pressed.
+
+Summary cards, grade legends, bar segments, category cards and pilot provinces open an accessible detail dialog. Details preserve the applied year/type/affiliation/grade and expose only published aggregates. The full gaps table includes the numerator and eligible denominator. Individual submissions remain behind staff authentication. Icons use a shared SVG viewBox; charts and the map preserve their native aspect ratios across responsive layouts.

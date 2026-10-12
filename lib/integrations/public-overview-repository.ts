@@ -1,3 +1,4 @@
+import { publicOverviewError } from "../public-overview-errors";
 import { getFirebaseDb } from "./firebase-client";
 import { isPublicOverviewCell, type PublicOverviewCell, type PublicOverviewManifest } from "../public-overview";
 
@@ -18,7 +19,7 @@ export async function subscribePublicOverview(year: string, listener: (value: Pu
       const cells = rows.docs.map(row => row.data());
       if (!cells.every(isPublicOverviewCell)) throw new Error("Invalid aggregate payload");
       listener({ source: "live", cells, manifest: { schemaVersion: 1, version: raw.version, years: raw.years, updatedAt: raw.updatedAt?.toDate?.().toISOString() ?? "" } });
-    } catch { if (active && request === generation) listener({ source: "unavailable", cells: [], manifest: null, error: "โหลดข้อมูลภาพรวมไม่สำเร็จ กรุณาลองใหม่" }); }
-  }, () => listener({ source: "unavailable", cells: [], manifest: null, error: "ยังไม่สามารถอ่านข้อมูลภาพรวมได้ กรุณาลองใหม่ภายหลัง" }));
+    } catch (error) { if (active && request === generation) listener({ source: "unavailable", cells: [], manifest: null, error: publicOverviewError(error) }); }
+  }, error => { if (active) { generation++; listener({ source: "unavailable", cells: [], manifest: null, error: publicOverviewError(error) }); } });
   return () => { active = false; generation++; stop(); };
 }
