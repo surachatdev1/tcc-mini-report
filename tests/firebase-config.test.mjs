@@ -149,7 +149,7 @@ test("Admin ลบแบบประเมินหนึ่งชุดหร�
 
 test("เมนูสาธารณะแสดงเฉพาะแบบประเมินและ Dashboard", () => {
   assert.match(siteHeaderSource, /href="\/">แบบประเมิน<\/Link>/);
-  assert.match(siteHeaderSource, /href="\/dashboard">Dashboard<\/Link>/);
+  assert.match(siteHeaderSource, /href="\/dashboard\/overview">Dashboard<\/Link>/);
   assert.doesNotMatch(siteHeaderSource, /href="\/admin"/);
   assert.match(protectedAreaSource, /จัดการผู้มีสิทธิ์<\/Link>/);
 });

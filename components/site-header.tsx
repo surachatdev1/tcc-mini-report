@@ -39,7 +39,7 @@ export function SiteHeader({ active }: { active: "assessment" | "dashboard" | "a
         </Link>
         <nav className="main-nav" aria-label="เมนูหลัก">
           <Link aria-current={active === "assessment" ? "page" : undefined} href="/">แบบประเมิน</Link>
-          <Link aria-current={active === "dashboard" ? "page" : undefined} href="/dashboard">Dashboard</Link>
+          <Link aria-current={active === "dashboard" ? "page" : undefined} href="/dashboard/overview">Dashboard</Link>
         </nav>
       </div>
     </header>

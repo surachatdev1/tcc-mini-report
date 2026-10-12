@@ -13,6 +13,7 @@ import { SiteFooter } from "@/components/site-footer";
 // downloading Dashboard/Admin logic and reduces JavaScript parsing on mobile.
 const AssessmentWorkspace = lazy(() => import("@/components/assessment-workspace").then((module) => ({ default: module.AssessmentWorkspace })));
 const DashboardAuthGate = lazy(() => import("@/components/dashboard-auth-gate").then((module) => ({ default: module.DashboardAuthGate })));
+const OverviewAuthGate = lazy(() => import("@/components/overview-auth-gate").then((module) => ({ default: module.OverviewAuthGate })));
 const AdminAuthGate = lazy(() => import("@/components/admin-auth-gate").then((module) => ({ default: module.AdminAuthGate })));
 
 function RouteFallback({ label }: { label: string }) {
@@ -20,6 +21,9 @@ function RouteFallback({ label }: { label: string }) {
 }
 
 function FirebaseApplication() {
+  if (window.location.pathname.replace(/\/$/, "") === "/dashboard/overview") {
+    return <Suspense fallback={<RouteFallback label="กำลังเปิด Dashboard ภาพรวม…" />}><OverviewAuthGate /></Suspense>;
+  }
   const isAdmin = window.location.pathname === "/admin" || window.location.pathname.startsWith("/admin/");
   if (isAdmin) {
     return (

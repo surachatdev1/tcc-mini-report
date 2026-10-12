@@ -56,6 +56,9 @@ export async function deleteAssessmentSubmission(submission: AssessmentSubmissio
   const { doc, writeBatch } = await import("firebase/firestore");
   const batch = writeBatch(db);
 
+  batch.delete(doc(db, "public_overview", "current"));
+  batch.set(doc(db, "overview_publication", "state"), { revision: crypto.randomUUID() });
+
   // ผลประเมินและข้อมูลผู้ประเมินใช้ document id เดียวกัน จึงลบคู่กันใน atomic batch
   batch.delete(doc(db, "submissions", submission.id));
   batch.delete(doc(db, "submission_assessors", submission.id));
@@ -73,6 +76,8 @@ export async function deleteAllAssessmentSubmissions(submissions: AssessmentSubm
   // หนึ่งแบบประเมินใช้ 2 delete operations จึงแบ่งครั้งละ 200 ชุด ต่ำกว่าขีดจำกัด 500 operations
   for (let offset = 0; offset < submissions.length; offset += 200) {
     const batch = writeBatch(db);
+    batch.delete(doc(db, "public_overview", "current"));
+    batch.set(doc(db, "overview_publication", "state"), { revision: crypto.randomUUID() });
     for (const submission of submissions.slice(offset, offset + 200)) {
       batch.delete(doc(db, "submissions", submission.id));
       batch.delete(doc(db, "submission_assessors", submission.id));

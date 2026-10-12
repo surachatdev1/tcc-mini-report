@@ -1,0 +1,106 @@
+"use client";
+/* eslint-disable @next/next/no-img-element -- Firebase serves the existing local WebP logos. */
+import "./overview-dashboard.css";
+import Link from "next/link";
+import type { Cell } from "write-excel-file/browser";
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
+import { agencyTypes, getTopic, provinces, type TopicId } from "@/lib/assessment-data";
+import { affiliationLabels } from "@/lib/dashboard-filters";
+import { defaultOverviewFilters, emptyPublicMetrics, overviewDomains, selectPublicOverview, type OverviewFilters, type PublicMetrics } from "@/lib/public-overview";
+import { subscribePublicOverview, type PublicOverviewResult } from "@/lib/integrations/public-overview-repository";
+import { overviewTopics } from "@/lib/dashboard-overview";
+import geometry from "@/lib/thailand-provinces.geometry.json";
+
+const colors = ["#29ae5e", "#99cf70", "#ffc34b", "#f56b72"];
+const grades = ["A", "B", "C", "D"] as const;
+const number = (value: number) => value.toLocaleString("th-TH");
+const emptyResult: PublicOverviewResult = { source: "unpublished", cells: [], manifest: null };
+const rubricEntries = [...["bus", "trip", "moto"].map(id => ({ topic: getTopic(id as TopicId), key: `${id}:` })), ...agencyTypes.map(a => ({ topic: getTopic("agency", a.id), key: `agency:${a.id}` }))];
+const questionLabels = Object.fromEntries(rubricEntries.flatMap(({ topic, key }) => topic.questions.map(q => [`${key}:${q.id}`, { title: q.title, topic: topic.id === "agency" ? topic.detail : topic.label }])));
+function Art({ name }: { name: string }) { return <span className={`td-art td-art-${name}`} aria-hidden="true" />; }
+function Icon({ name }: { name: "chart" | "search" | "info" }) {
+  return <svg className="td-ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{name === "search" ? <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></> : name === "info" ? <><circle cx="12" cy="12" r="9" /><path d="M12 11v6m0-10v.01" /></> : <path d="M4 3v17h17M8 16V9m5 7V5m5 11v-5" />}</svg>;
+}
+function Donut({ metrics, overall = false }: { metrics: PublicMetrics; overall?: boolean }) {
+  let cursor = 0;
+  const stops = grades.map((g, i) => { const start = cursor; cursor += metrics.assessments ? metrics.grades[g] / metrics.assessments * 100 : 0; return `${colors[i]} ${start}% ${cursor}%`; });
+  return <div className="td-donut-row">
+    <div className={overall ? "td-overall-ring" : "td-ring-wrap"}><div className="td-ring" role="img" aria-label={`ผลประเมิน ${number(metrics.assessments)} รายการ; ${grades.map(g => `${g} ${number(metrics.grades[g])} รายการ`).join(", ")}`} style={{ background: metrics.assessments ? `conic-gradient(${stops.join(",")})` : "#e8eef4" }}>
+      {overall && <div className="td-ring-label"><b>{number(metrics.assessments)}</b><span>รายการ</span></div>}
+    </div></div>
+    <div className="td-legend">{grades.map((g, i) => <div key={g}><i className="td-dot" style={{ background: colors[i] }} /><b>{g}</b><span>{metrics.assessments ? `${Math.round(metrics.grades[g] / metrics.assessments * 100)}%` : "—"} <span className="td-count">({number(metrics.grades[g])})</span></span></div>)}</div>
+  </div>;
+}
+const dateLabel = (iso: string) => iso && !Number.isNaN(Date.parse(iso)) ? new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(iso)) : "—";
+export function OverviewDashboard() {
+  const [draft, setDraft] = useState<OverviewFilters>(defaultOverviewFilters);
+  const [applied, setApplied] = useState<OverviewFilters>(defaultOverviewFilters);
+  const [state, setState] = useState<{ year: string; result: PublicOverviewResult } | null>(null);
+  const [reload, setReload] = useState(0);
+  const [definitions, setDefinitions] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState("");
+  useEffect(() => {
+    let active = true; let stop = () => {};
+    void subscribePublicOverview(applied.year, result => { if (active) setState({ year: applied.year, result }); })
+      .then(unsubscribe => { if (active) stop = unsubscribe; else unsubscribe(); })
+      .catch(() => { if (active) setState({ year: applied.year, result: { ...emptyResult, source: "unavailable", error: "เชื่อมต่อข้อมูลภาพรวมไม่สำเร็จ กรุณาลองใหม่" } }); });
+    return () => { active = false; stop(); };
+  }, [applied.year, reload]);
+  const waiting = !state || state.year !== applied.year;
+  const result = waiting ? emptyResult : state.result;
+  const view = useMemo(() => selectPublicOverview(result.cells, applied), [result.cells, applied]);
+  const summary = view.summary;
+  const pending = JSON.stringify(draft) !== JSON.stringify(applied);
+  const years = state?.result.manifest?.years ?? [];
+  const visibleTopics = overviewTopics.filter(t => applied.topic === "all" ? t.id !== "agency" : t.id === applied.topic);
+  const categoryCards = applied.topic === "all" ? overviewDomains.map(d => ({ id: d.id, label: d.label, art: d.art, tone: d.tone, detail: d.detail, metric: summary.domains[d.id] })) : rubricEntries.filter(e => e.topic.id === applied.topic).flatMap(({ topic, key }) => topic.categories.map((category, i) => ({ id: `${key}:${category.id}`, label: category.label, art: overviewDomains[i % 5].art, tone: overviewDomains[i % 5].tone, detail: topic.id === "agency" ? topic.detail : topic.label, metric: summary.categories[`${key}:${category.id}`] }))).filter(c => applied.topic !== "agency" || c.metric);
+  const gaps = Object.entries(summary.gaps).filter(([, value]) => value.count > 0).sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0])).slice(0, 5);
+  const stackRows = [{ label: "ทั้งหมด", metrics: summary }, ...overviewTopics.filter(t => applied.topic === "all" || t.id === applied.topic).map(t => ({ label: t.short, metrics: view.topics[t.id] ?? emptyPublicMetrics() }))];
+  const maxStack = Math.max(summary.assessments, 1);
+  const selectedTopic = overviewTopics.find(t => t.id === applied.topic)?.label ?? "ทุกประเภท";
+  const filterLabel = `${applied.year === "all" ? "ทุกปี" : Number(applied.year) + 543} · ${applied.province === "all" ? "ทุกจังหวัด" : applied.province} · ${selectedTopic} · ${applied.affiliation === "all" ? "ทุกสังกัด" : affiliationLabels[applied.affiliation]} · ${applied.grade === "all" ? "ทุกระดับผล" : `ระดับ ${applied.grade}`}`;
+  function change<K extends keyof OverviewFilters>(key: K, value: OverviewFilters[K]) { setDraft(current => ({ ...current, [key]: value })); }
+  function search(event: FormEvent) { event.preventDefault(); setApplied({ ...draft }); setExportMessage(""); }
+  function retry() { setState(null); setReload(value => value + 1); }
+  async function exportExcel() {
+    setExporting(true); setExportMessage("");
+    try {
+      const { default: writeXlsxFile } = await import("write-excel-file/browser");
+      const cell = (value: string | number): Cell => typeof value === "number" ? { type: Number, value } : { type: String, value };
+      const rows = [["ภาพรวมการประเมินการเดินทางที่ปลอดภัย"], [filterLabel], ["เผยแพร่เมื่อ", dateLabel(result.manifest?.updatedAt ?? "")], ["โรงเรียนไม่ซ้ำ", summary.schools], ["หน่วยงานไม่ซ้ำ", summary.agencies], ["ผลประเมิน", summary.assessments], [], ["ระดับ", "จำนวนผลประเมิน"], ...grades.map(g => [g, summary.grades[g]]), [], ["หมวด", "คะแนนเฉลี่ย", "ผลประเมินที่มีหมวดนี้"], ...categoryCards.map(c => [c.label, c.metric?.count ? Number((c.metric.sum / c.metric.count).toFixed(1)) : "ไม่มีข้อมูล", c.metric?.count ?? 0]), [], ["ประเด็นที่ต้องพัฒนา", "ผลประเมินที่พบ", "ผลประเมินที่มีข้อนี้"], ...gaps.map(([key, value]) => [questionLabels[key]?.title ?? key, value.count, value.eligible])];
+      await writeXlsxFile(rows.map(row => row.map(cell)), { columns: [{ width: 78 }, { width: 24 }, { width: 30 }] }, { fontFamily: "Sarabun", fontSize: 11 }).toFile(`tcc-overview-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch { setExportMessage("ส่งออกไม่สำเร็จ กรุณาลองใหม่"); }
+    finally { setExporting(false); }
+  }
+  return <div id="tcc-overview"><div className="td-shell">
+    <aside className="td-rail"><div className="td-rail-brand"><span className="td-brand-mark"><Art name="school" /></span></div><nav aria-label="เมนูภาพรวม"><a className="td-home active" href="#main-content" aria-current="page"><Icon name="chart" />ภาพรวม</a></nav><div className="td-info">ประเมินเพื่อพัฒนา<br />ความปลอดภัยในการเดินทาง</div></aside>
+    <main className="td-main" id="main-content">
+      <header className="td-header"><div><h1>ระบบประเมินการเดินทางที่ปลอดภัยของนักเรียน</h1><p>โครงการสานพลังความร่วมมือท้องถิ่นเพื่อการพัฒนาและสื่อสารสาธารณะ</p></div><div className="td-header-meta"><span className="td-public-label">ภาพรวมสาธารณะ</span><div className="td-logos"><img src="/images/tcc-office-logo.webp" alt="สภาองค์กรของผู้บริโภค" /><img src="/images/thaihealth-logo.webp" alt="สสส." /></div></div></header>
+      <section className="td-filter-panel" aria-label="ค้นหาภาพรวม"><form className="td-filters" onSubmit={search}>
+        <label>ปีที่ประเมิน (พ.ศ.)<select aria-label="ปีที่ประเมิน (พ.ศ.)" value={draft.year} onChange={e => change("year", e.target.value)}><option value="all">ทุกปี</option>{years.map(y => <option key={y} value={y}>{Number(y) + 543}</option>)}</select></label>
+        <label>จังหวัด<select aria-label="จังหวัด" value={draft.province} onChange={e => change("province", e.target.value)}><option value="all">ทุกจังหวัด</option>{provinces.map(p => <option key={p}>{p}</option>)}</select></label>
+        <label>ประเภทการประเมิน<select aria-label="ประเภทการประเมิน" value={draft.topic} onChange={e => change("topic", e.target.value as OverviewFilters["topic"])}><option value="all">ทุกประเภท</option>{overviewTopics.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}</select></label>
+        <label>สังกัดโรงเรียน<select aria-label="สังกัดโรงเรียน" value={draft.affiliation} onChange={e => change("affiliation", e.target.value as OverviewFilters["affiliation"])}><option value="all">ทุกสังกัด</option>{Object.entries(affiliationLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+        <label>ระดับผลประเมิน<select aria-label="ระดับผลประเมิน" value={draft.grade} onChange={e => change("grade", e.target.value as OverviewFilters["grade"])}><option value="all">ทุกระดับผล</option>{grades.map(g => <option key={g}>{g}</option>)}</select></label>
+        <div className="td-filter-actions"><button type="button" className="td-clear" onClick={() => setDraft({ ...defaultOverviewFilters })}>ล้างตัวกรอง</button><button type="submit" className="td-reset"><Icon name="search" />ค้นหา</button></div>
+      </form>{pending && <p className="td-pending" role="status">มีการเปลี่ยนเงื่อนไข · กดค้นหาเพื่ออัปเดตข้อมูล</p>}</section>
+      <p className="td-applied" role="status" aria-live="polite">{filterLabel}</p>
+      {waiting ? <section className="td-card td-empty" role="status"><h2>กำลังโหลดข้อมูลภาพรวม…</h2></section> : result.source === "unavailable" ? <section className="td-card td-empty" role="alert"><h2>ยังแสดงข้อมูลไม่ได้</h2><p>{result.error}</p><button className="td-clear" onClick={retry}>ลองใหม่</button></section> : result.source === "unpublished" ? <section className="td-card td-empty" role="status"><h2>ยังไม่มีข้อมูลสรุปที่เผยแพร่</h2><p>ภาพรวมจะแสดงเมื่อผู้ดูแลอัปเดตข้อมูลของโครงการ</p><Link href="/dashboard">เข้าสู่ระบบสำหรับเจ้าหน้าที่</Link></section> : <>
+        {!summary.assessments && <p className="td-zero" role="status">ไม่พบผลประเมินตามเงื่อนไขที่ค้นหา</p>}
+        <div className={`td-top ${applied.topic !== "all" ? "is-filtered" : ""}`}>
+          <article className="td-card td-school-card"><div className="td-card-heading"><Art name="school-header" /><h2>{applied.topic === "agency" ? "หน่วยงานที่เข้าร่วมประเมิน" : "โรงเรียนที่เข้าร่วมประเมิน"}</h2></div><div className="td-school-main"><div><strong className="td-big" data-overview-total>{number(applied.topic === "agency" ? summary.agencies : summary.schools)}</strong> แห่ง</div><p>{number(summary.assessments)} ผลประเมินตามเงื่อนไข</p><div className="td-summary-detail">คะแนนเฉลี่ย <b>{summary.assessments ? (summary.scoreSum / summary.assessments).toFixed(1) : "—"}</b> / 100</div>{applied.topic === "all" && summary.agencies > 0 && <small>หน่วยงานกำกับ {number(summary.agencies)} แห่ง</small>}</div></article>
+          <article className="td-card td-overall"><h2>สัดส่วนระดับผลการประเมิน</h2><p>นับตามชุดผลประเมินที่ส่ง</p><Donut metrics={summary} overall /></article>
+          {visibleTopics.map(t => <article className={`td-card td-topic-card td-${t.color}`} key={t.id}><div className="td-card-heading">{t.id === "agency" ? <Art name="school-header" /> : <Art name={`${t.id}-header`} />}<h2>{t.id === "moto" ? <><span>รถจักรยานยนต์</span><span>และหมวกนิรภัย</span></> : t.label}</h2></div><div className="td-topic-number"><b>{number(view.topics[t.id]?.assessments ?? 0)}</b> รายการ</div><div><Donut metrics={view.topics[t.id] ?? emptyPublicMetrics()} /></div></article>)}
+        </div>
+        <section className="td-card td-category-section"><div className="td-section-head"><h2>{applied.topic === "all" ? "ภาพรวมคะแนนด้านความปลอดภัย" : "คะแนนเฉลี่ยรายหมวดการประเมิน"} <span data-topic-caption>({selectedTopic})</span></h2></div><div className="td-category-grid" style={{ "--category-count": Math.min(categoryCards.length || 1, 5) } as CSSProperties}>{categoryCards.map(c => <article className="td-category" key={c.id} style={{ "--tone": c.tone } as CSSProperties}><div className="td-category-title"><span><Art name={c.art} /></span><h3 title={c.detail}>{c.label}</h3></div><strong>{c.metric?.count ? `${(c.metric.sum / c.metric.count).toFixed(1)}%` : "—"}</strong><div className="td-track"><span style={{ width: `${c.metric?.count ? c.metric.sum / c.metric.count : 0}%` }} /></div><small>จาก 100 คะแนน</small><div className="td-change td-change-muted">{c.metric?.count ? `${number(c.metric.count)} ผลประเมิน` : "ยังไม่มีข้อมูลหมวดนี้"}</div></article>)}</div></section>
+        <div className="td-bottom">
+          <section className="td-card"><h2>โรงเรียนที่เข้าร่วมรายจังหวัด</h2><p className="td-subtitle">ตามปี ประเภท สังกัด และระดับผลที่ค้นหา</p><div className="td-map-row"><svg className="td-map" viewBox="0 0 210 310" role="img" aria-label={provinces.map(p => `${p} ${view.provinces[p]?.schools ?? 0} โรงเรียน`).join(", ")}>{geometry.map(p => { const count = view.provinces[p.province]?.schools ?? 0; const fill = count >= 50 ? "#2479b7" : count >= 10 ? "#519dd3" : count >= 5 ? "#87bde4" : count > 0 ? "#b6d7ef" : "#e1e9f1"; return <path d={p.d} key={p.name} fill={fill} stroke={applied.province === p.province ? "#153a56" : "white"} strokeWidth={applied.province === p.province ? 1.5 : .45}><title>{p.province || p.name}{p.province ? `: ${number(count)} โรงเรียน` : ": นอกพื้นที่นำร่อง"}</title></path>; })}</svg><div className="td-map-key"><b>จำนวนโรงเรียน</b>{[["#2479b7", "50 แห่งขึ้นไป"], ["#519dd3", "10–49 แห่ง"], ["#87bde4", "5–9 แห่ง"], ["#b6d7ef", "1–4 แห่ง"], ["#e1e9f1", "ไม่มีข้อมูล"]].map(([color, label]) => <span key={label}><i style={{ background: color }} />{label}</span>)}</div></div><div className="td-map-caption">{applied.province === "all" ? "พื้นที่นำร่อง 12 จังหวัด" : applied.province}</div></section>
+          <section className="td-card"><h2>จำนวนผลประเมินตามระดับผล</h2><p className="td-subtitle">โรงเรียนหนึ่งแห่งอาจส่งหลายผลประเมิน</p><div className="td-color-legend">{grades.map((g, i) => <span key={g}><i className="td-dot" style={{ background: colors[i] }} />{g}</span>)}</div><div data-stacks>{stackRows.map(row => <div className="td-stack-row" key={row.label}><div className="td-stack-title"><span>{row.label}</span><b>{number(row.metrics.assessments)}</b></div><div className="td-stacked" role="img" aria-label={`${row.label}: ${grades.map(g => `${g} ${number(row.metrics.grades[g])} รายการ`).join(", ")}`}>{grades.map((g, i) => row.metrics.grades[g] > 0 && <span key={g} title={`${g}: ${number(row.metrics.grades[g])} รายการ`} style={{ width: `${row.metrics.grades[g] / maxStack * 100}%`, background: colors[i] }}>{row.metrics.grades[g] / maxStack >= .07 ? number(row.metrics.grades[g]) : ""}</span>)}</div></div>)}</div><p className="td-stack-note">ความยาวแท่งใช้สเกลเดียวกัน เริ่มจาก 0 รายการ</p></section>
+          <section className="td-card td-gaps"><h2>ประเด็นที่ต้องพัฒนา <span className="td-light">(5 อันดับแรก)</span></h2><p className="td-subtitle">สัดส่วนเทียบเฉพาะผลประเมินที่มีคำถามข้อนั้น</p>{gaps.length ? <table className="td-table"><thead><tr><th>อันดับ</th><th>ประเด็นที่พบ</th><th>รายการ</th><th>สัดส่วน</th></tr></thead><tbody>{gaps.map(([key, value], index) => <tr key={key}><td>{index + 1}</td><td><details className="td-issue"><summary><span>{questionLabels[key]?.title ?? "ประเด็นการประเมิน"}</span><i aria-hidden="true">⌄</i></summary><small className="td-topic-detail">{questionLabels[key]?.topic}</small></details></td><td>{number(value.count)}</td><td>{Math.round(value.count / value.eligible * 100)}%</td></tr>)}</tbody></table> : <p className="td-gap-empty">{summary.assessments ? "ไม่พบประเด็นต่ำกว่าเกณฑ์ในผลประเมินชุดนี้" : "ยังไม่มีข้อมูลตามเงื่อนไข"}</p>}<div className="td-more"><button type="button" onClick={() => setDefinitions(value => !value)} aria-expanded={definitions} aria-controls="overview-definitions"><Icon name="info" />วิธีอ่านข้อมูล</button></div>{definitions && <div className="td-definition" id="overview-definitions">โรงเรียนและหน่วยงานนับแบบไม่ซ้ำตามชื่อและจังหวัด ส่วนกราฟนับจำนวนชุดผลประเมิน ประเด็นที่ต้องพัฒนาอาจพบซ้ำในผลประเมินเดียวกันได้{applied.topic === "all" && <p>คะแนนด้านความปลอดภัยจัดกลุ่มหมวดที่เกี่ยวข้องจากแบบประเมินต่างประเภท โดยเฉลี่ยภายในผลประเมินตามน้ำหนักหมวด แล้วเฉลี่ยผลประเมินที่มีข้อมูล ไม่เปลี่ยนคะแนนรวมหรือเกรดเดิม เลือกประเภทแล้วค้นหาเพื่อดูหมวดตามเกณฑ์ต้นฉบับ</p>}</div>}</section>
+        </div>
+      </>}
+      <footer className="td-footer"><span>{result.manifest ? `ข้อมูลสรุปเผยแพร่เมื่อ ${dateLabel(result.manifest.updatedAt)}` : "แสดงเฉพาะข้อมูลสรุปของโครงการ"}<br />แผนที่: <a href="https://github.com/apisit/thailand.json" target="_blank" rel="noreferrer">apisit/thailand.json · MIT</a></span><div className="td-footer-actions">{result.source === "live" && <button type="button" className="td-clear" disabled={exporting || !summary.assessments || waiting} onClick={exportExcel}>{exporting ? "กำลังส่งออก…" : "ส่งออก Excel"}</button>}<Link href="/">ทำแบบประเมิน</Link><Link href="/dashboard">สำหรับเจ้าหน้าที่</Link></div></footer>{exportMessage && <p role="alert">{exportMessage}</p>}
+    </main>
+  </div></div>;
+}

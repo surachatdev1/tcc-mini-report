@@ -141,7 +141,7 @@ function privateAssessorRecord(raw: Record<string, unknown>) {
   };
 }
 
-async function subscribeToFirestore(listener: DashboardListener): Promise<() => void> {
+async function subscribeToFirestore(listener: DashboardListener, includePersonalData = true): Promise<() => void> {
   const { collection, onSnapshot, orderBy, query } = await import("firebase/firestore");
   const db = await getFirebaseDb();
   const auth = await getFirebaseAuth();
@@ -157,7 +157,7 @@ async function subscribeToFirestore(listener: DashboardListener): Promise<() => 
 
   const user = auth?.currentUser;
   const access = user ? await getDashboardAccess(user) : null;
-  const personalDataVisible = Boolean(access?.admin || access?.member);
+  const personalDataVisible = includePersonalData && Boolean(access?.admin || access?.member);
 
   // รุ่นนำร่องอ่านผลที่ยืนยันทั้งหมดเพื่อให้ KPI ตรงกับข้อมูลจริง และ subscribe เพื่ออัปเดตหน้าจอเมื่อมีผลใหม่
   // เมื่อข้อมูลมีหลักหมื่นรายการ ควรย้ายการรวมผลไปยัง aggregate collection ที่เขียนด้วย trusted backend
@@ -232,9 +232,9 @@ async function subscribeToFirestore(listener: DashboardListener): Promise<() => 
 }
 
 export const dashboardRepository = {
-  async subscribe(listener: DashboardListener): Promise<() => void> {
+  async subscribe(listener: DashboardListener, options: { includePersonalData?: boolean } = {}): Promise<() => void> {
     try {
-      if (shouldUseFirestore()) return await subscribeToFirestore(listener);
+      if (shouldUseFirestore()) return await subscribeToFirestore(listener, options.includePersonalData !== false);
       const response = await fetch("/api/dashboard");
       if (!response.ok) {
         listener({ source: "unavailable", records: [], personalDataVisible: false, error: "อ่านข้อมูล Dashboard ไม่สำเร็จ" });

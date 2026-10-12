@@ -59,6 +59,8 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
   const [signingIn, setSigningIn] = useState(false);
   const [requiresExternalBrowser, setRequiresExternalBrowser] = useState(false);
   const [copyStatus, setCopyStatus] = useState("");
+  const [overviewBusy, setOverviewBusy] = useState(false);
+  const [overviewStatus, setOverviewStatus] = useState("");
   const [benchmarkBusy, setBenchmarkBusy] = useState(false);
   const [benchmarkStatus, setBenchmarkStatus] = useState("");
 
@@ -155,6 +157,17 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
     await firebaseSignOut(auth);
   }
 
+  async function refreshPublicOverview() {
+    setOverviewBusy(true); setOverviewStatus("");
+    try {
+      const { publishPublicOverview } = await import("@/lib/integrations/publish-public-overview");
+      const result = await publishPublicOverview();
+      setOverviewStatus(`เผยแพร่ภาพรวมสาธารณะแล้ว จาก ${result.assessments.toLocaleString("th-TH")} ผลประเมิน`);
+    } catch (error) {
+      setOverviewStatus(error instanceof Error ? error.message : "เผยแพร่ภาพรวมไม่สำเร็จ");
+    } finally { setOverviewBusy(false); }
+  }
+
   async function refreshBenchmarks() {
     setBenchmarkBusy(true);
     setBenchmarkStatus("");
@@ -231,6 +244,7 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
     <>
       <div className="dashboard-utility-wrap">
         <nav className="dashboard-session-actions" aria-label="เมนูผู้ใช้งาน">
+          {area === "dashboard" ? <><Link href="/dashboard/overview">Dashboard ภาพรวม</Link><Link href="/dashboard">ค้นหาผลประเมิน</Link></> : null}
           {area === "dashboard" && access?.admin ? <Link href="/admin">จัดการผู้มีสิทธิ์</Link> : null}
           {area === "admin" ? <Link href="/dashboard">ดู Dashboard</Link> : null}
           {area === "dashboard" && access?.admin ? (
@@ -238,6 +252,7 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
               {benchmarkBusy ? "กำลังอัปเดต…" : "อัปเดตค่ากลาง"}
             </button>
           ) : null}
+          {access?.admin ? <button type="button" onClick={refreshPublicOverview} disabled={overviewBusy}>{overviewBusy ? "กำลังเผยแพร่…" : "อัปเดตภาพรวมสาธารณะ"}</button> : null}
           <button
             type="button"
             onClick={signOut}
@@ -246,6 +261,7 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
             ออกจากระบบ
           </button>
         </nav>
+        {overviewStatus ? <p className="dashboard-session-status" role="status">{overviewStatus}</p> : null}
         {benchmarkStatus ? <p className="dashboard-session-status" role="status">{benchmarkStatus}</p> : null}
       </div>
       {children}
