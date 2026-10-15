@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { buildPublicOverviewCells, defaultOverviewFilters, isPublicOverviewCell, selectPublicOverview } from "../lib/public-overview.ts";
 import { selectOverviewDetail } from "../lib/public-overview-details.ts";
 import { publicOverviewError } from "../lib/public-overview-errors.ts";
+import { gapShortTitles, overviewGapExportRows, overviewGapStats, rankedOverviewGaps } from "../lib/public-overview-gaps.ts";
+import { readFileSync } from "node:fs";
 import type { DashboardRecord } from "../lib/integrations/dashboard-repository.ts";
 function record(values: Partial<DashboardRecord> = {}): DashboardRecord {
   return { id: "private-id", institution: "โรงเรียนทดสอบ", province: "เชียงใหม่", assessorName: "ห้ามเผยแพร่ชื่อ", assessorPhone: "ห้ามเผยแพร่เบอร์", respondentRole: "ห้ามเผยแพร่บทบาท", position: "ห้ามเผยแพร่ตำแหน่ง", assessmentDate: "2026-10-12", topicId: "bus", topicLabel: "รถรับส่ง", agencyType: null, score: 60, grade: "C", createdAt: "2026-10-12T00:00:00Z", lowQuestions: [], categoryScores: [{ id: "driver", label: "ห้ามเผยแพร่ข้อความอิสระ", weight: 35, contribution: 0, percent: 60 }], questionResults: [{ id: "q1", title: "ห้ามเผยแพร่ข้อความอิสระ", explanation: "ห้ามเผยแพร่คำตอบ", requiresImprovement: true }] as DashboardRecord["questionResults"], ...values };
@@ -39,6 +41,29 @@ test("domain grouping weights categories within each assessment before averaging
 test("question gap denominators include only applicable assessments", () => {
   const cells = buildPublicOverviewCells([record(), record({ questionResults: [] }), record({ questionResults: [{ ...record().questionResults[0], requiresImprovement: false }] })], affiliation);
   assert.deepEqual(selectPublicOverview(cells, defaultOverviewFilters).summary.gaps["bus::q1"], { count: 1, eligible: 2 });
+});
+
+test("gap counts explain 35 of 49 as below standard, with 14 meeting standard", () => {
+  assert.deepEqual(overviewGapStats({ count: 35, eligible: 49 }), { belowShare: 35 / 49 * 100, belowPercent: 71, meetsCount: 14, meetsPercent: 29 });
+  assert.deepEqual(overviewGapStats({ count: 0, eligible: 4 }), { belowShare: 0, belowPercent: 0, meetsCount: 4, meetsPercent: 100 });
+  assert.deepEqual(overviewGapStats({ count: 4, eligible: 4 }), { belowShare: 100, belowPercent: 100, meetsCount: 0, meetsPercent: 0 });
+  assert.deepEqual(overviewGapStats({ count: 0, eligible: 0 }), { belowShare: 0, belowPercent: null, meetsCount: 0, meetsPercent: null });
+  const rounded = overviewGapStats({ count: 1, eligible: 8 });
+  assert.equal(rounded.belowPercent, 13); assert.equal(rounded.meetsPercent, 87);
+});
+
+test("gap ranking uses counts rather than percentage and exports each question's denominator", () => {
+  const entries = rankedOverviewGaps({ smaller: { count: 4, eligible: 4 }, larger: { count: 35, eligible: 49 }, none: { count: 0, eligible: 50 }, empty: { count: 0, eligible: 0 } });
+  assert.deepEqual(entries.map(([key]) => key), ["larger", "smaller"]);
+  const rows = overviewGapExportRows(entries, { larger: { title: "เกณฑ์ต้นฉบับ", shortTitle: "ชื่อย่อ", topic: "รถรับส่ง" } });
+  assert.deepEqual(rows, [["เกณฑ์ต้นฉบับ", "รถรับส่ง", 49, 35, 71, 14, 29], ["smaller", "", 4, 4, 100, 0, 0]]);
+});
+
+test("short labels cover the current school and agency rubric without changing original text", () => {
+  const criteria = JSON.parse(readFileSync(new URL("../lib/criteria.generated.json", import.meta.url), "utf8"));
+  const questions = [...Object.values(criteria.schoolTopics), ...Object.values(criteria.agencyTopics)].flatMap(topic => (topic as { questions: { id: string; title: string }[] }).questions);
+  assert.deepEqual(Object.keys(gapShortTitles).sort(), questions.map(q => q.id).sort());
+  for (const question of questions) assert.ok(gapShortTitles[question.id].length <= question.title.length, question.id);
 });
 test("empty filter results have no made-up metrics or NaN", () => {
   const cells = buildPublicOverviewCells([record()], affiliation);
