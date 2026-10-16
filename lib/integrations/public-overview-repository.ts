@@ -12,13 +12,14 @@ export async function subscribePublicOverview(year: string, listener: (value: Pu
     const request = ++generation;
     if (!snapshot.exists()) { listener({ source: "unpublished", cells: [], manifest: null }); return; }
     const raw = snapshot.data();
-    if (raw.schemaVersion !== 1 || typeof raw.version !== "string" || !Array.isArray(raw.years) || !raw.years.every(y => typeof y === "string" && /^\d{4}$/.test(y))) { listener({ source: "unavailable", cells: [], manifest: null, error: "ข้อมูลภาพรวมยังไม่พร้อม กรุณาลองใหม่ภายหลัง" }); return; }
+    if (![1, 2].includes(raw.schemaVersion) || typeof raw.version !== "string" || !Array.isArray(raw.years) || !raw.years.every(y => typeof y === "string" && /^\d{4}$/.test(y))) { listener({ source: "unavailable", cells: [], manifest: null, error: "ข้อมูลภาพรวมยังไม่พร้อม กรุณาลองใหม่ภายหลัง" }); return; }
     try {
       const rows = await getDocs(query(collection(db, "public_overview_versions", raw.version, "cells"), where("year", "==", year)));
       if (!active || request !== generation) return;
       const cells = rows.docs.map(row => row.data());
       if (!cells.every(isPublicOverviewCell)) throw new Error("Invalid aggregate payload");
-      listener({ source: "live", cells, manifest: { schemaVersion: 1, version: raw.version, years: raw.years, updatedAt: raw.updatedAt?.toDate?.().toISOString() ?? "" } });
+      if (raw.schemaVersion === 2 && cells.some(cell => cell.institutionKey === undefined || cell.institution === undefined || cell.assessmentDate === undefined)) throw new Error("Incomplete search dimensions");
+      listener({ source: "live", cells, manifest: { schemaVersion: raw.schemaVersion, version: raw.version, years: raw.years, updatedAt: raw.updatedAt?.toDate?.().toISOString() ?? "" } });
     } catch (error) { if (active && request === generation) listener({ source: "unavailable", cells: [], manifest: null, error: publicOverviewError(error) }); }
   }, error => { if (active) { generation++; listener({ source: "unavailable", cells: [], manifest: null, error: publicOverviewError(error) }); } });
   return () => { active = false; generation++; stop(); };

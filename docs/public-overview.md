@@ -2,28 +2,28 @@
 
 Route: `/dashboard/overview`. Anyone can view, search, open aggregate details and export without an account. Administrator authentication is only for preparing/updating the public dataset; it is never a viewer requirement. The existing `/dashboard` search and `/admin` remain protected by individual Google-account access.
 
-The approved design has one Overview menu, filters applied only by Search, vehicle icons beside headings, unobstructed charts, a province map and aggregate Excel export. All defaults are All. The fifth filter is result grade: education level is not stored in the assessment records.
+The approved design has one Overview menu, filters applied only by Search, vehicle icons beside headings, unobstructed charts, a province map and aggregate Excel export. The primary filter order is province → school/agency → assessment type → assessment date range, followed by optional year, affiliation and grade. Defaults search all records. Changing fields does not change the applied result until Search is pressed. Export is disabled while a changed query is waiting for Search.
 
 ## Publication
 
-Deploy Hosting, Firestore rules and indexes together. When an existing project administrator opens `/dashboard` or `/admin`, the system checks saved `submissions` and automatically publishes the first summary or refreshes a summary older than the latest submission. **อัปเดตภาพรวมสาธารณะ** remains available for manual refresh. Open `/dashboard/overview` without signing in to verify the result.
+Deploy Hosting, Firestore rules and indexes together. When an existing project administrator opens `/dashboard` or `/admin`, the system checks saved `submissions` and automatically publishes the first summary, upgrades an older schema to version 2, or refreshes a summary older than the latest submission. Until that upgrade, the previous summary is still usable; school and date-range controls are disabled with an explanatory message. **อัปเดตภาพรวมสาธารณะ** remains available for manual refresh. Open `/dashboard/overview` without signing in to verify the result.
 
 New assessments are included the next time an administrator opens a protected page or presses the refresh button. No background server job runs while every administrator is offline. The footer displays the publication time. Before first publication, the page displays an explicit unpublished state, never sample data. No new backend service or Cloud Function is required, and assessment submission writes are unchanged.
 
-Public readers access only the current aggregate version and its selected-year cells. They never read `submissions` or `submission_assessors`. Payloads contain no institution names, submission IDs, evaluator details or free-text answers.
+Public readers access only the current aggregate version and its selected-year cells. They never read `submissions` or `submission_assessors`. Schema 2 publishes institution names, normalized institution keys and assessment days for the requested public search. It contains no submission IDs, evaluator details, contact information or free-text answers. This expands the public institution/date dimensions, not access to raw submissions.
 
-Cells are partitioned by year (including a precomputed All-years scope), province and affiliation. Precomputed type/grade combinations keep school counts distinct across assessments. A version becomes public after all cells are written. A private revision document guards concurrent publication/deletion. Deleting submissions atomically invalidates the current overview; publish again afterwards. Old versions cannot be read publicly.
+Cells are partitioned by year (including a precomputed All-years scope), province, affiliation, institution and assessment day. Precomputed type/grade combinations provide the matching metrics. The selector deduplicates institution keys across days and years for each result group. More institution/day combinations require more public cell reads than schema 1. A version becomes public after all cells are written. A private revision document guards concurrent publication/deletion. Deleting submissions atomically invalidates the current overview; publish again afterwards. Old versions cannot be read publicly.
 
 ## Metrics
 
 - Schools: unique normalized name + province; agencies counted separately.
 - Grade donuts/bars: submitted assessment sets, not unique schools.
-- Map: school counts for the applied year/type/affiliation/grade. Province selection highlights a province while preserving map context.
+- Map: school counts for the same applied province/school/type/date/year/affiliation/grade query used by all other cards and Excel. Provinces outside that query show no matching data and cannot expand a province-filtered detail view.
 - No participation percentage is shown because there is no verified target denominator.
 - All-types safety cards group related original rubric categories. Categories within each assessment are averaged with original category weights, then applicable assessments are averaged. Driver includes motorcycle behavior; management includes trip planning/support. These display groups do not change original scores or grades. The information panel explains this.
 - Choosing a type displays its original categories; agency categories stay separated by subtype. Missing data displays a dash.
 - Gap percentages use only assessments containing that question. Long questions expand in place.
-- Excel exports the aggregate view, applied filters and publication time only.
+- Excel captures the rendered result before loading the spreadsheet library. It never reloads records or applies a separate filter. Sheets cover the overview, grades, type counts, category scores, provinces and the exact gap list shown on the main dashboard. Every sheet includes the applied filters, number of matching assessments, publication time and source version. Worksheet rows represent aggregate metrics, not individual submissions. Staff assessment export continues to include all pages of the applied result in the displayed sort order.
 
 ## Release
 
@@ -52,13 +52,13 @@ npm run firebase:smoke
 
 The smoke check now verifies anonymous access to the manifest and published cells. A missing manifest (`404`) requires an administrator to publish the first snapshot. Search is disabled with an explanatory message until public data is available. Filters still apply only when Search is pressed.
 
-Summary cards, grade legends, bar segments, category cards and pilot provinces open an accessible detail dialog. Details preserve the applied year/type/affiliation/grade and expose only published aggregates. The full gaps table includes the numerator and eligible denominator. Individual submissions remain behind staff authentication. Icons use a shared SVG viewBox; charts and the map preserve their native aspect ratios across responsive layouts.
+Summary cards, grade legends, bar segments, category cards and pilot provinces open an accessible detail dialog. Details preserve the applied province/school/date/year/type/affiliation/grade and expose only published aggregates. The full gaps table includes the numerator and eligible denominator. Individual submissions remain behind staff authentication. Icons use a shared SVG viewBox; charts and the map preserve their native aspect ratios across responsive layouts.
 
 ## Stored record mapping
 
 - `submissions/{id}` stores `schemaVersion: 2`, `institution`, `province`, `assessmentDate` (`YYYY-MM-DD`), `topicId` (`bus`, `trip`, `moto`, `agency`), `agencyType`, `rubricVersion`, `answers`, `publicConsent`, and server `createdAt`.
 - Each answer contains `score` (0–3) and an explanation. Overall score and grade are recalculated with the original rubric by `firestoreRecord`, shared with staff search.
 - `submission_assessors/{id}` stores names, phone numbers, roles and positions separately. Overview does not read this collection.
-- Public filters use the saved assessment year, province and type; grade is recalculated and affiliation is resolved from the school directory. Anonymous search reads only the numeric output of that mapping.
+- Public filters use the saved school/agency, assessment day, year, province and type; grade is recalculated and affiliation is resolved from the school directory. A missing assessment day falls back to the Bangkok date of creation. Anonymous search reads the published search dimensions and numeric aggregates only.
 - An absent `public_overview/current` is an unpublished summary, not proof that `submissions` is empty. Opening a protected page as an admin now initializes it automatically.
 - The overview shell spans the viewport width and height, including empty/loading states and displays wider than 1920 px.

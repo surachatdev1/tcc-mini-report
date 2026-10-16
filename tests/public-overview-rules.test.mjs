@@ -36,3 +36,22 @@ test("publication metadata and cells reject contact fields, and visitors cannot 
   await assert.rejects(getDoc(doc(guest, "submission_assessors", crypto.randomUUID())), { code: "permission-denied" });
   await assert.rejects(getDoc(doc(guest, "overview_publication", "state")), { code: "permission-denied" });
 });
+
+test("schema 2 publishes school/date dimensions without opening private records", async () => {
+  const version = crypto.randomUUID();
+  const detailed = { ...cell, institutionKey: "school:เชียงใหม่:ทดสอบ", institution: "โรงเรียนทดสอบ", assessmentDate: "2026-10-16" };
+  const path = `public_overview_versions/${version}/cells/0`;
+  await setDoc(doc(admin, path), detailed);
+  await setDoc(current, { schemaVersion: 2, version, years: ["2026"], updatedAt: serverTimestamp() });
+  assert.deepEqual((await getDoc(doc(guest, path))).data(), detailed);
+  await assert.rejects(setDoc(doc(admin, path), detailed), { code: "permission-denied" });
+  for (const [index, invalid] of [
+    { ...cell, institution: "partial" },
+    { ...detailed, assessmentDate: "16/10/2026" },
+    { ...detailed, institutionKey: "private-record-id" },
+    { ...detailed, assessorName: "private" },
+    { ...detailed, answers: [] },
+  ].entries()) await assert.rejects(setDoc(doc(admin, `public_overview_versions/${version}/cells/bad-${index}`), invalid), { code: "permission-denied" });
+  await assert.rejects(getDocs(collection(guest, "submissions")), { code: "permission-denied" });
+  await deleteDoc(current);
+});

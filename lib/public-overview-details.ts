@@ -13,7 +13,7 @@ export type OverviewDetailSelection = {
 export function selectOverviewDetail(cells: PublicOverviewCell[], applied: OverviewFilters, selection: OverviewDetailSelection) {
   const filters = { ...applied, ...(selection.topic ? { topic: selection.topic } : {}), ...(selection.grade ? { grade: selection.grade } : {}), ...(selection.province ? { province: selection.province } : {}) };
   const view = selectPublicOverview(cells, filters);
-  // Map data retains all provinces for context; detail rows obey the selected province.
+  // Detail rows and exports use the same searched province scope.
   const rows = Object.entries(view.provinces)
     .filter(([province]) => filters.province === "all" || province === filters.province)
     .filter(([, metrics]) => !selection.metric || (metrics[selection.metric.field][selection.metric.id]?.count ?? 0) > 0)

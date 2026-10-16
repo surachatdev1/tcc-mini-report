@@ -4,10 +4,10 @@
 #tcc-overview h1{font-size:clamp(21px,1.65vw,28px);line-height:1.45;font-weight:700}
 #tcc-overview h2{font-size:16px;line-height:1.5;font-weight:700}
 #tcc-overview h3{font-size:14px;line-height:1.55;font-weight:600}
-#tcc-overview button,#tcc-overview select{font:inherit}
+#tcc-overview button,#tcc-overview select,#tcc-overview input{font:inherit}
 #tcc-overview button{cursor:pointer}
 #tcc-overview button:disabled{cursor:not-allowed;opacity:.55}
-#tcc-overview :is(button,a,select,[tabindex]):focus-visible{outline:3px solid #1687bd;outline-offset:3px}
+#tcc-overview :is(button,a,select,input,[tabindex]):focus-visible{outline:3px solid #1687bd;outline-offset:3px}
 #tcc-overview .td-shell{display:grid;grid-template-columns:132px minmax(0,1fr);width:100%;min-height:100dvh;margin:0}
 #tcc-overview .td-rail{background:linear-gradient(145deg,#1d3d5d,#163149);padding:22px 10px;display:flex;flex-direction:column;gap:28px;color:#d8e6f2}
 #tcc-overview .td-rail-brand{display:flex;justify-content:center}
@@ -26,10 +26,13 @@
 #tcc-overview .td-logos{display:flex;gap:16px;align-items:center}
 #tcc-overview .td-logos img{width:auto;height:42px;max-width:112px;object-fit:contain}
 #tcc-overview .td-filter-panel{padding:18px 0 12px}
-#tcc-overview .td-filters{display:grid;grid-template-columns:.8fr 1fr 1.25fr 1.15fr .9fr auto;gap:12px;align-items:end}
+#tcc-overview .td-filters{display:grid;grid-template-columns:1fr 1.6fr 1.25fr 1fr 1fr;gap:12px;align-items:end}
 #tcc-overview label{display:grid;gap:6px;min-width:0;font-size:13px;color:#456176}
-#tcc-overview select{width:100%;min-width:0;height:44px;min-height:44px;padding:8px 10px;border:1px solid #c3d5e4;border-radius:8px;color:var(--ink);background:#fff}
-#tcc-overview .td-filter-actions{display:flex;gap:8px}
+#tcc-overview select,#tcc-overview .td-filters input{width:100%;min-width:0;height:44px;min-height:44px;padding:8px 10px;border:1px solid #c3d5e4;border-radius:8px;color:var(--ink);background:#fff}
+#tcc-overview .td-filter-secondary{grid-column:1/-1;display:grid;grid-template-columns:1fr 1.6fr 1.25fr auto;gap:12px;align-items:end}
+#tcc-overview .td-filter-actions{display:flex;gap:8px;justify-content:flex-end}
+#tcc-overview .td-filters :disabled{cursor:not-allowed;opacity:.6}
+#tcc-overview .td-export-status{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.8}
 #tcc-overview .td-filter-actions button,#tcc-overview .td-clear{min-height:44px;border-radius:8px;padding:9px 13px;white-space:nowrap}
 #tcc-overview .td-filter-actions button{display:flex;align-items:center;justify-content:center;gap:7px;font-size:13px}
 #tcc-overview .td-clear{background:#fff;border:1px solid #c3d5e4;color:#385d76}
@@ -203,12 +206,15 @@
  #tcc-overview .td-home{font-size:13px;gap:6px;white-space:nowrap}
  #tcc-overview .td-public-label{display:none}
  #tcc-overview .td-filters{grid-template-columns:.8fr 1fr 1.3fr 1.1fr 1fr}
- #tcc-overview .td-filter-actions{grid-column:1/-1;justify-content:flex-end}
+ #tcc-overview .td-filter-secondary{grid-template-columns:1fr 1.6fr 1.25fr auto}
  #tcc-overview .td-bottom{grid-template-columns:1fr 1.15fr}
  #tcc-overview .td-gaps{grid-column:1/-1}
  #tcc-overview .td-map{max-width:155px}
 }
 @media(max-width:1100px){
+ #tcc-overview .td-filters{grid-template-columns:repeat(3,minmax(0,1fr))}
+ #tcc-overview .td-filter-secondary{grid-template-columns:repeat(3,minmax(0,1fr))}
+ #tcc-overview .td-filter-actions{grid-column:1/-1;justify-content:flex-end}
  #tcc-overview .td-top{grid-template-columns:repeat(6,minmax(0,1fr))}
  #tcc-overview .td-school-card,#tcc-overview .td-overall{grid-column:span 3}
  #tcc-overview .td-topic-card{grid-column:span 2}
@@ -229,7 +235,8 @@
  #tcc-overview .td-header{gap:16px}
  #tcc-overview .td-logos img{height:32px;max-width:70px}
  #tcc-overview .td-logos{gap:10px}
- #tcc-overview .td-filters{grid-template-columns:repeat(3,minmax(0,1fr))}
+ #tcc-overview .td-filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #tcc-overview .td-filter-secondary{grid-template-columns:repeat(2,minmax(0,1fr))}
  #tcc-overview .td-filter-actions{grid-column:auto;align-self:end}
  #tcc-overview .td-filter-actions button{padding-inline:10px}
 }
@@ -240,7 +247,7 @@
  #tcc-overview .td-header-meta{margin-top:12px;justify-content:flex-end}
  #tcc-overview .td-logos img{height:30px}
  #tcc-overview .td-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
- #tcc-overview select{font-size:16px;padding-inline:8px}
+ #tcc-overview select,#tcc-overview .td-filters input{font-size:16px;padding-inline:8px}
  #tcc-overview .td-filter-actions{grid-column:1/-1}
  #tcc-overview .td-filter-actions button{flex:1;font-size:14px}
  #tcc-overview .td-top,#tcc-overview .td-top.is-filtered{grid-template-columns:minmax(0,1fr)}

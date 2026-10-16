@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { overviewTopics } from "@/lib/dashboard-overview";
-import { affiliationLabels } from "@/lib/dashboard-filters";
+import { overviewSearchLabel } from "@/lib/public-overview-search";
 import { selectOverviewDetail, type OverviewDetailSelection } from "@/lib/public-overview-details";
 import type { OverviewFilters, PublicOverviewCell } from "@/lib/public-overview";
 
@@ -28,7 +28,7 @@ export function OverviewDetailDialog({ cells, applied, selection, questionLabels
   const { filters, summary, topics, rows } = selectOverviewDetail(cells, applied, selection);
   const gaps = rankedOverviewGaps(summary.gaps);
   const metric = selection.metric && summary[selection.metric.field][selection.metric.id];
-  const context = [filters.year === "all" ? "ทุกปี" : `ปี ${Number(filters.year) + 543}`, filters.province === "all" ? "ทุกจังหวัด" : filters.province, overviewTopics.find(t => t.id === filters.topic)?.label ?? "ทุกประเภท", filters.affiliation === "all" ? "ทุกสังกัด" : affiliationLabels[filters.affiliation], filters.grade === "all" ? "ทุกระดับผล" : `ระดับ ${filters.grade}`].join(" · ");
+  const context = overviewSearchLabel(filters, cells);
   return <dialog className="td-detail-dialog" ref={ref} aria-labelledby="overview-detail-title" onCancel={onClose} onClick={e => { if (e.target === e.currentTarget) { const box = e.currentTarget.getBoundingClientRect(); if (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom) onClose(); } }}>
     <div className="td-dialog-head"><div><span className="td-eyebrow">รายละเอียดข้อมูลสรุป</span><h2 id="overview-detail-title">{selection.title}</h2></div><button type="button" className="td-close" onClick={onClose} aria-label="ปิดรายละเอียด">×</button></div>
     <div className="td-dialog-body">

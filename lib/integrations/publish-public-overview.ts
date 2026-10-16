@@ -29,7 +29,7 @@ async function buildAndPublishPublicOverview() {
   await runTransaction(db, async tx => {
     const revision = (await tx.get(control)).data()?.revision ?? null;
     if (revision !== revisionBefore) throw new Error("ข้อมูลเปลี่ยนระหว่างเผยแพร่ กรุณากดอัปเดตภาพรวมอีกครั้ง");
-    tx.set(doc(db, "public_overview", "current"), { schemaVersion: 1, version, years: [...new Set(cells.map(c => c.year).filter(y => /^\d{4}$/.test(y)))].sort().reverse(), updatedAt: serverTimestamp() });
+    tx.set(doc(db, "public_overview", "current"), { schemaVersion: 2, version, years: [...new Set(cells.map(c => c.year).filter(y => /^\d{4}$/.test(y)))].sort().reverse(), updatedAt: serverTimestamp() });
     tx.set(control, { revision: version });
   });
   return { assessments: records.length, cells: cells.length };
@@ -50,7 +50,7 @@ async function refreshFromSavedAssessments() {
   const { collection, doc, getDoc, getDocs, limit, orderBy, query } = await import("firebase/firestore");
   const manifest = await getDoc(doc(db, "public_overview", "current"));
   const publishedAt = manifest.data()?.updatedAt?.toMillis?.() ?? 0;
-  if (manifest.exists() && publishedAt > 0) {
+  if (manifest.exists() && manifest.data()?.schemaVersion === 2 && publishedAt > 0) {
     const latest = await getDocs(query(collection(db, "submissions"), orderBy("createdAt", "desc"), limit(1)));
     const savedAt = latest.docs[0]?.data().createdAt?.toMillis?.() ?? 0;
     if (savedAt <= publishedAt) return null;
