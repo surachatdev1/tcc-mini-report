@@ -1,3 +1,4 @@
+import { schoolCountNote } from "../school-identity.ts";
 import type { Cell, Sheet } from "write-excel-file/browser";
 import type { PublicMetrics, PublicOverviewManifest, SumCount } from "../public-overview";
 import { gapRankingNote, overviewGapExportRows, type OverviewGap, type OverviewQuestionLabel } from "../public-overview-gaps.ts";
@@ -33,7 +34,7 @@ export function createPublicOverviewWorkbook(snapshot: OverviewExportSnapshot) {
   add("ภาพรวม", "ข้อมูลสรุปตามผลค้นหาที่แสดงบน Dashboard", ["ตัวชี้วัด", "ค่า"], [
     ["ผลประเมิน (ชุด)", summary.assessments], ["โรงเรียนไม่ซ้ำ (แห่ง)", summary.schools],
     ["หน่วยงานไม่ซ้ำ (แห่ง)", summary.agencies], ["คะแนนเฉลี่ยรวม / 100", average(summary)],
-  ], "แต่ละชีตเป็นข้อมูลสรุปคนละส่วน จำนวนแถวในชีตจึงไม่ใช่จำนวนชุดประเมิน");
+  ], "แต่ละชีตเป็นข้อมูลสรุปคนละส่วน จำนวนแถวในชีตจึงไม่ใช่จำนวนชุดประเมิน · " + schoolCountNote);
   add("ระดับผล", "สัดส่วนระดับผลการประเมิน", ["ระดับ", "ผลประเมิน (ชุด)", "สัดส่วน (%)"], grades.map(g => [g, summary.grades[g], summary.assessments ? Math.round(summary.grades[g] / summary.assessments * 100) : "ไม่มีข้อมูล"]));
   add("ตามแบบประเมิน", "จำนวนผลประเมินตามประเภทและระดับผล", ["แบบประเมิน", "ผลประเมิน (ชุด)", ...grades.map(g => `${g} (ชุด)`)], snapshot.stackRows.map(row => [row.label, row.metrics.assessments, ...grades.map(g => row.metrics.grades[g])]));
   add("คะแนนรายหมวด", "คะแนนด้านความปลอดภัยตามที่แสดง", ["หมวด", "คะแนนเฉลี่ย / 100", "ผลประเมินที่มีหมวดนี้ (ชุด)", "ขอบเขต"], snapshot.categoryCards.map(c => [c.label, c.metric?.count ? Number((c.metric.sum / c.metric.count).toFixed(1)) : "ไม่มีข้อมูล", c.metric?.count ?? 0, c.detail]));

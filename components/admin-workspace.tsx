@@ -15,6 +15,10 @@ import {
   type AssessmentSubmission,
 } from "@/lib/integrations/submission-moderation-repository";
 
+import { AdminAssessmentAvailability } from "./admin-assessment-availability";
+
+import { institutionLabel } from "@/lib/school-identity";
+
 const SUBMISSIONS_PER_PAGE = 20;
 
 function friendlyAdminError(error: unknown) {
@@ -78,7 +82,7 @@ function ConfirmationDialog({ pending, busy, onCancel, onConfirm }: {
           <p id="confirmation-description">{deletingAll
             ? "ผลคะแนน คำตอบ เหตุผลประกอบ และข้อมูลผู้ประเมินของทุกคนจะถูกลบออกจากระบบ"
             : "ผลคะแนน คำตอบ เหตุผลประกอบ และข้อมูลผู้ประเมินของแบบประเมินชุดนี้จะถูกลบออกจากระบบ"}</p>
-          {!deletingAll ? <div className="confirmation-record"><strong>{pending.submission.institution}</strong><span>{pending.submission.province} · {pending.submission.topicLabel}</span><span>ผู้ประเมิน {pending.submission.assessorName || "ไม่ระบุ"} · วันที่ {pending.submission.assessmentDate || "—"}</span></div> : null}
+          {!deletingAll ? <div className="confirmation-record"><strong>{institutionLabel(pending.submission)}</strong><span>{pending.submission.province} · {pending.submission.topicLabel}</span><span>ผู้ประเมิน {pending.submission.assessorName || "ไม่ระบุ"} · วันที่ {pending.submission.assessmentDate || "—"}</span></div> : null}
           <strong className="confirmation-warning">เมื่อลบแล้วจะไม่สามารถกู้คืนข้อมูลแบบประเมินได้</strong>
           <div className="confirmation-actions">
             <button className="btn btn-secondary" type="button" autoFocus disabled={busy} onClick={onCancel}>ยกเลิก</button>
@@ -105,7 +109,7 @@ function SubmissionList({ submissions, busy, onDelete }: {
               <summary className="admin-submission-row">
                 <span className="admin-submission-row-field admin-submission-school">
                   <small>สถานศึกษา</small>
-                  <strong>{submission.institution}</strong>
+                  <strong>{institutionLabel(submission)}</strong>
                 </span>
                 <span className="admin-submission-row-field">
                   <small>ผู้ประเมิน</small>
@@ -243,7 +247,7 @@ export function AdminWorkspace() {
   const filteredSubmissions = useMemo(() => {
     const normalizedQuery = submissionQuery.trim().toLocaleLowerCase("th");
     if (!normalizedQuery) return submissions;
-    return submissions.filter((submission) => `${submission.institution} ${submission.province} ${submission.topicLabel} ${submission.assessorName} ${submission.respondentRole} ${submission.questionResults.map((question) => `${question.title} ${question.explanation}`).join(" ")}`.toLocaleLowerCase("th").includes(normalizedQuery));
+    return submissions.filter((submission) => `${institutionLabel(submission)} ${submission.province} ${submission.topicLabel} ${submission.assessorName} ${submission.respondentRole} ${submission.questionResults.map((question) => `${question.title} ${question.explanation}`).join(" ")}`.toLocaleLowerCase("th").includes(normalizedQuery));
   }, [submissionQuery, submissions]);
   const totalSubmissionPages = Math.max(1, Math.ceil(filteredSubmissions.length / SUBMISSIONS_PER_PAGE));
   const activeSubmissionPage = Math.min(submissionPage, totalSubmissionPages);
@@ -305,7 +309,7 @@ export function AdminWorkspace() {
       <header className="admin-page-header">
         <div>
           <p className="eyebrow">สำหรับผู้ดูแลโครงการ</p>
-          <h1>จัดการผู้มีสิทธิ์ดู Dashboard</h1>
+          <h1>จัดการระบบและสิทธิ์ Dashboard</h1>
           <p>เพิ่มหรือลบอีเมล Google ของเจ้าหน้าที่ที่ได้รับอนุญาต ระบบมีสิทธิ์เพียงระดับเดียวเพื่อให้ง่ายต่อการตรวจสอบ</p>
         </div>
         <div className="admin-count-card" aria-label={`มีผู้ได้รับสิทธิ์ ${viewers.length} คน`}>
@@ -317,6 +321,8 @@ export function AdminWorkspace() {
 
       {status ? <p className="admin-message admin-message-success" role="status">{status}</p> : null}
       {error ? <p className="admin-message admin-message-error" role="alert">{error}</p> : null}
+
+      <AdminAssessmentAvailability />
 
       <section className="panel admin-viewer-panel" aria-labelledby="admin-viewers-title">
         <div className="admin-add-column">

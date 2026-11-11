@@ -79,3 +79,17 @@ test("starting a new assessment after success keeps a new independent key", () =
   assert.equal(store.load()?.submissionAttempted, false);
   assert.deepEqual(store.load()?.answers, {});
 });
+
+test("school identity survives draft restore and manual school names remain unassigned", () => {
+  const { store } = fixture();
+  const school = { id: "obec-1050130061", code: "1050130061", district: "จอมทอง", subdistrict: "บ้านแปะ", source: "obec" as const };
+  store.save({ ...draft, school });
+  assert.deepEqual(store.load()?.school, school);
+  store.save({ ...draft, school: null });
+  assert.equal(store.load()?.school, null);
+});
+test("draft restore rejects a corrupted or mismatched school identity", () => {
+  const { storage, store } = fixture();
+  storage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, school: { id: "obec-1050130013", code: "1050130061", district: "จอมทอง", subdistrict: "บ้านแปะ", source: "obec" } }));
+  assert.throws(() => store.load(), /รูปแบบร่าง/);
+});

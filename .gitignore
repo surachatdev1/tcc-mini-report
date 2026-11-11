@@ -44,3 +44,8 @@ next-env.d.ts
 /.sites-runtime/
 /outputs/
 /work/
+
+# Firebase emulator diagnostics
+firestore-debug.log
+firebase-debug.log
+ui-debug.log

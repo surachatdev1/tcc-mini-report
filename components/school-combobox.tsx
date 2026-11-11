@@ -7,10 +7,13 @@ import {
   type SchoolDirectoryEntry,
 } from "@/lib/school-directory";
 
+import { schoolIdentity, schoolLocation, type SchoolIdentity } from "@/lib/school-identity";
+
 type Props = {
   province: string;
   value: string;
-  onChange: (value: string) => void;
+  selected?: SchoolIdentity | null;
+  onChange: (value: string, school?: SchoolIdentity | null) => void;
   invalid?: boolean;
   describedBy?: string;
 };
@@ -24,7 +27,7 @@ type SchoolLoadState = {
   error: string;
 };
 
-export function SchoolCombobox({ province, value, onChange, invalid = false, describedBy }: Props) {
+export function SchoolCombobox({ province, value, selected, onChange, invalid = false, describedBy }: Props) {
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [draftQuery, setDraftQuery] = useState<string | null>(null);
@@ -58,7 +61,7 @@ export function SchoolCombobox({ province, value, onChange, invalid = false, des
     const startsWith: SchoolDirectoryEntry[] = [];
     const contains: SchoolDirectoryEntry[] = [];
     for (const school of schools) {
-      const haystack = normalizeSchoolSearch(`${school.name} ${school.district}`);
+      const haystack = normalizeSchoolSearch(`${school.name} ${school.district} ${school.subdistrict} ${school.code}`);
       if (haystack.startsWith(needle)) startsWith.push(school);
       else if (haystack.includes(needle)) contains.push(school);
       if (startsWith.length + contains.length >= RESULT_LIMIT * 2) break;
@@ -66,9 +69,13 @@ export function SchoolCombobox({ province, value, onChange, invalid = false, des
     return [...startsWith, ...contains].slice(0, RESULT_LIMIT);
   }, [query, schools]);
 
+  useEffect(() => {
+    if (open && matches[activeIndex]) document.getElementById(`${listId}-${matches[activeIndex].id}`)?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, open, matches, listId]);
+
   function selectSchool(school: SchoolDirectoryEntry) {
     setDraftQuery(school.name);
-    onChange(school.name);
+    onChange(school.name, schoolIdentity(school));
     setOpen(false);
   }
 
@@ -81,7 +88,11 @@ export function SchoolCombobox({ province, value, onChange, invalid = false, des
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (!open || manualMode) return;
+    if (manualMode) return;
+    if (!open && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      event.preventDefault(); setOpen(true); setActiveIndex(0); return;
+    }
+    if (!open) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setActiveIndex((current) => Math.min(current + 1, matches.length - 1));
@@ -117,10 +128,11 @@ export function SchoolCombobox({ province, value, onChange, invalid = false, des
           aria-expanded={manualMode ? undefined : open}
           aria-activedescendant={!manualMode && open && matches[activeIndex] ? `${listId}-${matches[activeIndex].id}` : undefined}
           aria-invalid={invalid}
-          aria-describedby={describedBy}
+          aria-describedby={[describedBy, selected ? `${listId}-selection` : ""].filter(Boolean).join(" ") || undefined}
           required
           value={query}
           onFocus={() => !manualMode && setOpen(true)}
+          onClick={() => !manualMode && setOpen(true)}
           onBlur={() => window.setTimeout(() => setOpen(false), 120)}
           onKeyDown={handleKeyDown}
           onChange={(event) => {
@@ -130,7 +142,7 @@ export function SchoolCombobox({ province, value, onChange, invalid = false, des
             setOpen(!manualMode);
             onChange(manualMode ? next : "");
           }}
-          placeholder={manualMode ? "พิมพ์ชื่อสถานศึกษา" : "ค้นหาชื่อสถานศึกษาหรืออำเภอ"}
+          placeholder={manualMode ? "พิมพ์ชื่อสถานศึกษา" : "ค้นหาชื่อ อำเภอ ตำบล หรือรหัสโรงเรียน"}
           autoComplete="organization"
         />
         {query && (
@@ -166,15 +178,21 @@ export function SchoolCombobox({ province, value, onChange, invalid = false, des
               onClick={() => selectSchool(school)}
             >
               <strong>{school.name}</strong>
-              <span>{school.district || province} · {school.source === "private" ? "โรงเรียนเอกชนในระบบ" : "สังกัด สพฐ."}</span>
+              <span>{schoolLocation(school, province) || province}</span>
+              <small>{school.source === "private" ? "โรงเรียนเอกชนในระบบ" : "สังกัด สพฐ."}{school.code ? ` · รหัส ${school.code}` : ""}</small>
             </button>
           )) : (
             <p className="combobox-empty">ไม่พบชื่อที่ค้นหา กรุณาตรวจคำสะกดหรือกรอกชื่อเอง</p>
           )}
-          {schools.length > RESULT_LIMIT && !query && <p className="combobox-hint">พิมพ์ชื่อหรืออำเภอเพื่อค้นหาจากทั้งหมด {schools.length.toLocaleString("th-TH")} แห่ง</p>}
+          {schools.length > RESULT_LIMIT && !query && <p className="combobox-hint">พิมพ์ชื่อ พื้นที่ หรือรหัสโรงเรียนเพื่อค้นหาจากทั้งหมด {schools.length.toLocaleString("th-TH")} แห่ง</p>}
         </div>
       )}
 
+      {selected && <div className="school-selection" id={`${listId}-selection`} role="status">
+        <strong>เลือกแล้ว: {value}</strong>
+        <span>{schoolLocation(selected, province)} · {province}</span>
+        <small>{selected.code ? `รหัสโรงเรียน ${selected.code} · ` : ""}{selected.source === "obec" ? "สังกัด สพฐ." : "โรงเรียนเอกชนในระบบ"}</small>
+      </div>}
       <div className="school-field-footer">
         <span className="field-help">
           {manualMode

@@ -1,3 +1,4 @@
+import { institutionLabel } from "./school-identity.ts";
 import type { DashboardRecord } from "./integrations/dashboard-repository";
 import type { SchoolDirectoryEntry } from "./school-directory";
 
@@ -31,6 +32,7 @@ function schoolKey(value: string) {
 export function affiliationIndex(schools: SchoolDirectoryEntry[]) {
   const index = new Map<string, Affiliation>();
   for (const school of schools) {
+    if (school.id) index.set(`id:${school.id}`, school.source);
     const key = schoolKey(school.name);
     const existing = index.get(key);
     index.set(key, existing && existing !== school.source ? "unknown" : school.source);
@@ -39,6 +41,7 @@ export function affiliationIndex(schools: SchoolDirectoryEntry[]) {
 }
 export function recordAffiliation(record: DashboardRecord, directories: Record<string, Map<string, Affiliation>>) {
   if (record.topicId === "agency") return "agency";
+  if (record.school) return directories[record.province]?.get(`id:${record.school.id}`) ?? "unknown";
   return directories[record.province]?.get(schoolKey(record.institution)) ?? "unknown";
 }
 export function assessmentDay(record: DashboardRecord) {
@@ -58,7 +61,7 @@ export function filterDashboardRecords(records: DashboardRecord[], filters: Dash
     return (!reference || normalizeSearch(assessmentReference(record)).includes(reference))
       && (!role || normalizeSearch(`${record.respondentRole} ${record.position}`).includes(role))
       && (!phone || (record.assessorPhone || "").replace(/[\s()-]/g, "").includes(phone))
-      && (!institution || normalizeSearch(record.institution).includes(institution))
+      && (!institution || normalizeSearch(institutionLabel(record)).includes(institution))
       && (filters.province === "all" || record.province === filters.province)
       && (filters.topicId === "all" || record.topicId === filters.topicId)
       && (filters.affiliation === "all" || recordAffiliation(record, directories) === filters.affiliation)

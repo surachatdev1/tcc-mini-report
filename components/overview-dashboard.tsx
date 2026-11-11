@@ -1,5 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Firebase serves the existing local WebP logos. */
+import { schoolCountNote } from "@/lib/school-identity";
 import "./overview-dashboard.css";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
@@ -59,7 +60,7 @@ export function OverviewDashboard() {
   const summary = view.summary;
   const searchReady = !waiting && result.source === "live";
   const pending = JSON.stringify(draft) !== JSON.stringify(applied);
-  const detailedSearch = result.manifest?.schemaVersion === 2;
+  const detailedSearch = (result.manifest?.schemaVersion ?? 0) >= 2;
   const institutionOptions = overviewInstitutionOptions(result.cells, draft.province);
   const invalidDates = !validOverviewDateRange(draft);
   const years = state?.result.manifest?.years ?? [];
@@ -107,6 +108,7 @@ export function OverviewDashboard() {
       {searchReady && !detailedSearch && <p className="td-pending" role="status">ตัวกรองโรงเรียนและช่วงวันที่จะพร้อมใช้หลังผู้ดูแลอัปเดตภาพรวมสาธารณะ</p>}
       {pending && <p className="td-pending" role="status">มีการเปลี่ยนเงื่อนไข · กดค้นหาเพื่ออัปเดต Dashboard และข้อมูลที่จะส่งออก</p>}</section>
       <p className="td-applied" role="status" aria-live="polite">{searchReady && <b>พบ {number(summary.assessments)} ชุดประเมิน · {number(summary.schools)} โรงเรียน · {number(summary.agencies)} หน่วยงาน · </b>}{filterLabel}</p>
+      {searchReady && result.cells.some(cell => cell.affiliation !== "agency" && !cell.school) && <p className="td-detail-note">{schoolCountNote}</p>}
       {waiting ? <section className="td-card td-empty" role="status"><h2>กำลังโหลดข้อมูลภาพรวม…</h2></section> : result.source === "unavailable" ? <section className="td-card td-empty" role="alert"><h2>ยังแสดงข้อมูลไม่ได้</h2><p>{result.error}</p><p className="td-detail-note">การค้นหาจะพร้อมใช้งานเมื่ออ่านข้อมูลสรุปได้</p><button className="td-clear" onClick={retry}>ลองใหม่</button></section> : result.source === "unpublished" ? <section className="td-card td-empty" role="status"><h2>ยังไม่มีข้อมูลสรุปที่เผยแพร่</h2><p>อยู่ระหว่างเตรียมข้อมูลสรุปของโครงการ ทุกคนสามารถดูและค้นหาภาพรวมได้โดยไม่ต้องเข้าสู่ระบบ</p></section> : <>
         {!summary.assessments && <p className="td-zero" role="status">ไม่พบผลประเมินตามเงื่อนไขที่ค้นหา</p>}
         <div className={`td-top ${applied.topic !== "all" ? "is-filtered" : ""}`}>

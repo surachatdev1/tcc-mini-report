@@ -73,7 +73,7 @@ test("Firestore ให้เฉพาะผู้มีสิทธิ์อ่�
   assert.match(rules, /dashboard_members\/\$\(currentEmail\(\)\)/);
   assert.doesNotMatch(rules, /dashboard_domains|currentDomain/);
   assert.match(rules, /allow read: if hasDashboardAccess\(\);/);
-  assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && validSubmission\(\);/);
+  assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && acceptingSubmissions\(request\.resource\.data\.topicId\) && validSubmission\(\);/);
   assert.match(rules, /match \/submissions\/\{submissionId\}[\s\S]*allow update: if false;[\s\S]*allow delete: if isAdmin\(\);/);
   assert.match(rules, /match \/benchmarks\/\{benchmarkId\}[\s\S]*allow read: if true;/);
   assert.doesNotMatch(rules, /allow\s+(read,\s*)?write:\s*if\s+true/);
@@ -100,7 +100,7 @@ test("Dashboard บังคับ Sign-In และจำกัดข้อม�
 });
 
 test("Admin เจ้าของโครงการจัดการ Viewer รายอีเมลเพียงระดับเดียว", () => {
-  assert.match(adminSource, /จัดการผู้มีสิทธิ์ดู Dashboard/);
+  assert.match(adminSource, /จัดการระบบและสิทธิ์ Dashboard/);
   assert.match(adminSource, /addDashboardViewer/);
   assert.match(adminSource, /removeDashboardViewer/);
   assert.match(adminSource, /ค้นหารายชื่อหรืออีเมล/);
@@ -238,7 +238,7 @@ test("ผู้ประเมินสาธารณะบันทึกผ�
   assert.match(assessmentRepositorySource, /หากยังพบปัญหา โปรดติดต่อผู้ดูแลระบบ/);
   assert.doesNotMatch(assessmentRepositorySource, /Firebase ปฏิเสธการบันทึก/);
   assert.doesNotMatch(assessmentRepositorySource, /ยังไม่ได้ตั้งค่า Firebase สำหรับเว็บไซต์นี้/);
-  assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && validSubmission\(\);/);
+  assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && acceptingSubmissions\(request\.resource\.data\.topicId\) && validSubmission\(\);/);
   assert.match(rules, /allow update: if false;/);
   assert.match(rules, /allow delete: if isAdmin\(\);/);
   const publicWriteStart = assessmentRepositorySource.indexOf("batch.set(documentRef");

@@ -105,3 +105,78 @@ test("denies public reads, overwrites, deletes, and orphan assessor records", as
   batch.set(doc(db, "submission_assessors", orphan.id), orphan.assessor);
   await assert.rejects(batch.commit(), { code: "permission-denied" });
 });
+
+const admin = getFirestore(initializeApp({ projectId: "demo-tcc-diagnostics", apiKey: "demo", appId: "demo" }, "intake-admin"));
+connectFirestoreEmulator(admin, "127.0.0.1", Number(endpoint.split(":")[1]), { mockUserToken: { sub: "admin", email: "surachat.dev1@gmail.com", email_verified: true } });
+const viewer = getFirestore(initializeApp({ projectId: "demo-tcc-diagnostics", apiKey: "demo", appId: "demo" }, "intake-viewer"));
+connectFirestoreEmulator(viewer, "127.0.0.1", Number(endpoint.split(":")[1]), { mockUserToken: { sub: "viewer", email: "viewer@example.com", email_verified: true } });
+after(() => Promise.all([terminate(admin), terminate(viewer)]));
+const settings = doc(admin, "assessment_settings", "availability");
+async function configure(school, agency) {
+  const batch = writeBatch(admin);
+  batch.set(settings, { schemaVersion: 1, school, agency, updatedBy: "surachat.dev1@gmail.com", updatedAt: serverTimestamp() });
+  await batch.commit();
+}
+const schoolIdentity = { id: "obec-1050130061", code: "1050130061", district: "จอมทอง", subdistrict: "บ้านแปะ", source: "obec" };
+
+test("accepts explicit school identity and rejects malformed or agency identities", async () => {
+  const input = fixture(largest);
+  input.submission.school = schoolIdentity;
+  await commit(input);
+  for (const identity of [ { ...schoolIdentity, id: "obec-1050130013" }, { ...schoolIdentity, source: "private" }, { ...schoolIdentity, extra: "PII" }, { ...schoolIdentity, district: "ก".repeat(101) }, { id: schoolIdentity.id } ]) {
+    const invalid = fixture(largest); invalid.submission.school = identity;
+    await assert.rejects(commit(invalid), { code: "permission-denied" });
+  }
+  const agency = fixture(topics.find(entry => entry.agencyType)); agency.submission.school = schoolIdentity;
+  await assert.rejects(commit(agency), { code: "permission-denied" });
+});
+
+test("intake settings are publicly readable but only admins can change their two boolean switches", async () => {
+  await configure(true, true);
+  assert.equal((await getDoc(doc(db, "assessment_settings", "availability"))).data().school, true);
+  for (const client of [db, viewer]) {
+    const batch = writeBatch(client);
+    batch.set(doc(client, "assessment_settings", "availability"), { schemaVersion: 1, school: false, agency: false, updatedAt: serverTimestamp(), updatedBy: "surachat.dev1@gmail.com" });
+    await assert.rejects(batch.commit(), { code: "permission-denied" });
+  }
+  await assert.rejects(configure("false", true), { code: "permission-denied" });
+  const deletion = writeBatch(admin); deletion.delete(settings);
+  await assert.rejects(deletion.commit(), { code: "permission-denied" });
+});
+
+test("all four intake states enforce both groups, all seven forms and old clients at write time", async () => {
+  try {
+    for (const [school, agency] of [[true, true], [true, false], [false, true], [false, false]]) {
+      await configure(school, agency);
+      for (const entry of topics) for (const legacy of [0, 1, 2]) {
+        const input = fixture(entry, legacy);
+        if (!legacy && !entry.agencyType) input.submission.school = schoolIdentity;
+        const allowed = entry.agencyType ? agency : school;
+        if (allowed) await commit(input);
+        else {
+          await assert.rejects(commit(input), { code: "permission-denied" });
+          assert.equal((await getDoc(doc(admin, "submissions", input.id))).exists(), false);
+          assert.equal((await getDoc(doc(admin, "submission_assessors", input.id))).exists(), false);
+        }
+      }
+    }
+    // Existing results remain readable to their authorized readers even with both groups closed.
+    await configure(true, true); const saved = fixture(largest); await commit(saved);
+    await configure(false, false);
+    assert.ok((await getDoc(doc(admin, "submissions", saved.id))).exists());
+    assert.ok((await getDoc(doc(admin, "submission_assessors", saved.id))).exists());
+  } finally { await configure(true, true); }
+});
+
+test("all submission and private fields remain required after reducing repeated rule checks", async () => {
+  for (const legacy of [0, 1, 2]) {
+    for (const field of Object.keys(fixture(largest, legacy).submission)) {
+      const invalid = fixture(largest, legacy); delete invalid.submission[field];
+      await assert.rejects(commit(invalid), { code: "permission-denied" }, `submission ${legacy}: ${field}`);
+    }
+    for (const field of Object.keys(fixture(largest, legacy).assessor)) {
+      const invalid = fixture(largest, legacy); delete invalid.assessor[field];
+      await assert.rejects(commit(invalid), { code: "permission-denied" }, `assessor ${legacy}: ${field}`);
+    }
+  }
+});

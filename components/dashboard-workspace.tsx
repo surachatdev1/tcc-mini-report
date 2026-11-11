@@ -13,6 +13,7 @@ import {
   type DashboardExportScope,
 } from "@/lib/exports/dashboard-excel";
 
+import { institutionIdentityKey, institutionLabel, schoolLocation, schoolCountNote } from "@/lib/school-identity";
 import { getSchoolsByProvince } from "@/lib/school-directory";
 import { affiliationIndex, affiliationLabels, emptyDashboardFilters, filterDashboardRecords, type Affiliation, type DashboardFilters } from "@/lib/dashboard-filters";
 
@@ -142,12 +143,12 @@ export function DashboardWorkspace() {
   }, [directoryProvinces, directoryRetry]);
 
   const filtered = useMemo(() => filters.affiliation !== "all" && directoryState !== "ready" ? [] : filterDashboardRecords(records, filters, directories, personalDataVisible), [records, filters, directories, personalDataVisible, directoryState]);
-  const institutionOptions = useMemo(() => [...new Set(records.filter(record => draftFilters.province === "all" || record.province === draftFilters.province).map(record => record.institution))].sort((a, b) => a.localeCompare(b, "th")), [records, draftFilters.province]);
+  const institutionOptions = useMemo(() => [...new Set(records.filter(record => draftFilters.province === "all" || record.province === draftFilters.province).map(record => institutionLabel(record)))].sort((a, b) => a.localeCompare(b, "th")), [records, draftFilters.province]);
   const responsibleOptions = useMemo(() => personalDataVisible ? [...new Set(records.map(record => record.assessorName).filter(Boolean))].sort((a, b) => a.localeCompare(b, "th")) : [], [records, personalDataVisible]);
 
   const metrics = useMemo(() => ({
     submissions: filtered.length,
-    organizations: new Set(filtered.map((record) => record.institution)).size,
+    organizations: new Set(filtered.map(institutionIdentityKey)).size,
     average: average(filtered),
     urgent: filtered.filter((record) => record.grade === "D").length,
   }), [filtered]);
@@ -165,7 +166,7 @@ export function DashboardWorkspace() {
   const provinceSummaries = useMemo(() => provinces
     .map((item) => {
       const items = filtered.filter((record) => record.province === item);
-      return { province: item, count: items.length, organizations: new Set(items.map((record) => record.institution)).size, average: average(items), urgent: items.filter((record) => record.grade === "D").length };
+      return { province: item, count: items.length, organizations: new Set(items.map(institutionIdentityKey)).size, average: average(items), urgent: items.filter((record) => record.grade === "D").length };
     })
     .filter((item) => item.count > 0), [filtered]);
 
@@ -302,6 +303,7 @@ export function DashboardWorkspace() {
         </div>
       </section>
 
+      {filtered.some(record => record.topicId !== "agency" && !record.school) && <p className="field-help">{schoolCountNote}</p>}
       <section className="panel compact-panel table-panel assessment-results" aria-labelledby="assessment-results-title">
         <div className="panel-heading"><div><p className="section-kicker">รายการตามผลค้นหา</p><h2 id="assessment-results-title">ผลประเมินและผู้ให้ข้อมูล</h2><p>{personalDataVisible ? "แสดงข้อมูลติดต่อเฉพาะบัญชีที่ได้รับสิทธิ์รายบุคคล" : "บัญชีนี้เห็นเฉพาะข้อมูลสรุป ไม่แสดงข้อมูลส่วนบุคคล"}</p></div></div>
         <section className="advanced-search record-search" id="dashboard-search" aria-labelledby="search-title">
@@ -314,7 +316,7 @@ export function DashboardWorkspace() {
         }}>
           <div className="advanced-search-grid">
             <label className="field"><span>จังหวัด</span><select value={draftFilters.province} onChange={event => updateFilter("province", event.target.value)}><option value="all">ทุกจังหวัด</option>{provinces.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
-            <label className="field"><span>โรงเรียน / หน่วยงาน</span><input type="search" list="dashboard-institutions" value={draftFilters.institution} onChange={event => updateFilter("institution", event.target.value)} placeholder="พิมพ์ชื่อหรือบางส่วนของชื่อ" /></label>
+            <label className="field"><span>โรงเรียน / หน่วยงาน</span><input type="search" list="dashboard-institutions" value={draftFilters.institution} onChange={event => updateFilter("institution", event.target.value)} placeholder="ค้นหาชื่อ พื้นที่ หรือรหัสโรงเรียน" /></label>
             <label className="field"><span>ประเภทแบบประเมิน</span><select value={draftFilters.topicId} onChange={event => updateFilter("topicId", event.target.value as DashboardFilters["topicId"])}>{topicOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
             <label className="field"><span>วันที่ประเมิน ตั้งแต่</span><input type="date" value={draftFilters.dateFrom} onChange={event => updateFilter("dateFrom", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
             <label className="field"><span>วันที่ประเมิน ถึง</span><input type="date" value={draftFilters.dateTo} onChange={event => updateFilter("dateTo", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
@@ -351,7 +353,7 @@ export function DashboardWorkspace() {
           <thead><tr>{sortHeader("reference", "เลขอ้างอิง")}{sortHeader("institution", "สถานศึกษา / หน่วยงาน")}{sortHeader("province", "จังหวัด")}{sortHeader("topicLabel", "แบบประเมิน")}{personalDataVisible ? <>{sortHeader("assessorName", "ผู้ให้ข้อมูล")}{sortHeader("respondentRole", "หน้าที่ / ตำแหน่ง")}{sortHeader("assessorPhone", "เบอร์โทร")}</> : null}{sortHeader("assessmentDate", "วันที่ประเมิน")}{sortHeader("score", "ผล")}</tr></thead>
           <tbody>{recent.map((record) => <tr key={record.id}>
             <td className="record-reference">{assessmentReference(record)}</td>
-            <td>{record.institution}</td>
+            <td>{record.institution}{record.topicId !== "agency" && <small className="institution-location">{record.school ? [schoolLocation(record.school, record.province), record.school.code && `รหัส ${record.school.code}`].filter(Boolean).join(" · ") : "ยังไม่ระบุรหัสโรงเรียน"}</small>}</td>
             <td>{record.province}</td><td>{record.topicLabel}</td>
             {personalDataVisible ? <><td>{record.assessorName || "ไม่ระบุ"}</td><td><strong>{record.respondentRole || "ไม่ระบุหน้าที่"}</strong>{record.position ? <small>{record.position}</small> : null}</td><td className="record-phone">{record.assessorPhone || "ไม่ระบุ"}</td></> : null}
             <td className="record-date">{formatDate(record.assessmentDate || record.createdAt)}</td><td className="record-score"><b className={`text-grade-${record.grade.toLowerCase()}`}>{record.score.toFixed(1)} · {record.grade}</b></td>

@@ -55,3 +55,19 @@ test("schema 2 publishes school/date dimensions without opening private records"
   await assert.rejects(getDocs(collection(guest, "submissions")), { code: "permission-denied" });
   await deleteDoc(current);
 });
+
+test("schema 3 publishes distinguishable school identity, never mismatched keys or extra fields", async () => {
+  const version = crypto.randomUUID();
+  const school = { id: "obec-1050130061", code: "1050130061", district: "จอมทอง", subdistrict: "บ้านแปะ", source: "obec" };
+  const data = { ...cell, institutionKey: `school:registered:${school.id}`, institution: "บ้านห้วยทราย", assessmentDate: "2026-11-11", school };
+  const path = `public_overview_versions/${version}/cells/0`;
+  await setDoc(doc(admin, path), data);
+  await setDoc(current, { schemaVersion: 3, version, years: ["2026"], updatedAt: serverTimestamp() });
+  assert.deepEqual((await getDoc(doc(guest, path))).data().school, school);
+  for (const [index, invalid] of [
+    { ...data, school: { ...school, assessorName: "private" } },
+    { ...data, institutionKey: "school:registered:obec-1050130013" },
+    { ...data, affiliation: "agency" },
+  ].entries()) await assert.rejects(setDoc(doc(admin, `public_overview_versions/${version}/cells/bad-${index}`), invalid), { code: "permission-denied" });
+  await deleteDoc(current);
+});

@@ -1,9 +1,6 @@
-export type SchoolDirectoryEntry = {
-  id: string;
-  name: string;
-  district: string;
-  source: "obec" | "private";
-};
+import { isSchoolIdentity, type SchoolIdentity } from "./school-identity.ts";
+
+export type SchoolDirectoryEntry = SchoolIdentity & { name: string };
 
 const provinceFiles: Record<string, string> = {
   "กรุงเทพมหานคร": "bangkok",
@@ -25,10 +22,7 @@ const schoolCache = new Map<string, SchoolDirectoryEntry[]>();
 function isSchoolDirectoryEntry(value: unknown): value is SchoolDirectoryEntry {
   if (!value || typeof value !== "object") return false;
   const entry = value as Record<string, unknown>;
-  return typeof entry.id === "string"
-    && typeof entry.name === "string"
-    && typeof entry.district === "string"
-    && (entry.source === "obec" || entry.source === "private");
+  return typeof entry.name === "string" && isSchoolIdentity(entry);
 }
 
 export async function getSchoolsByProvince(province: string) {
@@ -37,7 +31,7 @@ export async function getSchoolsByProvince(province: string) {
 
   const filename = provinceFiles[province];
   if (!filename) return [];
-  const response = await fetch(`/data/schools/${filename}.json`);
+  const response = await fetch(`/data/schools/${filename}.json?v=20261111`, { cache: "no-cache" });
   if (!response.ok) throw new Error(`โหลดรายชื่อสถานศึกษาของจังหวัด${province}ไม่สำเร็จ`);
   const payload: unknown = await response.json();
   if (!Array.isArray(payload) || !payload.every(isSchoolDirectoryEntry)) {

@@ -76,9 +76,8 @@ service cloud.firestore {
       let score = answer.score;
       let explanation = answer.explanation;
       let length = explanation.size();
-      return answer is map
-        // Required fields are accessed above: a missing field fails closed.
-        && answer.keys().hasOnly(['score', 'explanation'])
+      // Required field access and keys() also require a map.
+      return answer.keys().hasOnly(['score', 'explanation'])
         && score is int
         && score in [0, 1, 2, 3]
         && explanation is string
@@ -190,13 +189,8 @@ service cloud.firestore {
     // schema 1 รองรับ client รุ่นก่อนหน้าในช่วง rolling deploy; schema 2 ย้ายข้อมูลผู้ให้ข้อมูลออกจากเอกสารผลประเมิน
     function validSubmissionV1() {
       let data = request.resource.data;
-      return data.keys().hasAll([
-          'schemaVersion', 'publicConsent', 'institution', 'province',
-          'respondentRole', 'position', 'assessmentDate', 'topicId',
-          'topicLabel', 'agencyType', 'rubricVersion', 'answers',
-          'verificationStatus', 'createdAt'
-        ])
-        && data.keys().hasOnly([
+      // All required fields are read below; missing fields fail closed.
+      return data.keys().hasOnly([
           'schemaVersion', 'publicConsent', 'institution', 'province',
           'respondentRole', 'position', 'assessmentDate', 'topicId',
           'topicLabel', 'agencyType', 'rubricVersion', 'answers',
@@ -224,19 +218,35 @@ service cloud.firestore {
         && data.createdAt == request.time;
     }
 
+    function validSchoolIdentity(school) {
+      let id = school.id;
+      let code = school.code;
+      let district = school.district;
+      let subdistrict = school.subdistrict;
+      let source = school.source;
+      // All five required fields are accessed above; missing keys fail closed.
+      return school.keys().hasOnly(['id', 'code', 'district', 'subdistrict', 'source'])
+        && source in ['obec', 'private']
+        && id is string && id.size() <= 100
+        && id.matches('^(obec|private)-[a-z0-9-]+$')
+        && code is string && code.matches('^(|[0-9]{10})$')
+        && (source == 'obec'
+          ? code.size() == 10 && id == 'obec-' + code
+          : id.matches('^private-[a-z0-9-]+$'))
+        && district is string && district.size() <= 100
+        && subdistrict is string && subdistrict.size() <= 100;
+    }
+
     function validSubmissionV2() {
       let data = request.resource.data;
-      return data.keys().hasAll([
+      // All required fields are read below; missing fields fail closed.
+      return data.keys().hasOnly([
           'schemaVersion', 'publicConsent', 'institution', 'province',
           'assessmentDate', 'topicId', 'topicLabel', 'agencyType',
-          'rubricVersion', 'answers', 'verificationStatus', 'createdAt'
-        ])
-        && data.keys().hasOnly([
-          'schemaVersion', 'publicConsent', 'institution', 'province',
-          'assessmentDate', 'topicId', 'topicLabel', 'agencyType',
-          'rubricVersion', 'answers', 'verificationStatus', 'createdAt'
+          'school', 'rubricVersion', 'answers', 'verificationStatus', 'createdAt'
         ])
         && data.schemaVersion == 2
+        && (!data.keys().hasAny(['school']) || (data.topicId != 'agency' && validSchoolIdentity(data.school)))
         && data.publicConsent == true
         && data.institution is string
         && data.institution.size() >= 2
@@ -256,13 +266,15 @@ service cloud.firestore {
     }
 
     function validSubmission() {
-      return validSubmissionV1() || validSubmissionV2();
+      // Dispatch first; do not spend the expression budget on another schema.
+      return request.resource.data.schemaVersion == 1 ? validSubmissionV1()
+        : request.resource.data.schemaVersion == 2 && validSubmissionV2();
     }
 
     function validPrivateAssessorV1(submissionId) {
       let data = request.resource.data;
-      return data.keys().hasAll(['schemaVersion', 'submissionId', 'assessorName', 'createdAt'])
-        && data.keys().hasOnly(['schemaVersion', 'submissionId', 'assessorName', 'createdAt'])
+      // All required fields are read below; missing fields fail closed.
+      return data.keys().hasOnly(['schemaVersion', 'submissionId', 'assessorName', 'createdAt'])
         && data.schemaVersion == 1
         && data.submissionId == submissionId
         && data.assessorName is string
@@ -275,8 +287,8 @@ service cloud.firestore {
 
     function validPrivateAssessorV2(submissionId) {
       let data = request.resource.data;
-      return data.keys().hasAll(['schemaVersion', 'submissionId', 'assessorName', 'assessorPhone', 'createdAt'])
-        && data.keys().hasOnly(['schemaVersion', 'submissionId', 'assessorName', 'assessorPhone', 'createdAt'])
+      // All required fields are read below; missing fields fail closed.
+      return data.keys().hasOnly(['schemaVersion', 'submissionId', 'assessorName', 'assessorPhone', 'createdAt'])
         && data.schemaVersion == 2
         && data.submissionId == submissionId
         && data.assessorName is string
@@ -291,8 +303,8 @@ service cloud.firestore {
 
     function validPrivateAssessorV3(submissionId) {
       let data = request.resource.data;
-      return data.keys().hasAll(['schemaVersion', 'submissionId', 'assessorName', 'assessorPhone', 'respondentRole', 'position', 'createdAt'])
-        && data.keys().hasOnly(['schemaVersion', 'submissionId', 'assessorName', 'assessorPhone', 'respondentRole', 'position', 'createdAt'])
+      // All required fields are read below; missing fields fail closed.
+      return data.keys().hasOnly(['schemaVersion', 'submissionId', 'assessorName', 'assessorPhone', 'respondentRole', 'position', 'createdAt'])
         && data.schemaVersion == 3
         && data.submissionId == submissionId
         && data.assessorName is string
@@ -309,7 +321,9 @@ service cloud.firestore {
     }
 
     function validPrivateAssessor(submissionId) {
-      return validPrivateAssessorV1(submissionId) || validPrivateAssessorV2(submissionId) || validPrivateAssessorV3(submissionId);
+      return request.resource.data.schemaVersion == 1 ? validPrivateAssessorV1(submissionId)
+        : request.resource.data.schemaVersion == 2 ? validPrivateAssessorV2(submissionId)
+        : request.resource.data.schemaVersion == 3 && validPrivateAssessorV3(submissionId);
     }
 
     function validBenchmarkCategory(category) {
@@ -372,12 +386,33 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    function acceptingSubmissions(topicId) {
+      return !exists(/databases/$(database)/documents/assessment_settings/availability)
+        || (topicId == 'agency'
+          ? get(/databases/$(database)/documents/assessment_settings/availability).data.agency == true
+          : get(/databases/$(database)/documents/assessment_settings/availability).data.school == true);
+    }
+
+    match /assessment_settings/{id} {
+      allow get: if id == 'availability';
+      allow create, update: if id == 'availability' && isAdmin()
+        && request.resource.data.keys().hasAll(['schemaVersion', 'school', 'agency', 'updatedAt', 'updatedBy'])
+        && request.resource.data.keys().hasOnly(['schemaVersion', 'school', 'agency', 'updatedAt', 'updatedBy'])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.school is bool
+        && request.resource.data.agency is bool
+        && request.resource.data.updatedBy == currentEmail()
+        && request.resource.data.updatedAt == request.time;
+      // Do not allow deletion to silently restore the default of both open.
+      allow delete: if false;
+    }
+
     match /submissions/{submissionId} {
       // Dashboard อ่านได้เฉพาะผู้ดูแลโครงการหรืออีเมลที่อนุญาตเป็นรายบุคคล
       allow read: if hasDashboardAccess();
 
       // ผู้ตอบสร้างได้อย่างเดียว ส่วน Admin ลบแบบประเมินทั้งชุดได้จากหน้าจัดการ
-      allow create: if submissionId.size() == 36 && validSubmission();
+      allow create: if submissionId.size() == 36 && acceptingSubmissions(request.resource.data.topicId) && validSubmission();
       allow update: if false;
       allow delete: if isAdmin();
     }
@@ -402,7 +437,7 @@ service cloud.firestore {
       allow get: if id == 'current';
       allow create, update: if id == 'current' && isAdmin()
         && request.resource.data.keys().hasOnly(['schemaVersion', 'version', 'years', 'updatedAt'])
-        && request.resource.data.schemaVersion in [1, 2]
+        && request.resource.data.schemaVersion in [1, 2, 3]
         && request.resource.data.version is string
         && request.resource.data.version.size() == 36
         && request.resource.data.years is list
@@ -427,7 +462,11 @@ service cloud.firestore {
       // Immutable cells are generated by the authenticated Admin publisher.
       allow create: if isAdmin()
         && version.size() == 36
-        && request.resource.data.keys().hasOnly(['year', 'province', 'affiliation', 'scopes', 'institutionKey', 'institution', 'assessmentDate'])
+        && request.resource.data.keys().hasOnly(['year', 'province', 'affiliation', 'scopes', 'institutionKey', 'institution', 'assessmentDate', 'school'])
+        && (!request.resource.data.keys().hasAny(['school']) || (
+          validSchoolIdentity(request.resource.data.school)
+          && request.resource.data.affiliation != 'agency'
+          && request.resource.data.institutionKey == 'school:registered:' + request.resource.data.school.id))
         && ((!request.resource.data.keys().hasAny(['institutionKey', 'institution', 'assessmentDate'])) || (
           request.resource.data.keys().hasAll(['institutionKey', 'institution', 'assessmentDate'])
           && request.resource.data.institutionKey is string

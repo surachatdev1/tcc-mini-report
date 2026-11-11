@@ -25,6 +25,11 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ResultInsights } from "@/components/result-insights";
 
+import { useAssessmentAvailability } from "./use-assessment-availability";
+import { closedAssessmentMessage, type AssessmentAvailability } from "@/lib/assessment-availability";
+
+import { institutionLabel, type SchoolIdentity } from "@/lib/school-identity";
+
 const steps = ["เลือกแบบประเมิน", "ตอบตามสภาพจริง", "ตรวจทาน", "ดูผลลัพธ์"];
 
 function todayInThailand() {
@@ -38,6 +43,7 @@ export function AssessmentWorkspace() {
   const [topicId, setTopicId] = useState<TopicId>("bus");
   const [agencyType, setAgencyType] = useState<AgencyType>("road-safety");
   const [institution, setInstitution] = useState("");
+  const [school, setSchool] = useState<SchoolIdentity | null>(null);
   const [province, setProvince] = useState("");
   const [assessorName, setAssessorName] = useState("");
   const [assessorPhone, setAssessorPhone] = useState("");
@@ -58,6 +64,9 @@ export function AssessmentWorkspace() {
   const [draftError, setDraftError] = useState("");
   const [sendNotice, setSendNotice] = useState("");
 
+  const { availability, error: availabilityError, retry: retryAvailability } = useAssessmentAvailability();
+  const accepting = !!availability?.[audienceGroup] && !availabilityError;
+
   const topic = useMemo(() => getTopic(topicId, agencyType), [topicId, agencyType]);
   const summary = useMemo(() => calculateScore(answers, topic), [answers, topic]);
   const missingExplanationCount = useMemo(
@@ -65,7 +74,7 @@ export function AssessmentWorkspace() {
     [answers, topic],
   );
   const roleOptions = audienceGroup === "school" ? schoolRespondentRoles : agencyRespondentRoles;
-  const profileComplete = Boolean(institution.trim() && province && assessorName.trim().length >= 2 && respondentRole && assessmentDate && publicConsent);
+  const profileComplete = accepting && Boolean(institution.trim() && province && assessorName.trim().length >= 2 && respondentRole && assessmentDate && publicConsent);
   const readyToReview = summary.complete && missingExplanationCount === 0;
 
   useEffect(() => {
@@ -78,6 +87,7 @@ export function AssessmentWorkspace() {
         idempotencyKeyRef.current = draft?.idempotencyKey ?? crypto.randomUUID();
         if (draft) {
           setInstitution(draft.institution);
+          setSchool(draft.topicId !== "agency" ? draft.school ?? null : null);
           setProvince(draft.province);
           setAssessorName(draft.assessorName);
           setAssessorPhone(draft.assessorPhone);
@@ -105,9 +115,9 @@ export function AssessmentWorkspace() {
   }, []);
 
   const currentDraft = useMemo(() => ({
-    institution, province, assessorName, assessorPhone, respondentRole, position,
+    institution, school, province, assessorName, assessorPhone, respondentRole, position,
     assessmentDate, topicId, agencyType, answers, publicConsent,
-  }), [institution, province, assessorName, assessorPhone, respondentRole, position,
+  }), [institution, school, province, assessorName, assessorPhone, respondentRole, position,
     assessmentDate, topicId, agencyType, answers, publicConsent]);
 
   useEffect(() => {
@@ -164,9 +174,11 @@ export function AssessmentWorkspace() {
   }
 
   function changeAudience(next: AudienceGroup) {
+    if (!availability?.[next] || availabilityError || next === audienceGroup) return;
     setAudienceGroup(next);
     setTopicId(next === "agency" ? "agency" : "bus");
     setInstitution("");
+    setSchool(null);
     setAssessorName("");
     setAssessorPhone("");
     setPosition("");
@@ -178,6 +190,7 @@ export function AssessmentWorkspace() {
     setProvince(next);
     // ชื่อสถานศึกษาขึ้นกับจังหวัด จึงต้องล้างค่าที่เลือกเดิมทุกครั้งที่เปลี่ยนจังหวัด
     setInstitution("");
+    setSchool(null);
   }
 
   function changeTopic(next: TopicId) {
@@ -217,7 +230,7 @@ export function AssessmentWorkspace() {
   }
 
   async function submitAssessment() {
-    if (!draftReady || !profileComplete || !readyToReview || sendingRef.current || completedRef.current) return;
+    if (!accepting || !draftReady || !profileComplete || !readyToReview || sendingRef.current || completedRef.current) return;
     // Persist BEFORE any network write. If storage is unavailable, do not risk an
     // unrecoverable write whose key would disappear on refresh.
     try {
@@ -278,6 +291,7 @@ export function AssessmentWorkspace() {
     step,
     setStep: goToStep,
     audienceGroup,
+    availability,
     changeAudience,
     topic,
     topicId,
@@ -285,7 +299,8 @@ export function AssessmentWorkspace() {
     changeTopic,
     changeAgency,
     institution,
-    setInstitution,
+    school,
+    setInstitution: (value: string, selected?: SchoolIdentity | null) => { setInstitution(value); setSchool(selected ?? null); },
     province,
     setProvince: changeProvince,
     assessorName,
@@ -326,6 +341,13 @@ export function AssessmentWorkspace() {
           <button type="button" aria-current={view === "assessment" ? "page" : undefined} onClick={() => openView("assessment")}>แบบประเมิน</button>
           <button type="button" aria-current={view === "manual" ? "page" : undefined} onClick={() => openView("manual")}>วิธีใช้งาน</button>
         </div>
+        {submitState !== "done" && <div className="status-message" role="status">
+          {availabilityError ? <>{availabilityError} <button type="button" className="btn btn-secondary" onClick={retryAvailability}>ลองใหม่</button></>
+            : !availability ? "กำลังตรวจสอบสถานะการเปิดรับแบบประเมิน…"
+            : !availability.school && !availability.agency ? "ขณะนี้ปิดรับแบบประเมินทั้งสองกลุ่ม ร่างในเครื่องและผลเดิมยังอยู่"
+            : !accepting ? <>{closedAssessmentMessage(audienceGroup)} <button type="button" className="btn btn-secondary" onClick={() => { changeAudience(audienceGroup === "school" ? "agency" : "school"); setStep(0); }}>เลือกกลุ่มที่เปิดรับ</button></>
+            : `เปิดรับแบบประเมินสำหรับ${availability.school && availability.agency ? "โรงเรียนและหน่วยงานระดับพื้นที่" : availability.school ? "โรงเรียน / สถานศึกษา" : "หน่วยงานระดับพื้นที่"}`}
+        </div>}
         {draftError && <div className="status-message error" role="alert">{draftError}</div>}
         {view === "manual" ? <Manual /> : draftReady ? <AssessmentView {...sharedProps} /> : <p role="status">กำลังเตรียมแบบประเมินและตรวจสอบร่างในเครื่อง…</p>}
       </main>
@@ -338,6 +360,7 @@ type ViewProps = {
   step: number;
   setStep: (step: number) => void;
   audienceGroup: AudienceGroup;
+  availability: AssessmentAvailability | null;
   changeAudience: (group: AudienceGroup) => void;
   topic: ReturnType<typeof getTopic>;
   topicId: TopicId;
@@ -345,7 +368,8 @@ type ViewProps = {
   changeTopic: (id: TopicId) => void;
   changeAgency: (id: AgencyType) => void;
   institution: string;
-  setInstitution: (value: string) => void;
+  school: SchoolIdentity | null;
+  setInstitution: (value: string, selected?: SchoolIdentity | null) => void;
   province: string;
   setProvince: (value: string) => void;
   assessorName: string;
@@ -433,6 +457,7 @@ function AssessmentView(props: ViewProps) {
         </nav>
         <div className="content-grid">
           <div>
+            {step !== 3 && props.availability && !props.availability[props.audienceGroup] && <p className="status-message" role="status">{closedAssessmentMessage(props.audienceGroup)}</p>}
             {step === 0 && <ProfileStep {...props} />}
             {step === 1 && <QuestionsStep {...props} />}
             {step === 2 && <ReviewStep {...props} />}
@@ -498,13 +523,13 @@ function ProfileStep(props: ViewProps) {
         <p>ระบบจะแสดงเฉพาะเกณฑ์ที่ตรงกับบทบาท ไม่จำเป็นต้องทำครบทุกแบบในครั้งเดียว</p>
       </div>
       <div className="audience-grid">
-        <button type="button" className="audience-card" aria-pressed={props.audienceGroup === "school"} onClick={() => props.changeAudience("school")}>
+        <button type="button" className="audience-card" disabled={!props.availability?.school} aria-pressed={props.audienceGroup === "school"} onClick={() => props.changeAudience("school")}>
           <span className="audience-icon" aria-hidden="true">01</span>
-          <span><strong>โรงเรียน / สถานศึกษา</strong><small>ประเมินรถรับส่ง รถทัศนศึกษา หรือรถจักรยานยนต์</small></span>
+          <span><strong>โรงเรียน / สถานศึกษา</strong><small>ประเมินรถรับส่ง รถทัศนศึกษา หรือรถจักรยานยนต์{props.availability && !props.availability.school ? " · ปิดรับ" : ""}</small></span>
         </button>
-        <button type="button" className="audience-card" aria-pressed={props.audienceGroup === "agency"} onClick={() => props.changeAudience("agency")}>
+        <button type="button" className="audience-card" disabled={!props.availability?.agency} aria-pressed={props.audienceGroup === "agency"} onClick={() => props.changeAudience("agency")}>
           <span className="audience-icon" aria-hidden="true">02</span>
-          <span><strong>หน่วยงานระดับพื้นที่</strong><small>ประเมินการดำเนินงานตามมติคณะรัฐมนตรี</small></span>
+          <span><strong>หน่วยงานระดับพื้นที่</strong><small>ประเมินการดำเนินงานตามมติคณะรัฐมนตรี{props.availability && !props.availability.agency ? " · ปิดรับ" : ""}</small></span>
         </button>
       </div>
 
@@ -547,7 +572,7 @@ function ProfileStep(props: ViewProps) {
             <div className={`field institution-field ${showValidation && missingInstitution ? "field-error" : ""}`}>
               <label htmlFor="institution">{props.audienceGroup === "school" ? "ชื่อสถานศึกษา" : "ชื่อหน่วยงาน"} <span className="required-mark">*</span></label>
               {props.audienceGroup === "school" ? (
-                <SchoolCombobox key={props.province} province={props.province} value={props.institution} onChange={props.setInstitution} invalid={showValidation && missingInstitution} describedBy={showValidation && missingInstitution ? "institution-error" : undefined} />
+                <SchoolCombobox key={props.province} province={props.province} value={props.institution} selected={props.school} onChange={props.setInstitution} invalid={showValidation && missingInstitution} describedBy={showValidation && missingInstitution ? "institution-error" : undefined} />
               ) : (
                 <input id="institution" value={props.institution} onChange={(event) => props.setInstitution(event.target.value)} placeholder="ระบุชื่อเต็มของหน่วยงาน" autoComplete="organization" required aria-invalid={showValidation && missingInstitution} aria-describedby={showValidation && missingInstitution ? "institution-error" : undefined} />
               )}
@@ -602,7 +627,7 @@ function ProfileStep(props: ViewProps) {
       </div>
       {showValidation && missingProfileCount > 0 ? <div className="validation-summary" role="alert"><strong>ยังมีข้อมูลที่ต้องกรอกอีก {missingProfileCount} รายการ</strong><span>กรุณาตรวจสอบช่องที่มีข้อความกำกับ แล้วจึงเริ่มทำแบบประเมิน</span></div> : null}
       <div className="action-row single-action">
-        <button className="btn btn-primary" type="button" onClick={startAssessment}>เริ่มทำแบบประเมิน</button>
+        <button className="btn btn-primary" type="button" disabled={!props.availability?.[props.audienceGroup]} onClick={startAssessment}>เริ่มทำแบบประเมิน</button>
       </div>
     </section>
   );
@@ -701,7 +726,7 @@ function ReviewStep(props: ViewProps) {
         <p>ระบบจะบันทึกคำตอบดิบแบบสร้างครั้งเดียว และ Dashboard จะคำนวณคะแนนใหม่จากเกณฑ์ในระบบทุกครั้ง</p>
       </div>
       <div className="review-context">
-        <span><strong>หน่วยงาน</strong> {props.institution}</span><span><strong>จังหวัด</strong> {props.province}</span><span><strong>ผู้ประเมิน</strong> {props.assessorName}</span><span><strong>บทบาท</strong> {props.respondentRole}</span><span><strong>ประเภท</strong> {props.topic.label}</span>
+        <span><strong>หน่วยงาน</strong> {institutionLabel(props)}</span><span><strong>จังหวัด</strong> {props.province}</span><span><strong>ผู้ประเมิน</strong> {props.assessorName}</span><span><strong>บทบาท</strong> {props.respondentRole}</span><span><strong>ประเภท</strong> {props.topic.label}</span>
       </div>
       <div className="review-list">
         {props.topic.questions.map((question) => (

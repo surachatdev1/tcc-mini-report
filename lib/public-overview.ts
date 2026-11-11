@@ -1,3 +1,4 @@
+import { institutionIdentityKey, institutionLabel, isSchoolIdentity, schoolIdentity, type SchoolIdentity } from "./school-identity.ts";
 import type { DashboardRecord, DashboardGrade } from "./integrations/dashboard-repository";
 import { assessmentDay, type Affiliation } from "./dashboard-filters.ts";
 
@@ -13,15 +14,15 @@ export const overviewDomains = [
 const domainMapping: Record<string, string> = { "bus:driver": "driver", "trip:driver": "driver", "moto:behavior": "driver", "bus:vehicle": "vehicle", "trip:vehicle": "vehicle", "bus:management": "management", "trip:school": "management", "trip:support": "management", "moto:management": "management", "moto:knowledge": "knowledge", "moto:environment": "environment" };
 export type SumCount = { sum: number; count: number };
 export type PublicMetrics = { assessments: number; schools: number; agencies: number; scoreSum: number; grades: Record<DashboardGrade, number>; domains: Record<string, SumCount>; categories: Record<string, SumCount>; gaps: Record<string, { count: number; eligible: number }> };
-export type PublicOverviewCell = { year: string; province: string; affiliation: Affiliation; scopes: Record<string, PublicMetrics>; institutionKey?: string; institution?: string; assessmentDate?: string };
-export type PublicOverviewManifest = { schemaVersion: 1 | 2; version: string; years: string[]; updatedAt: string };
+export type PublicOverviewCell = { year: string; province: string; affiliation: Affiliation; scopes: Record<string, PublicMetrics>; institutionKey?: string; institution?: string; assessmentDate?: string; school?: SchoolIdentity };
+export type PublicOverviewManifest = { schemaVersion: 1 | 2 | 3; version: string; years: string[]; updatedAt: string };
 export function emptyPublicMetrics(): PublicMetrics { return { assessments: 0, schools: 0, agencies: 0, scoreSum: 0, grades: { A: 0, B: 0, C: 0, D: 0 }, domains: {}, categories: {}, gaps: {} }; }
 export function publicRecordYear(record: DashboardRecord) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(record.assessmentDate)) return record.assessmentDate.slice(0, 4);
   const date = new Date(record.createdAt);
   return Number.isNaN(date.getTime()) ? "unknown" : new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric" }).format(date);
 }
-export function schoolKey(record: DashboardRecord) { return `${record.province}:${record.institution.normalize("NFC").replace(/^โรงเรียน\s*/, "").replace(/\s+/g, "").toLocaleLowerCase("th")}`; }
+export function schoolKey(record: DashboardRecord) { return institutionIdentityKey(record); }
 export function rubricKey(record: Pick<DashboardRecord, "topicId" | "agencyType">) { return `${record.topicId}:${record.agencyType ?? ""}`; }
 export function scopeKey(topic: OverviewFilters["topic"], grade: OverviewFilters["grade"]) { return `${topic}_${grade}`; }
 function summarize(records: DashboardRecord[]): PublicMetrics {
@@ -54,14 +55,14 @@ function summarize(records: DashboardRecord[]): PublicMetrics {
 // Institution labels and assessment days support the public search.
 // No submission IDs, contact fields or free-text answers are copied.
 export function buildPublicOverviewCells(records: DashboardRecord[], affiliationOf: (record: DashboardRecord) => Affiliation): PublicOverviewCell[] {
-  const buckets = new Map<string, { year: string; province: string; affiliation: Affiliation; institutionKey: string; institution: string; assessmentDate: string; records: DashboardRecord[] }>();
+  const buckets = new Map<string, { year: string; province: string; affiliation: Affiliation; institutionKey: string; institution: string; assessmentDate: string; school?: SchoolIdentity; records: DashboardRecord[] }>();
   for (const record of records) {
     const affiliation = record.topicId === "agency" ? "agency" : affiliationOf(record);
     const institutionKey = `${record.topicId === "agency" ? "agency" : "school"}:${schoolKey(record)}`;
     const day = assessmentDay(record);
     for (const year of ["all", publicRecordYear(record)]) {
       const key = JSON.stringify([year, record.province, affiliation, institutionKey, day]);
-      const bucket = buckets.get(key) ?? { year, province: record.province, affiliation, institutionKey, institution: record.institution.trim().slice(0, 180), assessmentDate: day, records: [] };
+      const bucket = buckets.get(key) ?? { year, province: record.province, affiliation, institutionKey, institution: record.institution.trim().slice(0, 180), assessmentDate: day, ...(record.topicId !== "agency" && isSchoolIdentity(record.school) ? { school: schoolIdentity(record.school) } : {}), records: [] };
       bucket.records.push(record); buckets.set(key, bucket);
     }
   }
@@ -71,7 +72,7 @@ export function buildPublicOverviewCells(records: DashboardRecord[], affiliation
       const subset = bucket.records.filter(r => (topic === "all" || r.topicId === topic) && (grade === "all" || r.grade === grade));
       if (subset.length) scopes[scopeKey(topic, grade)] = summarize(subset);
     }
-    return { year: bucket.year, province: bucket.province, affiliation: bucket.affiliation, institutionKey: bucket.institutionKey, institution: bucket.institution, assessmentDate: bucket.assessmentDate, scopes };
+    return { year: bucket.year, province: bucket.province, affiliation: bucket.affiliation, institutionKey: bucket.institutionKey, institution: bucket.institution, assessmentDate: bucket.assessmentDate, ...(bucket.school ? { school: bucket.school } : {}), scopes };
   });
 }
 function addMetrics(target: PublicMetrics, value: PublicMetrics) {
@@ -83,7 +84,7 @@ function addMetrics(target: PublicMetrics, value: PublicMetrics) {
 export function overviewInstitutionOptions(cells: PublicOverviewCell[], province: string) {
   const entries = new Map<string, { key: string; label: string; province: string }>();
   for (const cell of cells) if (cell.institutionKey && cell.institution && (province === "all" || cell.province === province)) {
-    entries.set(cell.institutionKey, { key: cell.institutionKey, label: cell.institution, province: cell.province });
+    entries.set(cell.institutionKey, { key: cell.institutionKey, label: institutionLabel({ institution: cell.institution, province: cell.province, school: cell.school, topicId: cell.affiliation === "agency" ? "agency" : "bus" }), province: cell.province });
   }
   return [...entries.values()].sort((a, b) => a.label.localeCompare(b.label, "th") || a.province.localeCompare(b.province, "th"));
 }
@@ -127,6 +128,7 @@ export function isPublicOverviewCell(value: unknown): value is PublicOverviewCel
   if (!value || typeof value !== "object") return false;
   const cell = value as PublicOverviewCell;
   if (typeof cell.year !== "string" || !/^(all|unknown|\d{4})$/.test(cell.year) || typeof cell.province !== "string" || !["obec", "private", "unknown", "agency"].includes(cell.affiliation) || !cell.scopes || typeof cell.scopes !== "object") return false;
+  if (cell.school !== undefined && (!isSchoolIdentity(cell.school) || cell.affiliation === "agency" || cell.institutionKey !== `school:registered:${cell.school.id}`)) return false;
   const detailed = [cell.institutionKey, cell.institution, cell.assessmentDate];
   if (detailed.some(v => v !== undefined) && !(typeof cell.institutionKey === "string" && /^(school|agency):/.test(cell.institutionKey) && cell.institutionKey.length <= 260 && typeof cell.institution === "string" && cell.institution.length <= 180 && typeof cell.assessmentDate === "string" && /^(|\d{4}-\d{2}-\d{2})$/.test(cell.assessmentDate))) return false;
   const positive = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n >= 0;

@@ -1394,3 +1394,25 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   .dashboard-shell .record-table-controls > label { width: 100%; justify-content: space-between; }
   .dashboard-shell .record-table-controls > label select { flex: 1; max-width: none; }
 }
+
+/* Independent intake controls share the form's scale and touch target. */
+.availability-panel { margin-bottom: 1.25rem; }
+.availability-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.availability-card { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem; border: 1px solid var(--line, #cbdfe2); border-radius: 12px; background: #f7faf9; }
+.availability-card h3 { margin: 0 0 .35rem; font-size: 1rem; }
+.availability-card p { margin: 0; font-size: .875rem; color: #526b75; }
+.availability-switch { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: .6rem; min-height: 44px; padding: .5rem; border: 0; border-radius: 8px; background: transparent; color: #40555f; font: inherit; cursor: pointer; }
+.availability-track { display: flex; align-items: center; width: 44px; height: 26px; padding: 3px; border-radius: 20px; background: #71828a; }
+.availability-track > span { width: 20px; height: 20px; border-radius: 50%; background: white; }
+.availability-switch[aria-checked="true"] .availability-track { justify-content: flex-end; background: #047c8e; }
+.availability-switch[aria-checked="true"] { color: #006b7b; }
+.availability-switch:disabled, .audience-card:disabled { opacity: .6; cursor: not-allowed; }
+.availability-switch:focus-visible { outline: 3px solid #087eee; outline-offset: 3px; }
+@media (max-width: 760px) { .availability-grid { grid-template-columns: 1fr; } }
+
+.school-selection { display: grid; gap: .25rem; margin-top: .6rem; padding: .75rem 1rem; background: #eaf6f5; border-left: 3px solid #047c8e; border-radius: 6px; overflow-wrap: anywhere; }
+.school-selection strong { font-size: .95rem; }
+.school-selection span, .school-selection small, .combobox-option small { font-size: .8125rem; line-height: 1.6; color: #526b75; }
+.combobox-option strong, .combobox-option span, .combobox-option small { white-space: normal; overflow-wrap: anywhere; }
+.combobox-option { min-height: 76px; }
+.institution-location { display: block; font-size: .8125rem; line-height: 1.5; color: #526b75; margin-top: .3rem; }

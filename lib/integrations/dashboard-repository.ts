@@ -1,3 +1,4 @@
+import { isSchoolIdentity, schoolIdentity, type SchoolIdentity } from "../school-identity.ts";
 import {
   agencyTypes,
   getTopic,
@@ -16,6 +17,7 @@ export type DashboardQuestionResult = QuestionResult & { explanation: string };
 export type DashboardRecord = {
   id: string;
   institution: string;
+  school?: SchoolIdentity | null;
   province: string;
   assessorName: string;
   assessorPhone: string;
@@ -104,6 +106,7 @@ export function firestoreRecord(id: string, raw: Record<string, unknown>): Dashb
   return {
     id,
     institution: raw.institution.trim().slice(0, 180),
+    school: raw.topicId !== "agency" && isSchoolIdentity(raw.school) ? schoolIdentity(raw.school) : null,
     province: raw.province as string,
     assessorName: "",
     assessorPhone: "",

@@ -62,3 +62,9 @@ Summary cards, grade legends, bar segments, category cards and pilot provinces o
 - Public filters use the saved school/agency, assessment day, year, province and type; grade is recalculated and affiliation is resolved from the school directory. A missing assessment day falls back to the Bangkok date of creation. Anonymous search reads the published search dimensions and numeric aggregates only.
 - An absent `public_overview/current` is an unpublished summary, not proof that `submissions` is empty. Opening a protected page as an admin now initializes it automatically.
 - The overview shell spans the viewport width and height, including empty/loading states and displays wider than 1920 px.
+
+## School identity migration (schema 3)
+
+Submissions selected from the bundled registry now include a `school` map with ID, official code when available, district, subdistrict, and source. Public cells carry this same non-contact identity and use `school:registered:{id}` as their institution key. Legacy/manual names retain their prior province+name group; no automatic assignment is made when a name is ambiguous. Search labels include the area and official code. Counts disclose that unresolved legacy groups are not a verified number of unique schools. Excel uses the same selected data and includes identity columns in staff row exports.
+
+The admin publisher upgrades an older manifest to schema 3 even when no new submission exists. Deploy both Rules and Hosting before opening a protected page to trigger this refresh. The new reader supports schemas 1, 2 and 3.

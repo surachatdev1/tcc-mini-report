@@ -1,3 +1,4 @@
+import { isSchoolIdentity, schoolIdentity, type SchoolIdentity } from "../school-identity.ts";
 import {
   getTopic,
   rubricVersion,
@@ -8,8 +9,12 @@ import {
 import { calculateScore, type Answer, type CategoryScore, type QuestionResult } from "../scoring";
 import { getFirebaseDb, shouldUseFirestore } from "./firebase-client";
 
+import { readAssessmentAvailability } from "./assessment-availability-repository";
+import { closedAssessmentMessage } from "../assessment-availability";
+
 export type DraftPayload = {
   institution: string;
+  school?: SchoolIdentity | null;
   province: string;
   assessorName: string;
   assessorPhone: string;
@@ -27,6 +32,7 @@ export type SubmissionInput = DraftPayload & { idempotencyKey: string };
 export type AssessmentRecord = {
   id: string;
   institution: string;
+  school?: SchoolIdentity | null;
   province: string;
   assessorName: string;
   assessorPhone: string;
@@ -111,6 +117,12 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
     throw new Error("ขออภัย ขณะนี้ระบบยังไม่พร้อมรับแบบประเมิน กรุณาลองใหม่อีกครั้ง หากยังพบปัญหา โปรดติดต่อผู้ดูแลระบบ");
   }
 
+  const availability = await readAssessmentAvailability();
+  const audience = payload.topicId === "agency" ? "agency" : "school";
+  if (!availability[audience]) throw new Error(closedAssessmentMessage(audience));
+
+  if (payload.school != null && (payload.topicId === "agency" || !isSchoolIdentity(payload.school))) throw new Error("ข้อมูลโรงเรียนไม่ถูกต้อง กรุณาเลือกโรงเรียนอีกครั้ง");
+  const school = payload.school ? schoolIdentity(payload.school) : null;
   const { topic, answers } = sanitizeAnswers(payload);
   const summary = calculateScore(answers, topic);
   const documentRef = doc(db, "submissions", payload.idempotencyKey);
@@ -119,7 +131,7 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
   const assessorPhone = payload.assessorPhone.trim().slice(0, 30);
   const createdAt = new Date().toISOString();
 
-  // ผู้กรอกเป็น public user จึงใช้ atomic batch ที่เขียนได้โดยไม่ต้องอ่านเอกสารก่อน
+  // ผู้กรอกเป็น public user จึงใช้ atomic batch โดยไม่อ่านผลประเมินเดิม (อ่านเฉพาะสถานะเปิดรับก่อนส่ง)
   // document id เดิมทำหน้าที่เป็น idempotency key และ Rules อนุญาต create แต่ไม่อนุญาต update
   const batch = writeBatch(db);
   // เอกสารสาธารณะไม่เก็บชื่อบุคคลหรือคะแนนรวม: Dashboard คำนวณใหม่จากคำตอบดิบตาม rubricVersion
@@ -127,6 +139,7 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
     schemaVersion: 2,
     publicConsent: true,
     institution: payload.institution.trim().slice(0, 180),
+    ...(school ? { school } : {}),
     province: payload.province,
     assessmentDate: payload.assessmentDate,
     topicId: payload.topicId,
@@ -153,12 +166,19 @@ async function submitToFirestore(payload: SubmissionInput): Promise<AssessmentRe
     await batch.commit();
   } catch (error) {
     // แปลง error ของ SDK เป็นข้อความที่ผู้กรอกเข้าใจได้ โดยไม่เปิดรายละเอียดระบบภายใน
+    // Rules are authoritative if the admin closes a group after the preflight read.
+    try {
+      if (!(await readAssessmentAvailability())[audience]) throw new Error(closedAssessmentMessage(audience));
+    } catch (statusError) {
+      if (statusError instanceof Error && statusError.message === closedAssessmentMessage(audience)) throw statusError;
+    }
     throw firestoreWriteError(error);
   }
 
   return {
     id: payload.idempotencyKey,
     institution: payload.institution.trim(),
+    school,
     province: payload.province,
     assessorName,
     assessorPhone,

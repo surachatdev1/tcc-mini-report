@@ -1,3 +1,4 @@
+import { institutionIdentityKey, institutionLabel } from "./school-identity.ts";
 import type { DashboardRecord, DashboardGrade } from "./integrations/dashboard-repository";
 
 export const overviewTopics = [
@@ -8,7 +9,7 @@ export const overviewTopics = [
 ] as const;
 export const overviewGrades: DashboardGrade[] = ["A", "B", "C", "D"];
 export function institutionKey(record: DashboardRecord) {
-  return `${record.province}:${record.institution.normalize("NFC").replace(/^โรงเรียน\s*/, "").replace(/\s+/g, "").toLocaleLowerCase("th")}`;
+  return institutionIdentityKey(record);
 }
 export function overviewYear(record: DashboardRecord) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(record.assessmentDate)) return record.assessmentDate.slice(0, 4);
@@ -60,7 +61,7 @@ export function overviewSchools(records: DashboardRecord[]) {
   const groups = new Map<string, { id: string; name: string; province: string; count: number; sum: number; topics: Set<string> }>();
   for (const record of records.filter(r => r.topicId !== "agency")) {
     const id = institutionKey(record);
-    const group = groups.get(id) ?? { id, name: record.institution, province: record.province, count: 0, sum: 0, topics: new Set<string>() };
+    const group = groups.get(id) ?? { id, name: institutionLabel(record), province: record.province, count: 0, sum: 0, topics: new Set<string>() };
     group.count++;
     group.sum += record.score;
     group.topics.add(record.topicId);

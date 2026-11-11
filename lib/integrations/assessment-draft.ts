@@ -1,3 +1,4 @@
+import { isSchoolIdentity } from "../school-identity.ts";
 import type { DraftPayload } from "./assessment-repository";
 
 export const DRAFT_KEY = "tcc-assessment-draft-v5";
@@ -20,7 +21,8 @@ export function createDraftStore(storage: () => Pick<Storage, "getItem" | "setIt
       const draft = value as Record<string, unknown>;
       if (draft.completed === true) return null;
       const fields = ["institution", "province", "assessorName", "respondentRole", "position", "assessmentDate"];
-      if (fields.some((key) => typeof draft[key] !== "string")
+      if ((draft.school != null && (!isSchoolIdentity(draft.school) || draft.topicId === "agency"))
+        || fields.some((key) => typeof draft[key] !== "string")
         || !["bus", "trip", "moto", "agency"].includes(String(draft.topicId))
         || !["road-safety", "education-area", "transport", "local-admin"].includes(String(draft.agencyType))
         || !draft.answers || typeof draft.answers !== "object" || Array.isArray(draft.answers)

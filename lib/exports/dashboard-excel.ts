@@ -1,3 +1,4 @@
+import { institutionIdentityKey, schoolCountNote } from "../school-identity.ts";
 import type { Cell, CellObject, Sheet } from "write-excel-file/browser";
 import type { DashboardRecord } from "../integrations/dashboard-repository";
 
@@ -140,7 +141,7 @@ function dataCell(value: CellValue, column: ColumnSpec, rowIndex: number): CellO
 
 export async function createDashboardWorkbook(input: DashboardExportInput): Promise<DashboardWorkbook> {
   const sheets: Sheet<ArrayBuffer>[] = [];
-  const meta = `ตัวกรอง: จังหวัด ${input.provinceLabel} · แบบประเมิน ${input.topicLabel}${input.filterSummary ? ` · ${input.filterSummary}` : ""} · ส่งออกเมื่อ ${generatedAtText()}`;
+  const meta = `ตัวกรอง: จังหวัด ${input.provinceLabel} · แบบประเมิน ${input.topicLabel}${input.filterSummary ? ` · ${input.filterSummary}` : ""} · ส่งออกเมื่อ ${generatedAtText()}${input.records.some(record => record.topicId !== "agency" && !record.school) ? ` · ${schoolCountNote}` : ""}`;
 
   function addTableSheet(name: string, title: string, columns: ColumnSpec[], rows: CellValue[][]) {
     const data: Cell[][] = [
@@ -168,7 +169,7 @@ export async function createDashboardWorkbook(input: DashboardExportInput): Prom
       { header: "ระดับ D", width: 18, numberFormat: "#,##0" },
     ], [[
       input.records.length,
-      new Set(input.records.map((record) => record.institution)).size,
+      new Set(input.records.map(institutionIdentityKey)).size,
       average(input.records),
       input.records.filter((record) => record.grade === "D").length,
     ]]);
@@ -178,7 +179,7 @@ export async function createDashboardWorkbook(input: DashboardExportInput): Prom
     const values = [...new Set(input.records.map((record) => record.province))].sort((a, b) => a.localeCompare(b, "th"));
     const rows = values.map((province) => {
       const records = input.records.filter((record) => record.province === province);
-      return [province, new Set(records.map((record) => record.institution)).size, records.length, average(records), records.filter((record) => record.grade === "D").length] satisfies CellValue[];
+      return [province, new Set(records.map(institutionIdentityKey)).size, records.length, average(records), records.filter((record) => record.grade === "D").length] satisfies CellValue[];
     });
     addTableSheet("ตามจังหวัด", "สรุปผลตามจังหวัด", [
       { header: "จังหวัด", width: 24 },
@@ -233,6 +234,8 @@ export async function createDashboardWorkbook(input: DashboardExportInput): Prom
     ], rows);
   }
 
+  const schoolColumns: ColumnSpec[] = [{ header: "รหัสทะเบียนในระบบ", width: 28 }, { header: "รหัสโรงเรียน", width: 20 }, { header: "อำเภอ / เขต", width: 24 }, { header: "ตำบล / แขวง", width: 24 }];
+
   function addAssessments() {
     const personalColumns: ColumnSpec[] = input.includePersonalData ? [
       { header: "ชื่อผู้ให้ข้อมูล", width: 30 },
@@ -245,6 +248,7 @@ export async function createDashboardWorkbook(input: DashboardExportInput): Prom
       ...(input.includePersonalData ? [record.assessorName || "ไม่ระบุ", record.respondentRole || "ไม่ระบุ", record.position || "ไม่ระบุ", record.assessorPhone || "ไม่ระบุ"] : []),
       record.assessmentDate ? new Date(`${record.assessmentDate}T00:00:00+07:00`) : new Date(record.createdAt),
       new Date(record.createdAt), record.score, record.grade, record.lowQuestions.length,
+      record.school?.id ?? "", record.school?.code ?? "", record.school?.district ?? "", record.school?.subdistrict ?? "",
     ] satisfies CellValue[]);
     addTableSheet("ผลประเมิน", "รายการผลประเมิน", [
       { header: "เลขอ้างอิง", width: 26 },
@@ -258,6 +262,7 @@ export async function createDashboardWorkbook(input: DashboardExportInput): Prom
       { header: "คะแนน", width: 14, numberFormat: "0.0" },
       { header: "ระดับ", width: 12 },
       { header: "ข้อที่ต้องพัฒนา", width: 20, numberFormat: "#,##0" },
+      ...schoolColumns,
     ], rows);
   }
 
@@ -265,6 +270,7 @@ export async function createDashboardWorkbook(input: DashboardExportInput): Prom
     const rows = input.records.flatMap((record) => record.categoryScores.map((category) => [
       referenceCode(record), record.institution, record.province, record.topicLabel, category.label,
       category.weight / 100, category.percent / 100, category.contribution,
+      record.school?.id ?? "", record.school?.code ?? "", record.school?.district ?? "", record.school?.subdistrict ?? "",
     ] satisfies CellValue[]));
     addTableSheet("คะแนนรายหมวด", "คะแนนแยกตามหมวด", [
       { header: "เลขอ้างอิง", width: 26 },
@@ -275,6 +281,7 @@ export async function createDashboardWorkbook(input: DashboardExportInput): Prom
       { header: "น้ำหนัก", width: 14, numberFormat: "0%" },
       { header: "คะแนนหมวด", width: 18, numberFormat: "0.0%" },
       { header: "คะแนนถ่วงน้ำหนัก", width: 22, numberFormat: "0.0" },
+      ...schoolColumns,
     ], rows);
   }
 
@@ -285,6 +292,7 @@ export async function createDashboardWorkbook(input: DashboardExportInput): Prom
       question.selectedDescription, question.scorePercent / 100, question.contribution,
       question.requiresImprovement ? "ต้องปรับปรุง" : "ถึงขั้นมาตรฐาน",
       question.recommendation ?? "—", question.explanation || "—",
+      record.school?.id ?? "", record.school?.code ?? "", record.school?.district ?? "", record.school?.subdistrict ?? "",
     ] satisfies CellValue[]));
     addTableSheet("รายละเอียดรายข้อ", "รายละเอียดผลประเมินรายข้อ", [
       { header: "เลขอ้างอิง", width: 26 },
@@ -303,6 +311,7 @@ export async function createDashboardWorkbook(input: DashboardExportInput): Prom
       { header: "สถานะ", width: 20 },
       { header: "ข้อเสนอแนะ", width: 76 },
       { header: "ข้อมูลประกอบ", width: 70 },
+      ...schoolColumns,
     ], rows);
   }
 

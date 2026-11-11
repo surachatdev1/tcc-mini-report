@@ -1,9 +1,10 @@
+import { overviewInstitutionOptions } from "./public-overview.ts";
 import { affiliationLabels } from "./dashboard-filters.ts";
 import { overviewTopics } from "./dashboard-overview.ts";
 import type { OverviewFilters, PublicOverviewCell } from "./public-overview";
 
 export function overviewSearchLabel(filters: OverviewFilters, cells: PublicOverviewCell[]) {
-  const institution = cells.find(c => c.institutionKey === filters.institution)?.institution;
+  const institution = overviewInstitutionOptions(cells, filters.province).find(item => item.key === filters.institution)?.label;
   return [
     filters.province === "all" ? "ทุกจังหวัด" : filters.province,
     !filters.institution || filters.institution === "all" ? "ทุกโรงเรียน / หน่วยงาน" : institution ?? "โรงเรียน / หน่วยงานที่เลือก",
