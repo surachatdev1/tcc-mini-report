@@ -27,6 +27,10 @@ type SchoolLoadState = {
   error: string;
 };
 
+function schoolDetails(school: SchoolIdentity, province: string) {
+  return [schoolLocation(school, province) || province, school.source === "private" ? "เอกชนในระบบ" : "สังกัด สพฐ."].join(" · ");
+}
+
 export function SchoolCombobox({ province, value, selected, onChange, invalid = false, describedBy }: Props) {
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -142,7 +146,7 @@ export function SchoolCombobox({ province, value, selected, onChange, invalid = 
             setOpen(!manualMode);
             onChange(manualMode ? next : "");
           }}
-          placeholder={manualMode ? "พิมพ์ชื่อสถานศึกษา" : "ค้นหาชื่อ อำเภอ ตำบล หรือรหัสโรงเรียน"}
+          placeholder={manualMode ? "พิมพ์ชื่อสถานศึกษา" : "ค้นหาชื่อสถานศึกษา อำเภอ หรือตำบล"}
           autoComplete="organization"
         />
         {query && (
@@ -172,26 +176,25 @@ export function SchoolCombobox({ province, value, selected, onChange, invalid = 
               role="option"
               aria-selected={index === activeIndex}
               className="combobox-option"
+              title={`${school.name}\n${schoolDetails(school, province)}`}
               key={school.id}
               onMouseDown={(event) => event.preventDefault()}
               onMouseEnter={() => setActiveIndex(index)}
               onClick={() => selectSchool(school)}
             >
               <strong>{school.name}</strong>
-              <span>{schoolLocation(school, province) || province}</span>
-              <small>{school.source === "private" ? "โรงเรียนเอกชนในระบบ" : "สังกัด สพฐ."}{school.code ? ` · รหัส ${school.code}` : ""}</small>
+              <span>{schoolDetails(school, province)}</span>
             </button>
           )) : (
             <p className="combobox-empty">ไม่พบชื่อที่ค้นหา กรุณาตรวจคำสะกดหรือกรอกชื่อเอง</p>
           )}
-          {schools.length > RESULT_LIMIT && !query && <p className="combobox-hint">พิมพ์ชื่อ พื้นที่ หรือรหัสโรงเรียนเพื่อค้นหาจากทั้งหมด {schools.length.toLocaleString("th-TH")} แห่ง</p>}
+          {schools.length > RESULT_LIMIT && !query && <p className="combobox-hint">พิมพ์ชื่อหรือพื้นที่เพื่อค้นหาจากทั้งหมด {schools.length.toLocaleString("th-TH")} แห่ง</p>}
         </div>
       )}
 
-      {selected && <div className="school-selection" id={`${listId}-selection`} role="status">
-        <strong>เลือกแล้ว: {value}</strong>
-        <span>{schoolLocation(selected, province)} · {province}</span>
-        <small>{selected.code ? `รหัสโรงเรียน ${selected.code} · ` : ""}{selected.source === "obec" ? "สังกัด สพฐ." : "โรงเรียนเอกชนในระบบ"}</small>
+      {selected && <div className="school-selection" id={`${listId}-selection`} role="status" title={`${value}\n${schoolDetails(selected, province)}`}>
+        <strong>{value}</strong>
+        <span>{schoolDetails(selected, province)}</span>
       </div>}
       <div className="school-field-footer">
         <span className="field-help">
