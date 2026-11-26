@@ -10,6 +10,7 @@ export type DashboardAccess = {
   emailVerified: boolean;
   /** null for Admin or unauthorised members; viewers are always province-scoped. */
   province: string | null;
+  provinceAssignmentRequired: boolean;
 };
 
 export type AccessEntry = {
@@ -60,7 +61,7 @@ function toEntry(id: string, data: Record<string, unknown>): AccessEntry {
 export async function getDashboardAccess(user: User): Promise<DashboardAccess> {
   const email = normalizeEmail(user.email ?? "");
   if (!email || !user.emailVerified) {
-    return { role: "none", admin: false, member: false, emailVerified: false, province: null };
+    return { role: "none", admin: false, member: false, emailVerified: false, province: null, provinceAssignmentRequired: false };
   }
 
   // Admin กำหนดถาวรตามรายชื่อใน access-roles.ts และ Firestore Rules
@@ -80,6 +81,7 @@ export async function getDashboardAccess(user: User): Promise<DashboardAccess> {
     member,
     emailVerified: true,
     province: admin ? null : province,
+    provinceAssignmentRequired: !admin && policy?.active === true && province === null,
   };
 }
 
