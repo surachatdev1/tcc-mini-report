@@ -1,5 +1,5 @@
 import type { User } from "firebase/auth";
-import { inferProvinceFromOrganization, isAdminEmail, resolveMemberProvince, type SystemRole } from "@/lib/access-roles";
+import { inferProvinceFromOrganization, isAdminEmail, resolveDashboardRole, resolveMemberProvince, type MemberRole, type SystemRole } from "@/lib/access-roles";
 import { provinces } from "@/lib/assessment-data";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/integrations/firebase-client";
 
@@ -19,9 +19,9 @@ export type AccessEntry = {
   name: string;
   createdBy: string;
   createdAt: string;
-  role: "viewer";
+  role: MemberRole;
   province: string | null;
-  provinceSource: "stored" | "inferred" | "missing";
+  provinceSource: "central" | "stored" | "inferred" | "missing";
 };
 
 export function normalizeEmail(value: string) {
@@ -44,15 +44,16 @@ function timestampLabel(value: unknown) {
 }
 
 function toEntry(id: string, data: Record<string, unknown>): AccessEntry {
-  const province = resolveMemberProvince(data, provinces);
-  const provinceSource = !province ? "missing" : Object.prototype.hasOwnProperty.call(data, "province") ? "stored" : "inferred";
+  const central = data.schemaVersion === 3 && data.role === "admin" && data.province === null;
+  const province = central ? null : resolveMemberProvince(data, provinces);
+  const provinceSource = central ? "central" : !province ? "missing" : Object.prototype.hasOwnProperty.call(data, "province") ? "stored" : "inferred";
   return {
     id,
     email: String(data.email ?? id),
     name: String(data.displayName ?? ""),
     createdBy: String(data.createdBy ?? "—"),
     createdAt: timestampLabel(data.createdAt),
-    role: "viewer",
+    role: central ? "admin" : "province_viewer",
     province,
     provinceSource,
   };
@@ -72,16 +73,16 @@ export async function getDashboardAccess(user: User): Promise<DashboardAccess> {
   const { doc, getDoc } = await import("firebase/firestore");
   const memberDocument = await getDoc(doc(db, "dashboard_members", email));
   const policy = memberDocument.exists() ? memberDocument.data() : null;
-  const province = policy?.active === true ? resolveMemberProvince(policy, provinces) : null;
-  const member = province !== null;
+  const access = resolveDashboardRole(email, policy ?? null, provinces);
+  const member = access.role === "admin" || access.role === "province_viewer";
 
   return {
-    role: admin ? "admin" : member ? "viewer" : "none",
+    role: access.role,
     admin,
     member,
     emailVerified: true,
-    province: admin ? null : province,
-    provinceAssignmentRequired: !admin && policy?.active === true && province === null,
+    province: access.province,
+    provinceAssignmentRequired: !admin && policy?.active === true && access.role === "none",
   };
 }
 
@@ -108,15 +109,16 @@ async function currentAdminEmail() {
   return email;
 }
 
-export async function addDashboardViewer(email: string, displayName: string, province: string) {
+export async function addDashboardViewer(email: string, displayName: string, province: string | null, role: MemberRole = "province_viewer") {
   const normalized = requireEmail(email);
-  if (!provinces.includes(province)) throw new Error("กรุณาเลือกจังหวัดที่รับผิดชอบ");
+  validateMemberScope(role, province);
   if (isAdminEmail(normalized)) throw new Error("บัญชีนี้เป็นผู้ดูแลระบบและมีสิทธิ์อยู่แล้ว");
   const db = await getFirebaseDb();
   if (!db) throw new Error("ไม่สามารถเชื่อมต่อ Firestore ได้");
   const { doc, serverTimestamp, setDoc } = await import("firebase/firestore");
   await setDoc(doc(db, "dashboard_members", normalized), {
-    schemaVersion: 2,
+    schemaVersion: 3,
+    role,
     province,
     email: normalized,
     displayName: displayName.trim(),
@@ -136,15 +138,36 @@ export async function removeDashboardViewer(email: string) {
   await deleteDoc(doc(db, "dashboard_members", normalized));
 }
 
-/** Assign or correct a viewer's province; existing timestamps/creator stay intact. */
-export async function updateDashboardViewerProvince(email: string, province: string) {
+function validateMemberScope(role: MemberRole, province: string | null) {
+  if (role === "admin" && province === null) return;
+  if (role === "province_viewer" && province !== null && provinces.includes(province)) return;
+  throw new Error("สิทธิ์หรือจังหวัดที่รับผิดชอบไม่ถูกต้อง");
+}
+
+/**
+ * Update a member's role/province, preserving their creation audit metadata.
+ * The fixed Super Admin can approve central Admin access; existing viewers
+ * never gain cross-province access without an explicit authorized update.
+ */
+export async function updateDashboardMemberAccess(email: string, role: MemberRole, province: string | null) {
   const normalized = requireEmail(email);
-  if (!provinces.includes(province)) throw new Error("กรุณาเลือกจังหวัดที่รับผิดชอบ");
+  if (isAdminEmail(normalized)) throw new Error("บัญชี Super Admin ไม่สามารถแก้ไขสิทธิ์ผ่านรายการนี้");
+  validateMemberScope(role, province);
   await currentAdminEmail();
   const db = await getFirebaseDb();
   if (!db) throw new Error("ไม่สามารถเชื่อมต่อ Firestore ได้");
-  const { doc, updateDoc } = await import("firebase/firestore");
-  await updateDoc(doc(db, "dashboard_members", normalized), { schemaVersion: 2, province });
+  const { doc, runTransaction } = await import("firebase/firestore");
+  await runTransaction(db, async (transaction) => {
+    const ref = doc(db, "dashboard_members", normalized);
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists() || snapshot.data().active !== true) throw new Error("ไม่พบบัญชีผู้มีสิทธิ์ที่เปิดใช้งาน");
+    transaction.update(ref, { schemaVersion: 3, role, province });
+  });
+}
+
+// Keep the existing API for provincial assignment callers.
+export async function updateDashboardViewerProvince(email: string, province: string) {
+  return updateDashboardMemberAccess(email, "province_viewer", province);
 }
 
 /**
@@ -176,7 +199,7 @@ export async function migrateLegacyDashboardViewerProvinces(emails: string[]) {
         if (data.active !== true || Object.prototype.hasOwnProperty.call(data, "province")) return false;
         const province = inferProvinceFromOrganization(data.displayName, provinces);
         if (!province || data.email !== email) return false;
-        transaction.update(memberRef, { schemaVersion: 2, province });
+        transaction.update(memberRef, { schemaVersion: 3, role: "province_viewer", province });
         return true;
       });
       if (didUpdate) updated++;

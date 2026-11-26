@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, test } from "node:test";
 import { initializeApp } from "firebase/app";
-import { collection, connectFirestoreEmulator, doc, getDoc, getDocs, getFirestore, query, runTransaction, serverTimestamp, setDoc, setLogLevel, terminate, updateDoc, where, writeBatch } from "firebase/firestore";
+import { collection, connectFirestoreEmulator, doc, deleteDoc, getDoc, getDocs, getFirestore, query, runTransaction, serverTimestamp, setDoc, setLogLevel, terminate, updateDoc, where, writeBatch } from "firebase/firestore";
 
 // Never run these writes against a real project.
 const endpoint = process.env.FIRESTORE_EMULATOR_HOST;
@@ -110,7 +110,9 @@ const admin = getFirestore(initializeApp({ projectId: "demo-tcc-diagnostics", ap
 connectFirestoreEmulator(admin, "127.0.0.1", Number(endpoint.split(":")[1]), { mockUserToken: { sub: "admin", email: "surachat.dev1@gmail.com", email_verified: true } });
 const viewer = getFirestore(initializeApp({ projectId: "demo-tcc-diagnostics", apiKey: "demo", appId: "demo" }, "intake-viewer"));
 connectFirestoreEmulator(viewer, "127.0.0.1", Number(endpoint.split(":")[1]), { mockUserToken: { sub: "viewer", email: "viewer@example.com", email_verified: true } });
-after(() => Promise.all([terminate(admin), terminate(viewer)]));
+const central = getFirestore(initializeApp({ projectId: "demo-tcc-diagnostics", apiKey: "demo", appId: "demo" }, "intake-central"));
+connectFirestoreEmulator(central, "127.0.0.1", Number(endpoint.split(":")[1]), { mockUserToken: { sub: "central", email: "central@example.com", email_verified: true } });
+after(() => Promise.all([terminate(admin), terminate(viewer), terminate(central)]));
 const settings = doc(admin, "assessment_settings", "availability");
 async function configure(school, agency) {
   const batch = writeBatch(admin);
@@ -184,7 +186,7 @@ test("all submission and private fields remain required after reducing repeated 
 test("province viewers can query only their province, never PII, and cannot modify assessments", async () => {
   const memberRef = doc(admin, "dashboard_members", "viewer@example.com");
   await setDoc(memberRef, {
-    schemaVersion: 2, email: "viewer@example.com",
+    schemaVersion: 3, role: "province_viewer", email: "viewer@example.com",
     displayName: "หน่วยงานประจำจังหวัดกาญจนบุรี", province: "กาญจนบุรี",
     authMethod: "google", active: true,
     createdAt: serverTimestamp(), createdBy: "surachat.dev1@gmail.com",
@@ -207,7 +209,7 @@ test("province viewers can query only their province, never PII, and cannot modi
   await assert.rejects(getDoc(doc(viewer, "submission_assessors", local.id)), { code: "permission-denied" });
   await assert.rejects(updateDoc(doc(viewer, "submissions", local.id), { institution: "unauthorised" }), { code: "permission-denied" });
 
-  await updateDoc(memberRef, { schemaVersion: 2, province: "ลำปาง" });
+  await updateDoc(memberRef, { schemaVersion: 3, province: "ลำปาง" });
   assert.ok((await getDoc(doc(viewer, "submissions", other.id))).exists());
   await assert.rejects(getDoc(doc(viewer, "submissions", local.id)), { code: "permission-denied" });
   assert.ok((await getDoc(doc(admin, "submission_assessors", local.id))).exists());
@@ -216,7 +218,7 @@ test("province viewers can query only their province, never PII, and cannot modi
 test("member creation requires a valid province and only Admin may change assignments", async () => {
   const memberRef = doc(admin, "dashboard_members", "another-viewer@example.com");
   const policy = {
-    schemaVersion: 2, email: "another-viewer@example.com", displayName: "เจ้าหน้าที่จังหวัด",
+    schemaVersion: 3, role: "province_viewer", email: "another-viewer@example.com", displayName: "เจ้าหน้าที่จังหวัด",
     province: "กาญจนบุรี", authMethod: "google", active: true,
     createdAt: serverTimestamp(), createdBy: "surachat.dev1@gmail.com",
   };
@@ -228,7 +230,7 @@ test("member creation requires a valid province and only Admin may change assign
   const originalProvince = await runTransaction(admin, async (transaction) => {
     const previous = await transaction.get(memberRef);
     if (!previous.exists()) throw new Error("missing member");
-    transaction.update(memberRef, { schemaVersion: 2, province: "ลำปาง" });
+    transaction.update(memberRef, { schemaVersion: 3, province: "ลำปาง" });
     return previous.data().province;
   });
   assert.equal(originalProvince, "กาญจนบุรี");
@@ -239,4 +241,55 @@ test("member creation requires a valid province and only Admin may change assign
   const noProvince = { ...policy, email: "no-province@example.com" };
   delete noProvince.province;
   await assert.rejects(setDoc(doc(admin, "dashboard_members", "no-province@example.com"), noProvince), { code: "permission-denied" });
+});
+
+test("central Admin reads every province but cannot access contact data, delete or manage members", async () => {
+  const memberRef = doc(admin, "dashboard_members", "central@example.com");
+  await setDoc(memberRef, {
+    schemaVersion: 3, role: "admin", email: "central@example.com", displayName: "Admin ส่วนกลาง",
+    province: null, authMethod: "google", active: true,
+    createdAt: serverTimestamp(), createdBy: "surachat.dev1@gmail.com",
+  });
+  const k = fixture(largest);
+  k.submission.province = "กาญจนบุรี";
+  const l = fixture(largest);
+  l.submission.province = "ลำปาง";
+  await commit(k);
+  await commit(l);
+  const all = await getDocs(collection(central, "submissions"));
+  assert.ok(all.docs.some(item => item.id === k.id), "central can read Kanchanaburi");
+  assert.ok(all.docs.some(item => item.id === l.id), "central can read Lampang");
+  assert.ok((await getDoc(doc(central, "submissions", k.id))).exists());
+  assert.ok((await getDoc(doc(central, "submissions", l.id))).exists());
+
+  await assert.rejects(getDocs(collection(central, "submission_assessors")), { code: "permission-denied" });
+  await assert.rejects(getDoc(doc(central, "submission_assessors", k.id)), { code: "permission-denied" });
+  await assert.rejects(deleteDoc(doc(central, "submissions", k.id)), { code: "permission-denied" });
+  await assert.rejects(updateDoc(doc(central, "submissions", l.id), { institution: "tampering" }), { code: "permission-denied" });
+  await assert.rejects(deleteDoc(doc(central, "dashboard_members", "viewer@example.com")), { code: "permission-denied" });
+  await assert.rejects(getDocs(collection(central, "dashboard_members")), { code: "permission-denied" });
+  await assert.rejects(updateDoc(doc(central, "dashboard_members", "central@example.com"), { role: "super_admin" }), { code: "permission-denied" });
+});
+
+test("only fixed Super Admin can create and switch central Admin grants", async () => {
+  const memberRef = doc(admin, "dashboard_members", "grant-check@example.com");
+  const policy = {
+    schemaVersion: 3, role: "province_viewer", email: "grant-check@example.com",
+    displayName: "เจ้าหน้าที่ทดสอบ", province: "กาญจนบุรี",
+    authMethod: "google", active: true,
+    createdAt: serverTimestamp(), createdBy: "surachat.dev1@gmail.com",
+  };
+  await setDoc(memberRef, policy);
+  await updateDoc(memberRef, { schemaVersion: 3, role: "admin", province: null });
+  assert.equal((await getDoc(memberRef)).data().role, "admin");
+  await updateDoc(memberRef, { schemaVersion: 3, role: "province_viewer", province: "ลำปาง" });
+  assert.equal((await getDoc(memberRef)).data().province, "ลำปาง");
+  await assert.rejects(updateDoc(memberRef, { role: "super_admin", province: null }), { code: "permission-denied" });
+  await assert.rejects(updateDoc(memberRef, { role: "admin", province: "กาญจนบุรี" }), { code: "permission-denied" });
+  await assert.rejects(setDoc(doc(admin, "dashboard_members", "invalid-central@example.com"), {
+    ...policy, email: "invalid-central@example.com", role: "admin",
+  }), { code: "permission-denied" });
+  await assert.rejects(setDoc(doc(central, "dashboard_members", "central-created@example.com"), {
+    ...policy, email: "central-created@example.com", role: "admin", province: null,
+  }), { code: "permission-denied" });
 });

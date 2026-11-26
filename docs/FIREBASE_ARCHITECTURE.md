@@ -12,8 +12,9 @@
 
 เจ้าหน้าที่ที่ได้รับอนุญาต
   └─ /dashboard → Google Sign-In → Firestore Rules
-       ├─ Admin: บัญชีเจ้าของโครงการตาม lib/access-roles.ts
-       └─ Viewer: dashboard_members/{email}.active == true + province ที่ได้รับมอบหมาย
+       ├─ Super Admin: บัญชีเจ้าของโครงการถาวรใน lib/access-roles.ts
+       ├─ Admin ส่วนกลาง: dashboard_members/{email}, role=admin, province=null
+       └─ เจ้าหน้าที่จังหวัด: dashboard_members/{email}, role=province_viewer, province=จังหวัดที่ได้รับมอบหมาย
 
 Admin เจ้าของโครงการ
   └─ /admin
@@ -48,11 +49,11 @@ Admin เจ้าของโครงการ
 ### `dashboard_members/{email}`
 
 - ใช้อีเมลตัวพิมพ์เล็กเป็น document ID
-- สมาชิกใหม่ใช้ `schemaVersion: 2` และเก็บ `province` (จังหวัดเดียวจาก 12 จังหวัดนำร่อง) พร้อม `displayName`, `active`, `createdAt`, `createdBy`, `authMethod: google`
-- สมาชิกเก่า schema 1 ที่ไม่มีจังหวัดจะอนุญาตเฉพาะชื่อหน่วยงานที่ระบุจังหวัดตรงตัว เช่น `หน่วยงานประจำจังหวัดกาญจนบุรี` (มีหรือไม่มีช่องว่างหลังคำว่า จังหวัด) เมื่อ Admin เปิดหน้า `/admin` ระบบจะตรวจและบันทึกจังหวัดของบัญชีที่ตรงรูปแบบนี้โดยอัตโนมัติ ผ่าน Firestore transaction ซึ่งจะไม่เขียนทับจังหวัดที่ผู้อื่นกำหนดไว้แล้ว (ยังมีปุ่มบันทึกอีกครั้งสำหรับกรณีล้มเหลว)
+- สมาชิกใหม่ใช้ `schemaVersion: 3` โดยต้องมี `role` เป็น `admin` (ผู้ดูแลส่วนกลาง, `province: null`) หรือ `province_viewer` (เจ้าหน้าที่จังหวัด, `province` หนึ่งจังหวัดใน 12 จังหวัดนำร่อง) พร้อม `displayName`, `active`, `createdAt`, `createdBy`, `authMethod: google`
+- สมาชิกเก่า schema 1 ที่ไม่มีจังหวัดจะอนุญาตเฉพาะชื่อหน่วยงานที่ระบุจังหวัดตรงตัว เช่น `หน่วยงานประจำจังหวัดกาญจนบุรี` (มีหรือไม่มีช่องว่างหลังคำว่า จังหวัด) เมื่อ Admin เปิดหน้า `/admin` ระบบจะตรวจและบันทึกจังหวัดของบัญชีที่ตรงรูปแบบนี้พร้อม `role: province_viewer` และ `schemaVersion: 3` โดยอัตโนมัติ ผ่าน Firestore transaction ซึ่งจะไม่เขียนทับจังหวัดหรือ Role ที่ผู้อื่นกำหนดไว้แล้ว (ยังมีปุ่มบันทึกอีกครั้งสำหรับกรณีล้มเหลว)
 - หากชื่อไม่ตรงหรือไม่มีจังหวัด จะไม่ให้เข้าถึงข้อมูลส่วนบุคคล/ผลประเมินภายในจนกว่า Admin จะกำหนดจังหวัด
 - Viewer อ่านได้เฉพาะ policy ของตนเอง
-- Admin ส่วนกลางตามรายชื่อในโค้ดเท่านั้นที่ list/create/update/delete ได้
+- เฉพาะ Super Admin ถาวรตามรายชื่อในโค้ดเท่านั้นที่ list/create/update/delete `dashboard_members` ได้; Admin ส่วนกลางมีสิทธิ์ดู/Export รายงานข้ามจังหวัดเท่านั้น
 
 ### `benchmarks/{topic--agency--scope}`
 
@@ -66,10 +67,11 @@ Admin เจ้าของโครงการ
 | บทบาท | แบบประเมิน | Dashboard | จัดการ Viewer | ลบแบบประเมิน | อัปเดตค่ากลาง |
 |---|---:|---:|---:|---:|---:|
 | บุคคลทั่วไป | ส่งได้ | ไม่ได้ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
-| Viewer จังหวัด (รายอีเมล) | ส่งได้ | ดู/Export เฉพาะจังหวัดโดยไม่มีข้อมูลติดต่อ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
-| Admin เจ้าของโครงการ | ส่งได้ | ดู/Export ทุกจังหวัดและข้อมูลติดต่อ | ได้ | ได้ | ได้ |
+| เจ้าหน้าที่จังหวัด (province_viewer) | ส่งได้ | ดู/Export เฉพาะจังหวัดโดยไม่มีข้อมูลติดต่อ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
+| Admin ส่วนกลาง (admin) | ส่งได้ | ดู/Export ทุกจังหวัดโดยไม่มีข้อมูลติดต่อ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
+| Super Admin เจ้าของโครงการ | ส่งได้ | ดู/Export ทุกจังหวัดรวมข้อมูลติดต่อ | ได้ | ได้ | ได้ |
 
-ไม่มี Email/Password, สิทธิ์ระดับโดเมน, การสร้างบัญชี หรือ Admin หลายชั้นในรุ่นนี้
+ไม่มี Email/Password หรือสิทธิ์ระดับโดเมน; การสร้างสิทธิ์ Admin ส่วนกลางทำได้เฉพาะ Super Admin ที่ระบุถาวรในโค้ดและ Rules
 
 ## ขอบเขตด้านประสิทธิภาพ
 
@@ -77,9 +79,9 @@ Dashboard รวมข้อมูลที่ Firestore ส่งกลับ�
 
 ## การบังคับ Province Scope
 
-- Dashboard ภายใน `/dashboard` ใช้ `where("province", "==", assignedProvince)` ตั้งแต่ Firestore query ก่อนส่งข้อมูลกลับ browser
+- Dashboard ภายใน `/dashboard` ใช้ `where("province", "==", assignedProvince)` เฉพาะเจ้าหน้าที่จังหวัด ก่อนส่งข้อมูลกลับ browser ส่วน Admin/Super Admin ไม่มี `where(province)` จึงค้นหาและ Export ทุกจังหวัดได้
 - Firestore Rules ตรวจ province ของเอกสารกับจังหวัดที่ Admin บันทึกใน `dashboard_members/{email}` หรือจังหวัดที่อนุมานแบบตรงตัวจากชื่อหน่วยงานเดิม (fail-closed หากกำกวม)
-- Admin เท่านั้นที่อ่าน `submission_assessors`; รายงาน Excel ของจังหวัดไม่มีชื่อ เบอร์โทร หรือข้อมูลติดต่อ
+- Super Admin เท่านั้นที่อ่าน `submission_assessors`; Admin ส่วนกลางและเจ้าหน้าที่จังหวัดไม่สามารถดู/Export ชื่อ เบอร์โทร หรือข้อมูลติดต่อ
 - ห้ามแก้เพียง UI filter: เจ้าหน้าที่ต้องไม่สามารถ query จังหวัดอื่นโดยตรงหรือเปลี่ยน filter เพื่อเรียกข้อมูลข้ามจังหวัดได้
 - `/dashboard/overview` เป็นหน้า **ภาพรวมสาธารณะ** ซึ่งยังเผยแพร่ตัวเลข aggregate ทั่วประเทศตามนโยบายเดิม; ไม่ใช่รายงานภายในที่มีคำตอบดิบหรือข้อมูลติดต่อ
 - ก่อน deploy ให้รัน `npm run test:rules`, `npm run test:firebase` และตรวจสอบสมาชิกเดิมที่อนุมานจังหวัดไม่ได้

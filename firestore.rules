@@ -21,8 +21,24 @@ service cloud.firestore {
       ];
     }
 
+    // Fixed owners retain their full existing security-sensitive powers.
     function isAdmin() {
       return hasVerifiedEmail() && isProjectAdminEmail(currentEmail());
+    }
+
+    // A central Admin may read/export all provinces, but cannot read PII,
+    // manage users, delete assessments or change publication state.
+    function isCentralAdmin() {
+      return hasVerifiedEmail()
+        && exists(/databases/$(database)/documents/dashboard_members/$(currentEmail()))
+        && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.active == true
+        && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.schemaVersion == 3
+        && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.role == 'admin'
+        && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.province == null;
+    }
+
+    function canReadAllProvinces() {
+      return isAdmin() || isCentralAdmin();
     }
 
     // The Firestore query MUST constrain 'province'; client-side filtering is
@@ -31,18 +47,29 @@ service cloud.firestore {
     // name uniquely identifies a province (no unscoped legacy access).
     function canReadProvince(province) {
       return hasVerifiedEmail() && (
-        isAdmin()
+        canReadAllProvinces()
         || (
           exists(/databases/$(database)/documents/dashboard_members/$(currentEmail()))
           && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.active == true
           && (
-            get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.get('province', '') == province
+            (
+              get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.schemaVersion == 3
+              && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.role == 'province_viewer'
+              && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.province == province
+            )
             || (
-              !get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.keys().hasAny(['province'])
-              && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.displayName in [
-                'หน่วยงานประจำจังหวัด' + province,
-                'หน่วยงานประจำจังหวัด ' + province
-              ]
+              get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.schemaVersion in [1, 2]
+              && !get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.keys().hasAny(['role'])
+              && (
+                get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.get('province', '') == province
+                || (
+                  !get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.keys().hasAny(['province'])
+                  && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.displayName in [
+                    'หน่วยงานประจำจังหวัด' + province,
+                    'หน่วยงานประจำจังหวัด ' + province
+                  ]
+                )
+              )
             )
           )
         )
@@ -52,16 +79,19 @@ service cloud.firestore {
     // New viewers must always have one of the pilot's supported provinces.
     function validMemberPolicy(email) {
       let data = request.resource.data;
-      return data.keys().hasAll(['schemaVersion', 'email', 'displayName', 'authMethod', 'active', 'createdAt', 'createdBy', 'province'])
-        && data.keys().hasOnly(['schemaVersion', 'email', 'displayName', 'authMethod', 'active', 'createdAt', 'createdBy', 'province'])
-        && data.schemaVersion == 2
+      return data.keys().hasAll(['schemaVersion', 'email', 'displayName', 'authMethod', 'active', 'createdAt', 'createdBy', 'role', 'province'])
+        && data.keys().hasOnly(['schemaVersion', 'email', 'displayName', 'authMethod', 'active', 'createdAt', 'createdBy', 'role', 'province'])
+        && data.schemaVersion == 3
         && data.email == email
         && data.email == data.email.lower()
         && data.displayName is string
         && data.displayName.size() <= 120
         && data.authMethod == 'google'
         && data.active == true
-        && validProvince(data.province);
+        && (
+          (data.role == 'admin' && data.province == null)
+          || (data.role == 'province_viewer' && validProvince(data.province))
+        );
     }
 
     function validProvince(value) {
@@ -508,7 +538,7 @@ service cloud.firestore {
       // Existing schema-1 records can be upgraded in place without replacing
       // or modifying their original creation audit fields.
       allow update: if isAdmin() && validMemberPolicy(email)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['schemaVersion', 'province'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['schemaVersion', 'province', 'role'])
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy;
       allow delete: if isAdmin();
