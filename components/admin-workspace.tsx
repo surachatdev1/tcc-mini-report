@@ -1,10 +1,11 @@
 "use client";
 
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ADMIN_EMAILS } from "@/lib/access-roles";
 import { provinces } from "@/lib/assessment-data";
 import {
   addDashboardViewer,
+  migrateLegacyDashboardViewerProvinces,
   removeDashboardViewer,
   subscribeDashboardViewers,
   updateDashboardViewerProvince,
@@ -213,6 +214,8 @@ function SubmissionList({ submissions, busy, onDelete }: {
 export function AdminWorkspace() {
   const [viewers, setViewers] = useState<AccessEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [legacyMigrationStatus, setLegacyMigrationStatus] = useState("");
+  const autoMigrationAttempted = useRef(new Set<string>());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
@@ -235,6 +238,24 @@ export function AdminWorkspace() {
       if (!active) return;
       setViewers(entries);
       setLoading(false);
+      // Assign the province of existing authorised viewers automatically, but
+      // only when their organisation label matches an allowed province exactly.
+      // Migration uses a Firestore transaction and never overwrites assignments.
+      const legacyEmails = entries
+        .filter((entry) => entry.provinceSource === "inferred" && entry.province && !autoMigrationAttempted.current.has(entry.email))
+        .map((entry) => entry.email);
+      if (legacyEmails.length) {
+        legacyEmails.forEach((value) => autoMigrationAttempted.current.add(value));
+        setLegacyMigrationStatus(`กำลังบันทึกจังหวัดจากชื่อหน่วยงานให้ผู้มีสิทธิ์เดิม ${legacyEmails.length} บัญชี…`);
+        void migrateLegacyDashboardViewerProvinces(legacyEmails).then((result) => {
+          if (!active) return;
+          setLegacyMigrationStatus(`ตรวจสอบผู้มีสิทธิ์เดิม ${result.examined} บัญชี · บันทึกจังหวัดแล้ว ${result.updated} · ข้าม ${result.skipped} · ไม่สำเร็จ ${result.failed}`);
+        }).catch((migrationError) => {
+          if (!active) return;
+          setLegacyMigrationStatus("บันทึกจังหวัดของบัญชีเดิมอัตโนมัติไม่สำเร็จ");
+          setError(friendlyAdminError(migrationError));
+        });
+      }
     }, (nextError) => {
       if (!active) return;
       setError(friendlyAdminError(nextError));
@@ -334,21 +355,13 @@ export function AdminWorkspace() {
   async function persistLegacyViewerProvinces() {
     const legacy = viewers.filter((entry) => entry.provinceSource === "inferred" && entry.province);
     if (!legacy.length) return;
-    if (!window.confirm(`บันทึกจังหวัดที่ตรวจพบจากชื่อหน่วยงานให้ผู้มีสิทธิ์เดิม ${legacy.length} บัญชีหรือไม่`)) return;
     setBusy(true); setError(""); setStatus("");
-    let success = 0;
     try {
-      for (const entry of legacy) {
-        if (!entry.province) continue;
-        try {
-          await updateDashboardViewerProvince(entry.email, entry.province);
-          success++;
-        } catch {
-          // Continue and report partial failures without leaking account details.
-        }
-      }
-      setStatus(`บันทึกจังหวัดให้บัญชีเดิมสำเร็จ ${success} จาก ${legacy.length} บัญชี`);
-      if (success !== legacy.length) setError("บางบัญชีบันทึกไม่สำเร็จ กรุณาตรวจสอบรายชื่อและลองอีกครั้ง");
+      const result = await migrateLegacyDashboardViewerProvinces(legacy.map((entry) => entry.email));
+      setStatus(`ตรวจสอบ ${result.examined} บัญชี · บันทึกจังหวัดแล้ว ${result.updated} · ข้าม ${result.skipped} · ไม่สำเร็จ ${result.failed}`);
+      if (result.failed) setError("บางบัญชียังบันทึกไม่ได้ กรุณาตรวจสอบรายชื่อและลองอีกครั้ง");
+    } catch (nextError) {
+      setError(friendlyAdminError(nextError));
     } finally {
       setBusy(false);
     }
@@ -462,6 +475,7 @@ export function AdminWorkspace() {
               <span>ยังไม่ระบุจังหวัด <strong>{viewers.filter((entry) => entry.provinceSource === "missing").length}</strong></span>
             </div>
           ) : null}
+          {legacyMigrationStatus ? <p className="admin-legacy-migration-status" role="status">{legacyMigrationStatus}</p> : null}
           {viewers.some((entry) => entry.provinceSource === "inferred" && entry.province) ? (
             <button type="button" className="btn btn-secondary" disabled={busy}
               onClick={() => void persistLegacyViewerProvinces()}>
