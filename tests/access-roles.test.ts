@@ -50,6 +50,7 @@ test("Central Admin uses explicit schema 3 policy with null province only", () =
     { role: "admin", province: null });
   for (const member of [
     { schemaVersion: 3, role: "admin", active: true, province: "กาญจนบุรี" },
+    { schemaVersion: 3, role: "province_viewer", active: true, displayName: "หน่วยงานประจำจังหวัดกาญจนบุรี" },
     { schemaVersion: 3, role: "admin", active: false, province: null },
     { schemaVersion: 2, role: "admin", active: true, province: null },
     { schemaVersion: 3, role: "super_admin", active: true, province: null },
