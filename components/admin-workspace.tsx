@@ -2,10 +2,12 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { ADMIN_EMAILS } from "@/lib/access-roles";
+import { provinces } from "@/lib/assessment-data";
 import {
   addDashboardViewer,
   removeDashboardViewer,
   subscribeDashboardViewers,
+  updateDashboardViewerProvince,
   type AccessEntry,
 } from "@/lib/integrations/access-control-repository";
 import {
@@ -27,7 +29,42 @@ function friendlyAdminError(error: unknown) {
   return error instanceof Error ? error.message : "ดำเนินการไม่สำเร็จ กรุณาลองใหม่";
 }
 
-function ViewerList({ entries, onRemove }: { entries: AccessEntry[]; onRemove: (entry: AccessEntry) => void }) {
+function ViewerProvinceEditor({ entry, onSave, busy }: {
+  entry: AccessEntry;
+  onSave: (entry: AccessEntry, province: string) => Promise<boolean>;
+  busy: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [selected, setSelected] = useState(entry.province ?? "");
+  const provinceLabel = entry.province ? `จังหวัด${entry.province}` : "ยังไม่ได้กำหนดจังหวัด";
+  return (
+    <div className="admin-province-control">
+      {!editing ? <>
+        <span className={entry.province ? "admin-province-label" : "admin-province-label missing"}>
+          {provinceLabel}{entry.provinceSource === "inferred" ? " · จากชื่อหน่วยงานเดิม" : ""}
+        </span>
+        <button type="button" disabled={busy} onClick={() => { setSelected(entry.province ?? ""); setEditing(true); }}>
+          {entry.provinceSource === "inferred" ? "ยืนยัน / แก้ไข" : "กำหนดจังหวัด"}
+        </button>
+      </> : <>
+        <select aria-label={`จังหวัดที่รับผิดชอบของ ${entry.email}`} value={selected}
+          onChange={(event) => setSelected(event.target.value)} disabled={busy}>
+          <option value="">เลือกจังหวัด</option>
+          {provinces.map((province) => <option key={province} value={province}>{province}</option>)}
+        </select>
+        <button type="button" disabled={busy || !selected} onClick={() => void onSave(entry, selected).then((ok) => { if (ok) setEditing(false); })}>บันทึก</button>
+        <button type="button" disabled={busy} onClick={() => setEditing(false)}>ยกเลิก</button>
+      </>}
+    </div>
+  );
+}
+
+function ViewerList({ entries, onRemove, onSaveProvince, busy }: {
+  entries: AccessEntry[];
+  onRemove: (entry: AccessEntry) => void;
+  onSaveProvince: (entry: AccessEntry, province: string) => Promise<boolean>;
+  busy: boolean;
+}) {
   return (
     <ul className="admin-access-list">
       {entries.map((entry) => (
@@ -38,10 +75,11 @@ function ViewerList({ entries, onRemove }: { entries: AccessEntry[]; onRemove: (
           <div className="admin-viewer-detail">
             <strong>{entry.name || "ไม่ได้ระบุชื่อ"}</strong>
             <span>{entry.email}</span>
+            <ViewerProvinceEditor key={entry.province ?? "unset"} entry={entry} onSave={onSaveProvince} busy={busy} />
             <small>เพิ่มโดย {entry.createdBy} · {entry.createdAt}</small>
           </div>
-          <span className="admin-viewer-badge">ดู Dashboard</span>
-          <button className="admin-remove-button" type="button" onClick={() => onRemove(entry)}>
+          <span className="admin-viewer-badge">{entry.province ? "ดู Dashboard" : "รอระบุจังหวัด"}</span>
+          <button className="admin-remove-button" type="button" disabled={busy} onClick={() => onRemove(entry)}>
             ลบสิทธิ์
           </button>
         </li>
@@ -176,6 +214,7 @@ export function AdminWorkspace() {
   const [status, setStatus] = useState("");
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [province, setProvince] = useState("");
   const [query, setQuery] = useState("");
   const [submissions, setSubmissions] = useState<AssessmentSubmission[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(true);
@@ -241,7 +280,7 @@ export function AdminWorkspace() {
   const filteredViewers = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("th");
     if (!normalizedQuery) return viewers;
-    return viewers.filter((entry) => `${entry.name} ${entry.email}`.toLocaleLowerCase("th").includes(normalizedQuery));
+    return viewers.filter((entry) => `${entry.name} ${entry.email} ${entry.province ?? ""}`.toLocaleLowerCase("th").includes(normalizedQuery));
   }, [query, viewers]);
 
   const filteredSubmissions = useMemo(() => {
@@ -260,12 +299,29 @@ export function AdminWorkspace() {
     setError("");
     setStatus("");
     try {
-      await addDashboardViewer(email, displayName);
+      await addDashboardViewer(email, displayName, province);
       setEmail("");
       setDisplayName("");
+      setProvince("");
       setStatus("เพิ่มผู้มีสิทธิ์ดู Dashboard แล้ว");
     } catch (nextError) {
       setError(friendlyAdminError(nextError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveViewerProvince(entry: AccessEntry, nextProvince: string): Promise<boolean> {
+    setBusy(true);
+    setError("");
+    setStatus("");
+    try {
+      await updateDashboardViewerProvince(entry.email, nextProvince);
+      setStatus(`กำหนดจังหวัด${nextProvince}ให้ ${entry.name || entry.email} เรียบร้อยแล้ว`);
+      return true;
+    } catch (nextError) {
+      setError(friendlyAdminError(nextError));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -310,12 +366,12 @@ export function AdminWorkspace() {
         <div>
           <p className="eyebrow">สำหรับผู้ดูแลโครงการ</p>
           <h1>จัดการระบบและสิทธิ์ Dashboard</h1>
-          <p>เพิ่มหรือลบอีเมล Google ของเจ้าหน้าที่ที่ได้รับอนุญาต ระบบมีสิทธิ์เพียงระดับเดียวเพื่อให้ง่ายต่อการตรวจสอบ</p>
+          <p>เพิ่มหรือจัดการสิทธิ์ผ่านอีเมล Google โดยกำหนดจังหวัดที่เจ้าหน้าที่ได้รับมอบหมาย</p>
         </div>
         <div className="admin-count-card" aria-label={`มีผู้ได้รับสิทธิ์ ${viewers.length} คน`}>
           <span>ผู้ได้รับสิทธิ์</span>
           <strong>{loading ? "—" : viewers.length.toLocaleString("th-TH")}</strong>
-          <small>บัญชีที่ดูข้อมูลและส่งออก Excel ได้</small>
+          <small>บัญชีที่ได้รับสิทธิ์ดูและส่งออกข้อมูลตามจังหวัด</small>
         </div>
       </header>
 
@@ -338,9 +394,17 @@ export function AdminWorkspace() {
             </div>
             <div className="field full">
               <label htmlFor="viewer-name">ชื่อหรือหน่วยงาน <span className="optional-tag">ไม่บังคับ</span></label>
-              <input id="viewer-name" autoComplete="off" placeholder="เช่น เจ้าหน้าที่โครงการส่วนกลาง" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+              <input id="viewer-name" autoComplete="off" placeholder="เช่น หน่วยงานประจำจังหวัดกาญจนบุรี" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
             </div>
-            <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? "กำลังบันทึก…" : "+ เพิ่มสิทธิ์"}</button>
+            <div className="field full">
+              <label htmlFor="viewer-province">จังหวัดที่รับผิดชอบ</label>
+              <select id="viewer-province" value={province} onChange={(event) => setProvince(event.target.value)} required>
+                <option value="">เลือกจังหวัด</option>
+                {provinces.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+              <small>ผู้ใช้จะดูและส่งออกผลประเมินได้เฉพาะจังหวัดที่เลือก</small>
+            </div>
+            <button className="btn btn-primary" type="submit" disabled={busy || !province}>{busy ? "กำลังบันทึก…" : "+ เพิ่มสิทธิ์"}</button>
           </form>
 
           <aside className="admin-owner-note" aria-label="ผู้ดูแลระบบถาวร">
@@ -367,7 +431,7 @@ export function AdminWorkspace() {
           {loading ? <p className="admin-empty-state" role="status">กำลังโหลดรายชื่อ…</p> : null}
           {!loading && viewers.length === 0 ? <div className="admin-empty-state admin-empty-card"><strong>ยังไม่มีผู้ได้รับสิทธิ์</strong><span>เพิ่มอีเมลจากแบบฟอร์มด้านซ้ายเพื่อเริ่มต้น</span></div> : null}
           {!loading && viewers.length > 0 && filteredViewers.length === 0 ? <div className="admin-empty-state admin-empty-card"><strong>ไม่พบรายการที่ค้นหา</strong><span>ลองตรวจการสะกดหรือค้นหาด้วยบางส่วนของอีเมล</span></div> : null}
-          {!loading && filteredViewers.length > 0 ? <ViewerList entries={filteredViewers} onRemove={removeViewer} /> : null}
+          {!loading && filteredViewers.length > 0 ? <ViewerList entries={filteredViewers} onRemove={removeViewer} onSaveProvince={saveViewerProvince} busy={busy} /> : null}
         </div>
       </section>
 
