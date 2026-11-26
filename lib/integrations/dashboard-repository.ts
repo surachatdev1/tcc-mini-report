@@ -39,6 +39,7 @@ export type DashboardResult = {
   source: "live" | "empty" | "unavailable";
   records: DashboardRecord[];
   personalDataVisible: boolean;
+  accessProvince?: string | null;
   error?: string;
 };
 
@@ -145,7 +146,7 @@ function privateAssessorRecord(raw: Record<string, unknown>) {
 }
 
 async function subscribeToFirestore(listener: DashboardListener, includePersonalData = true): Promise<() => void> {
-  const { collection, onSnapshot, orderBy, query } = await import("firebase/firestore");
+  const { collection, onSnapshot, orderBy, query, where } = await import("firebase/firestore");
   const db = await getFirebaseDb();
   const auth = await getFirebaseAuth();
   if (!db) {
@@ -160,14 +161,21 @@ async function subscribeToFirestore(listener: DashboardListener, includePersonal
 
   const user = auth?.currentUser;
   const access = user ? await getDashboardAccess(user) : null;
-  const personalDataVisible = includePersonalData && Boolean(access?.admin || access?.member);
+  const admin = access?.admin === true;
+  const accessProvince = admin ? null : access?.province ?? null;
+  if (!admin && (!access?.member || !accessProvince)) {
+    listener({ source: "unavailable", records: [], personalDataVisible: false, accessProvince: null,
+      error: "ยังไม่ได้กำหนดจังหวัดที่รับผิดชอบ กรุณาติดต่อผู้ดูแลระบบ" });
+    return () => undefined;
+  }
+  const personalDataVisible = includePersonalData && admin;
 
-  // รุ่นนำร่องอ่านผลที่ยืนยันทั้งหมดเพื่อให้ KPI ตรงกับข้อมูลจริง และ subscribe เพื่ออัปเดตหน้าจอเมื่อมีผลใหม่
-  // เมื่อข้อมูลมีหลักหมื่นรายการ ควรย้ายการรวมผลไปยัง aggregate collection ที่เขียนด้วย trusted backend
-  const submissionsQuery = query(
-    collection(db, "submissions"),
-    orderBy("createdAt", "desc"),
-  );
+  // Province restriction is sent to Firestore, NOT applied after fetching
+  // all documents. Firestore Rules reject all unscoped viewer reads.
+  // Avoid a new composite index: provincial records are sorted after fetch.
+  const submissionsQuery = admin
+    ? query(collection(db, "submissions"), orderBy("createdAt", "desc"))
+    : query(collection(db, "submissions"), where("province", "==", accessProvince));
 
   let publicRecords: DashboardRecord[] | null = null;
   let privateRecords = new Map<string, { assessorName: string; assessorPhone: string; respondentRole: string; position: string }>();
@@ -185,7 +193,7 @@ async function subscribeToFirestore(listener: DashboardListener, includePersonal
         position: personal?.position || record.position,
       };
     });
-    listener({ source: records.length ? "live" : "empty", records, personalDataVisible });
+    listener({ source: records.length ? "live" : "empty", records, personalDataVisible, accessProvince });
   }
 
   const unsubscribers = [onSnapshot(
@@ -193,7 +201,8 @@ async function subscribeToFirestore(listener: DashboardListener, includePersonal
     (snapshot) => {
       publicRecords = snapshot.docs
         .map((document) => firestoreRecord(document.id, document.data()))
-        .filter((record): record is DashboardRecord => record !== null);
+        .filter((record): record is DashboardRecord => record !== null)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
       if (snapshot.empty) {
         publicRecords = [];
