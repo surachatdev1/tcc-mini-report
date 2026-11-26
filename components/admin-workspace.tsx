@@ -41,10 +41,11 @@ function ViewerProvinceEditor({ entry, onSave, busy }: {
     <div className="admin-province-control">
       {!editing ? <>
         <span className={entry.province ? "admin-province-label" : "admin-province-label missing"}>
-          {provinceLabel}{entry.provinceSource === "inferred" ? " · จากชื่อหน่วยงานเดิม" : ""}
+          {provinceLabel}
         </span>
+        {entry.provinceSource === "inferred" ? <small className="admin-province-inferred">อ่านจากชื่อหน่วยงานเดิม · ยังไม่ได้บันทึก</small> : null}
         <button type="button" disabled={busy} onClick={() => { setSelected(entry.province ?? ""); setEditing(true); }}>
-          {entry.provinceSource === "inferred" ? "ยืนยัน / แก้ไข" : "กำหนดจังหวัด"}
+          {entry.provinceSource === "inferred" ? "ยืนยัน / แก้ไข" : entry.province ? "แก้ไขจังหวัด" : "กำหนดจังหวัด"}
         </button>
       </> : <>
         <select aria-label={`จังหวัดที่รับผิดชอบของ ${entry.email}`} value={selected}
@@ -75,10 +76,13 @@ function ViewerList({ entries, onRemove, onSaveProvince, busy }: {
           <div className="admin-viewer-detail">
             <strong>{entry.name || "ไม่ได้ระบุชื่อ"}</strong>
             <span>{entry.email}</span>
-            <ViewerProvinceEditor key={entry.province ?? "unset"} entry={entry} onSave={onSaveProvince} busy={busy} />
             <small>เพิ่มโดย {entry.createdBy} · {entry.createdAt}</small>
           </div>
-          <span className="admin-viewer-badge">{entry.province ? "ดู Dashboard" : "รอระบุจังหวัด"}</span>
+          <div className="admin-viewer-province">
+            <span className="admin-province-heading">จังหวัดที่รับผิดชอบ</span>
+            <ViewerProvinceEditor key={entry.province ?? "unset"} entry={entry} onSave={onSaveProvince} busy={busy} />
+          </div>
+          <span className="admin-viewer-badge">{entry.province ? "ดู / Export" : "รอกำหนดจังหวัด"}</span>
           <button className="admin-remove-button" type="button" disabled={busy} onClick={() => onRemove(entry)}>
             ลบสิทธิ์
           </button>
@@ -451,6 +455,13 @@ export function AdminWorkspace() {
             </label>
           </div>
 
+          {!loading && viewers.length > 0 ? (
+            <div className="admin-province-summary" role="status" aria-label="สถานะจังหวัดของผู้มีสิทธิ์">
+              <span>บันทึกจังหวัดแล้ว <strong>{viewers.filter((entry) => entry.provinceSource === "stored").length}</strong></span>
+              <span>อ่านจากชื่อหน่วยงานเดิม <strong>{viewers.filter((entry) => entry.provinceSource === "inferred").length}</strong></span>
+              <span>ยังไม่ระบุจังหวัด <strong>{viewers.filter((entry) => entry.provinceSource === "missing").length}</strong></span>
+            </div>
+          ) : null}
           {viewers.some((entry) => entry.provinceSource === "inferred" && entry.province) ? (
             <button type="button" className="btn btn-secondary" disabled={busy}
               onClick={() => void persistLegacyViewerProvinces()}>
