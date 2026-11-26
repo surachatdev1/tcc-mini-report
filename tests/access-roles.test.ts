@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ADMIN_EMAILS, inferProvinceFromOrganization, isAdminEmail, resolveMemberProvince, systemRoleLabel } from "../lib/access-roles.ts";
+import { ADMIN_EMAILS, inferProvinceFromOrganization, isAdminEmail, resolveDashboardRole, resolveMemberProvince, systemRoleLabel } from "../lib/access-roles.ts";
 
 test("กำหนด Admin เจ้าของโครงการถาวรสามบัญชีโดยไม่สนตัวพิมพ์ใหญ่เล็ก", () => {
   assert.deepEqual(ADMIN_EMAILS, ["surachat.dev1@gmail.com", "nuonnaka@gmail.com", "pbusssafety69@gmail.com"]);
@@ -12,8 +12,9 @@ test("กำหนด Admin เจ้าของโครงการถาว�
 });
 
 test("แสดงชื่อระดับสิทธิ์ Admin และ Viewer อย่างตรงไปตรงมา", () => {
-  assert.equal(systemRoleLabel("admin"), "ผู้ดูแลระบบ");
-  assert.equal(systemRoleLabel("viewer"), "ผู้มีสิทธิ์ดู Dashboard");
+  assert.equal(systemRoleLabel("super_admin"), "ผู้ดูแลสูงสุด");
+  assert.equal(systemRoleLabel("admin"), "ผู้ดูแลส่วนกลาง (ดูทุกจังหวัด)");
+  assert.equal(systemRoleLabel("province_viewer"), "เจ้าหน้าที่จังหวัด");
   assert.equal(systemRoleLabel("none"), "ไม่มีสิทธิ์");
 });
 
@@ -32,4 +33,47 @@ test("จังหวัดที่บันทึกไว้มีลำด�
   assert.equal(resolveMemberProvince({ displayName: "หน่วยงานประจำจังหวัดกาญจนบุรี" }, allowed), "กาญจนบุรี");
   assert.equal(resolveMemberProvince({ province: "", displayName: "หน่วยงานประจำจังหวัดกาญจนบุรี" }, allowed), null);
   assert.equal(resolveMemberProvince({ province: "กรุงเทพ", displayName: "หน่วยงานประจำจังหวัดกาญจนบุรี" }, allowed), null);
+});
+
+test("Super Admin fixed list always reads every province and does not require membership", () => {
+  const provinces = ["กาญจนบุรี", "ลำปาง"];
+  assert.deepEqual(resolveDashboardRole("surachat.dev1@gmail.com", null, provinces),
+    { role: "super_admin", province: null });
+  assert.deepEqual(resolveDashboardRole("nuonnaka@gmail.com", { active: false }, provinces),
+    { role: "super_admin", province: null });
+});
+
+test("Central Admin uses explicit schema 3 policy with null province only", () => {
+  const provinces = ["กาญจนบุรี", "ลำปาง"];
+  assert.deepEqual(resolveDashboardRole("central@example.com",
+    { schemaVersion: 3, role: "admin", active: true, province: null }, provinces),
+    { role: "admin", province: null });
+  for (const member of [
+    { schemaVersion: 3, role: "admin", active: true, province: "กาญจนบุรี" },
+    { schemaVersion: 3, role: "admin", active: false, province: null },
+    { schemaVersion: 2, role: "admin", active: true, province: null },
+    { schemaVersion: 3, role: "super_admin", active: true, province: null },
+  ]) {
+    assert.deepEqual(resolveDashboardRole("central@example.com", member, provinces),
+      { role: "none", province: null });
+  }
+});
+
+test("Legacy users remain restricted to their own province and cannot self-elevate", () => {
+  const provinces = ["กาญจนบุรี", "ลำปาง"];
+  assert.deepEqual(resolveDashboardRole("viewer@example.com",
+    { schemaVersion: 2, active: true, province: "ลำปาง", displayName: "หน่วยงานประจำจังหวัดกาญจนบุรี" }, provinces),
+    { role: "province_viewer", province: "ลำปาง" });
+  assert.deepEqual(resolveDashboardRole("viewer@example.com",
+    { schemaVersion: 1, active: true, displayName: "หน่วยงานประจำจังหวัดกาญจนบุรี" }, provinces),
+    { role: "province_viewer", province: "กาญจนบุรี" });
+  assert.deepEqual(resolveDashboardRole("viewer@example.com",
+    { schemaVersion: 3, role: "province_viewer", active: true, province: "ลำปาง" }, provinces),
+    { role: "province_viewer", province: "ลำปาง" });
+  assert.deepEqual(resolveDashboardRole("viewer@example.com",
+    { schemaVersion: 2, active: true, displayName: "ไม่มีจังหวัด" }, provinces),
+    { role: "none", province: null });
+  assert.deepEqual(resolveDashboardRole("viewer@example.com",
+    { schemaVersion: 3, role: "admin", active: true, province: "ลำปาง" }, provinces),
+    { role: "none", province: null });
 });
