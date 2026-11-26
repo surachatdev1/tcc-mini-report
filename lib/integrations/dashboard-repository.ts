@@ -161,19 +161,19 @@ async function subscribeToFirestore(listener: DashboardListener, includePersonal
 
   const user = auth?.currentUser;
   const access = user ? await getDashboardAccess(user) : null;
-  const admin = access?.admin === true;
-  const accessProvince = admin ? null : access?.province ?? null;
-  if (!admin && (!access?.member || !accessProvince)) {
+  const allProvinces = access?.role === "super_admin" || access?.role === "admin";
+  const accessProvince = allProvinces ? null : access?.province ?? null;
+  if (!allProvinces && (!access?.member || !accessProvince)) {
     listener({ source: "unavailable", records: [], personalDataVisible: false, accessProvince: null,
       error: "ยังไม่ได้กำหนดจังหวัดที่รับผิดชอบ กรุณาติดต่อผู้ดูแลระบบ" });
     return () => undefined;
   }
-  const personalDataVisible = includePersonalData && admin;
+  const personalDataVisible = includePersonalData && access?.role === "super_admin";
 
   // Province restriction is sent to Firestore, NOT applied after fetching
   // all documents. Firestore Rules reject all unscoped viewer reads.
   // Avoid a new composite index: provincial records are sorted after fetch.
-  const submissionsQuery = admin
+  const submissionsQuery = allProvinces
     ? query(collection(db, "submissions"), orderBy("createdAt", "desc"))
     : query(collection(db, "submissions"), where("province", "==", accessProvince));
 
