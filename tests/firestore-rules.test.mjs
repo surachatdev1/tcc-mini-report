@@ -224,7 +224,7 @@ test("member creation requires a valid province and only Admin may change assign
   await assert.rejects(updateDoc(memberRef, { province: "จังหวัดที่ไม่มีในระบบ" }), { code: "permission-denied" });
   await assert.rejects(updateDoc(memberRef, { displayName: "เปลี่ยนชื่อโดยไม่มีเหตุผล" }), { code: "permission-denied" });
   await assert.rejects(updateDoc(doc(viewer, "dashboard_members", "viewer@example.com"), { province: "กาญจนบุรี" }), { code: "permission-denied" });
-  await assert.rejects(setDoc(doc(admin, "dashboard_members", "no-province@example.com"), {
-    ...policy, email: "no-province@example.com", province: undefined,
-  }), { code: "permission-denied" });
+  const noProvince = { ...policy, email: "no-province@example.com" };
+  delete noProvince.province;
+  await assert.rejects(setDoc(doc(admin, "dashboard_members", "no-province@example.com"), noProvince), { code: "permission-denied" });
 });
