@@ -199,7 +199,7 @@ export async function migrateLegacyDashboardViewerProvinces(emails: string[]) {
         if (data.active !== true || Object.prototype.hasOwnProperty.call(data, "province")) return false;
         const province = inferProvinceFromOrganization(data.displayName, provinces);
         if (!province || data.email !== email) return false;
-        transaction.update(memberRef, { schemaVersion: 2, province });
+        transaction.update(memberRef, { schemaVersion: 3, role: "province_viewer", province });
         return true;
       });
       if (didUpdate) updated++;
