@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+// Firebase Hosting SPA uses native navigation between top-level routes.
 import { type ReactNode, useEffect, useState } from "react";
 import type { User } from "firebase/auth";
 import { getDashboardAccess, type DashboardAccess } from "@/lib/integrations/access-control-repository";
@@ -99,6 +99,10 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
           setError(friendlyAccessError(nextError));
           setLoading(false);
         });
+      }, (authError) => {
+        if (!active) return;
+        setError(friendlyAuthError(authError));
+        setLoading(false);
       });
 
       if (!blockedBrowser) {
@@ -106,6 +110,12 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
           if (active) setError(friendlyAuthError(nextError));
         });
       }
+    }).catch((authError) => {
+      // A rejected App Check/Firebase initialization must not leave
+      // the login screen spinning indefinitely.
+      if (!active) return;
+      setError(friendlyAuthError(authError));
+      setLoading(false);
     });
 
     return () => {
@@ -233,7 +243,7 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
           )}
 
           {error ? <p className="auth-error" role="alert">{error}</p> : null}
-          <Link className="auth-back-link" href="/">กลับไปหน้าแบบประเมิน</Link>
+          <a className="auth-back-link" href="/">กลับไปหน้าแบบประเมิน</a>
         </section>
       </main>
     );
@@ -256,9 +266,9 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
           </p>
           {error ? <p className="auth-error" role="alert">{error}</p> : null}
           <button className="google-signin-button" type="button" onClick={signOut}>ออกจากระบบ</button>
-          <Link className="auth-back-link" href={area === "admin" ? "/dashboard" : "/"}>
+          <a className="auth-back-link" href={area === "admin" ? "/dashboard" : "/"}>
             {area === "admin" ? "กลับไป Dashboard" : "กลับไปหน้าแบบประเมิน"}
-          </Link>
+          </a>
         </section>
       </main>
     );
@@ -268,9 +278,9 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
     <>
       <div className="dashboard-utility-wrap">
         <nav className="dashboard-session-actions" aria-label="เมนูผู้ใช้งาน">
-          {area === "dashboard" ? <>{access?.admin ? <Link href="/dashboard/overview">Dashboard ภาพรวมสาธารณะ</Link> : null}<Link href="/dashboard">{access?.province ? `ผลประเมินจังหวัด${access.province}` : "ค้นหาผลประเมิน"}</Link></> : null}
-          {area === "dashboard" && access?.admin ? <Link href="/admin">จัดการผู้มีสิทธิ์</Link> : null}
-          {area === "admin" ? <Link href="/dashboard">ดู Dashboard</Link> : null}
+          {area === "dashboard" ? <>{access?.admin ? <a href="/dashboard/overview">Dashboard ภาพรวมสาธารณะ</a> : null}<a href="/dashboard">{access?.province ? `ผลประเมินจังหวัด${access.province}` : "ค้นหาผลประเมิน"}</a></> : null}
+          {area === "dashboard" && access?.admin ? <a href="/admin">จัดการผู้มีสิทธิ์</a> : null}
+          {area === "admin" ? <a href="/dashboard">ดู Dashboard</a> : null}
           {area === "dashboard" && access?.admin ? (
             <button type="button" onClick={refreshBenchmarks} disabled={benchmarkBusy}>
               {benchmarkBusy ? "กำลังอัปเดต…" : "อัปเดตค่ากลาง"}

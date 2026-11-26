@@ -65,9 +65,17 @@ export async function getDashboardAccess(user: User): Promise<DashboardAccess> {
     return { role: "none", admin: false, member: false, emailVerified: false, province: null, provinceAssignmentRequired: false };
   }
 
-  // Admin กำหนดถาวรตามรายชื่อใน access-roles.ts และ Firestore Rules
-  // Viewer ต้องมี policy active พร้อมจังหวัดที่ถูกต้องหรืออนุมานจากชื่อหน่วยงานเดิมได้ตรงตัว
-  const admin = isAdminEmail(email);
+  // The fixed Super Admin is authorized by the same allowlist in
+  // Firestore Rules; do not require a dashboard_members document lookup.
+  // The previous unconditional getDoc could block even Super Admin login.
+  if (isAdminEmail(email)) {
+    return {
+      role: "super_admin", admin: true, member: false,
+      emailVerified: true, province: null, provinceAssignmentRequired: false,
+    };
+  }
+
+  // Central Admin and province viewers require an active Firestore membership.
   const db = await getFirebaseDb();
   if (!db) throw new Error("ไม่สามารถเชื่อมต่อ Firestore เพื่อตรวจสอบสิทธิ์ได้");
   const { doc, getDoc } = await import("firebase/firestore");
@@ -78,11 +86,11 @@ export async function getDashboardAccess(user: User): Promise<DashboardAccess> {
 
   return {
     role: access.role,
-    admin,
+    admin: false,
     member,
     emailVerified: true,
     province: access.province,
-    provinceAssignmentRequired: !admin && policy?.active === true && access.role === "none",
+    provinceAssignmentRequired: policy?.active === true && access.role === "none",
   };
 }
 
