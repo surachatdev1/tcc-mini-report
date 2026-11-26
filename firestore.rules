@@ -25,33 +25,43 @@ service cloud.firestore {
       return hasVerifiedEmail() && isProjectAdminEmail(currentEmail());
     }
 
-    function hasDashboardAccess() {
+    // The Firestore query MUST constrain 'province'; client-side filtering is
+    // insufficient because it would expose every province to the browser.
+    // Existing schema 1 members are accepted only when their exact organization
+    // name uniquely identifies a province (no unscoped legacy access).
+    function canReadProvince(province) {
       return hasVerifiedEmail() && (
         isAdmin()
         || (
           exists(/databases/$(database)/documents/dashboard_members/$(currentEmail()))
           && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.active == true
+          && (
+            get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.get('province', '') == province
+            || (
+              !get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.keys().hasAny(['province'])
+              && get(/databases/$(database)/documents/dashboard_members/$(currentEmail())).data.displayName in [
+                'หน่วยงานประจำจังหวัด' + province,
+                'หน่วยงานประจำจังหวัด ' + province
+              ]
+            )
+          )
         )
       );
     }
 
-    function hasPrivateDashboardAccess() {
-      return hasDashboardAccess();
-    }
-
+    // New viewers must always have one of the pilot's supported provinces.
     function validMemberPolicy(email) {
       let data = request.resource.data;
-      return data.keys().hasAll(['schemaVersion', 'email', 'displayName', 'authMethod', 'active', 'createdAt', 'createdBy'])
-        && data.keys().hasOnly(['schemaVersion', 'email', 'displayName', 'authMethod', 'active', 'createdAt', 'createdBy'])
-        && data.schemaVersion == 1
+      return data.keys().hasAll(['schemaVersion', 'email', 'displayName', 'authMethod', 'active', 'createdAt', 'createdBy', 'province'])
+        && data.keys().hasOnly(['schemaVersion', 'email', 'displayName', 'authMethod', 'active', 'createdAt', 'createdBy', 'province'])
+        && data.schemaVersion == 2
         && data.email == email
         && data.email == data.email.lower()
         && data.displayName is string
         && data.displayName.size() <= 120
         && data.authMethod == 'google'
         && data.active == true
-        && data.createdAt == request.time
-        && data.createdBy == currentEmail();
+        && validProvince(data.province);
     }
 
     function validProvince(value) {
@@ -408,8 +418,9 @@ service cloud.firestore {
     }
 
     match /submissions/{submissionId} {
-      // Dashboard อ่านได้เฉพาะผู้ดูแลโครงการหรืออีเมลที่อนุญาตเป็นรายบุคคล
-      allow read: if hasDashboardAccess();
+      // Admin can read all. A provincial viewer may only get/list documents
+      // from their assigned province. Non-scoped queries are rejected.
+      allow read: if canReadProvince(resource.data.province);
 
       // ผู้ตอบสร้างได้อย่างเดียว ส่วน Admin ลบแบบประเมินทั้งชุดได้จากหน้าจัดการ
       allow create: if submissionId.size() == 36 && acceptingSubmissions(request.resource.data.topicId) && validSubmission();
@@ -418,8 +429,9 @@ service cloud.firestore {
     }
 
     match /submission_assessors/{submissionId} {
-      // ข้อมูลติดต่อใช้สิทธิ์เดียวกับ Dashboard เพราะระบบอนุญาตเฉพาะรายอีเมล
-      allow read: if hasPrivateDashboardAccess();
+      // Personally identifying information is limited to central Admins.
+      // Provincial viewers may export scored answers without contact details.
+      allow read: if isAdmin();
       allow create: if submissionId.size() == 36 && validPrivateAssessor(submissionId);
       allow update: if false;
       allow delete: if isAdmin();
@@ -487,9 +499,18 @@ service cloud.firestore {
     }
 
     match /dashboard_members/{email} {
-      allow get: if hasVerifiedEmail() && email == currentEmail();
+      // Admin needs per-document get for transaction-safe legacy migration.
+      allow get: if isAdmin() || (hasVerifiedEmail() && email == currentEmail());
       allow list: if isAdmin();
-      allow create, update: if isAdmin() && validMemberPolicy(email);
+      allow create: if isAdmin() && validMemberPolicy(email)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.createdBy == currentEmail();
+      // Existing schema-1 records can be upgraded in place without replacing
+      // or modifying their original creation audit fields.
+      allow update: if isAdmin() && validMemberPolicy(email)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['schemaVersion', 'province'])
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy;
       allow delete: if isAdmin();
     }
 

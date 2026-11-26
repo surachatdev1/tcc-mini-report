@@ -1416,3 +1416,95 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
 .combobox-option strong, .combobox-option span, .school-selection strong, .school-selection span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .combobox-option { min-height: 64px; }
 .institution-location { display: block; font-size: .8125rem; line-height: 1.5; color: #526b75; margin-top: .3rem; }
+
+/* Low-impact province assignment within existing Dashboard access management. */
+.admin-province-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 6px;
+}
+.admin-viewer-detail .admin-province-label {
+  display: inline-block;
+  color: var(--brand-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-viewer-detail .admin-province-label.missing { color: var(--danger); }
+.admin-province-control button {
+  border: 0;
+  background: transparent;
+  color: var(--brand-strong);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  padding: 2px 0;
+}
+.admin-province-control button:hover { color: var(--brand); }
+.admin-province-control select {
+  min-height: 38px;
+  max-width: 250px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px 9px;
+  background: var(--surface);
+  font-size: 14px;
+}
+
+/* Each account's province is now an explicit, readable column in /admin. */
+.admin-access-list li {
+  grid-template-columns: 44px minmax(0,1fr) minmax(165px,.72fr) auto auto;
+  column-gap: 12px;
+}
+.admin-viewer-province { min-width: 0; }
+.admin-province-heading {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.admin-viewer-province .admin-province-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 0;
+}
+.admin-viewer-province .admin-province-label {
+  display: inline-block;
+  color: var(--brand-strong);
+  font-size: 15px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.admin-viewer-province .admin-province-label.missing { color: var(--danger); }
+.admin-province-inferred {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.admin-province-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 2px 0 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.admin-province-summary span { display: inline-flex; align-items: center; gap: 6px; }
+.admin-province-summary strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+@media (max-width: 1150px) {
+  .admin-access-list li { grid-template-columns: 42px minmax(0,1fr) auto; }
+  .admin-viewer-province { grid-column: 2 / -1; }
+  .admin-viewer-province .admin-province-control { flex-direction: row; align-items: baseline; gap: 6px 10px; }
+  .admin-viewer-badge { grid-column: 2; justify-self: start; }
+  .admin-access-list li > .admin-remove-button { grid-column: 3; justify-self: end; width: auto; }
+}
+@media (max-width: 520px) {
+  .admin-access-list li { grid-template-columns: 38px minmax(0,1fr); }
+  .admin-viewer-province { grid-column: 2; }
+  .admin-viewer-badge { grid-column: 2; }
+  .admin-access-list li > .admin-remove-button { grid-column: 2; justify-self: start; width: auto; }
+}

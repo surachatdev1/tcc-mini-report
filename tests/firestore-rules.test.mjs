@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, test } from "node:test";
 import { initializeApp } from "firebase/app";
-import { connectFirestoreEmulator, doc, getDoc, getFirestore, serverTimestamp, setLogLevel, terminate, writeBatch } from "firebase/firestore";
+import { collection, connectFirestoreEmulator, doc, getDoc, getDocs, getFirestore, query, runTransaction, serverTimestamp, setDoc, setLogLevel, terminate, updateDoc, where, writeBatch } from "firebase/firestore";
 
 // Never run these writes against a real project.
 const endpoint = process.env.FIRESTORE_EMULATOR_HOST;
@@ -179,4 +179,64 @@ test("all submission and private fields remain required after reducing repeated 
       await assert.rejects(commit(invalid), { code: "permission-denied" }, `assessor ${legacy}: ${field}`);
     }
   }
+});
+
+test("province viewers can query only their province, never PII, and cannot modify assessments", async () => {
+  const memberRef = doc(admin, "dashboard_members", "viewer@example.com");
+  await setDoc(memberRef, {
+    schemaVersion: 2, email: "viewer@example.com",
+    displayName: "หน่วยงานประจำจังหวัดกาญจนบุรี", province: "กาญจนบุรี",
+    authMethod: "google", active: true,
+    createdAt: serverTimestamp(), createdBy: "surachat.dev1@gmail.com",
+  });
+  const local = fixture(largest);
+  local.submission.province = "กาญจนบุรี";
+  const other = fixture(largest);
+  other.submission.province = "ลำปาง";
+  await commit(local);
+  await commit(other);
+
+  assert.ok((await getDoc(doc(viewer, "submissions", local.id))).exists());
+  await assert.rejects(getDoc(doc(viewer, "submissions", other.id)), { code: "permission-denied" });
+  await assert.rejects(getDocs(collection(viewer, "submissions")), { code: "permission-denied" });
+  await assert.rejects(getDocs(query(collection(viewer, "submissions"), where("province", "==", "ลำปาง"))), { code: "permission-denied" });
+  const localQuery = await getDocs(query(collection(viewer, "submissions"), where("province", "==", "กาญจนบุรี")));
+  assert.ok(localQuery.docs.some(item => item.id === local.id));
+  assert.ok(localQuery.docs.every(item => item.data().province === "กาญจนบุรี"));
+  await assert.rejects(getDocs(collection(viewer, "submission_assessors")), { code: "permission-denied" });
+  await assert.rejects(getDoc(doc(viewer, "submission_assessors", local.id)), { code: "permission-denied" });
+  await assert.rejects(updateDoc(doc(viewer, "submissions", local.id), { institution: "unauthorised" }), { code: "permission-denied" });
+
+  await updateDoc(memberRef, { schemaVersion: 2, province: "ลำปาง" });
+  assert.ok((await getDoc(doc(viewer, "submissions", other.id))).exists());
+  await assert.rejects(getDoc(doc(viewer, "submissions", local.id)), { code: "permission-denied" });
+  assert.ok((await getDoc(doc(admin, "submission_assessors", local.id))).exists());
+});
+
+test("member creation requires a valid province and only Admin may change assignments", async () => {
+  const memberRef = doc(admin, "dashboard_members", "another-viewer@example.com");
+  const policy = {
+    schemaVersion: 2, email: "another-viewer@example.com", displayName: "เจ้าหน้าที่จังหวัด",
+    province: "กาญจนบุรี", authMethod: "google", active: true,
+    createdAt: serverTimestamp(), createdBy: "surachat.dev1@gmail.com",
+  };
+  await setDoc(memberRef, policy);
+  // Admin must be allowed to GET each individual document before updating it
+  // in a Firestore transaction; list access alone is insufficient.
+  assert.equal((await getDoc(memberRef)).data().province, "กาญจนบุรี");
+  await assert.rejects(getDoc(doc(viewer, "dashboard_members", "another-viewer@example.com")), { code: "permission-denied" });
+  const originalProvince = await runTransaction(admin, async (transaction) => {
+    const previous = await transaction.get(memberRef);
+    if (!previous.exists()) throw new Error("missing member");
+    transaction.update(memberRef, { schemaVersion: 2, province: "ลำปาง" });
+    return previous.data().province;
+  });
+  assert.equal(originalProvince, "กาญจนบุรี");
+  assert.equal((await getDoc(memberRef)).data().province, "ลำปาง");
+  await assert.rejects(updateDoc(memberRef, { province: "จังหวัดที่ไม่มีในระบบ" }), { code: "permission-denied" });
+  await assert.rejects(updateDoc(memberRef, { displayName: "เปลี่ยนชื่อโดยไม่มีเหตุผล" }), { code: "permission-denied" });
+  await assert.rejects(updateDoc(doc(viewer, "dashboard_members", "viewer@example.com"), { province: "กาญจนบุรี" }), { code: "permission-denied" });
+  const noProvince = { ...policy, email: "no-province@example.com" };
+  delete noProvince.province;
+  await assert.rejects(setDoc(doc(admin, "dashboard_members", "no-province@example.com"), noProvince), { code: "permission-denied" });
 });
