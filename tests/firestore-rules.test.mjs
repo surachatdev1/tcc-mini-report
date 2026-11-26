@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, test } from "node:test";
 import { initializeApp } from "firebase/app";
-import { collection, connectFirestoreEmulator, doc, getDoc, getDocs, getFirestore, query, serverTimestamp, setDoc, setLogLevel, terminate, updateDoc, where, writeBatch } from "firebase/firestore";
+import { collection, connectFirestoreEmulator, doc, getDoc, getDocs, getFirestore, query, runTransaction, serverTimestamp, setDoc, setLogLevel, terminate, updateDoc, where, writeBatch } from "firebase/firestore";
 
 // Never run these writes against a real project.
 const endpoint = process.env.FIRESTORE_EMULATOR_HOST;
@@ -221,6 +221,18 @@ test("member creation requires a valid province and only Admin may change assign
     createdAt: serverTimestamp(), createdBy: "surachat.dev1@gmail.com",
   };
   await setDoc(memberRef, policy);
+  // Admin must be allowed to GET each individual document before updating it
+  // in a Firestore transaction; list access alone is insufficient.
+  assert.equal((await getDoc(memberRef)).data().province, "กาญจนบุรี");
+  await assert.rejects(getDoc(doc(viewer, "dashboard_members", "another-viewer@example.com")), { code: "permission-denied" });
+  const originalProvince = await runTransaction(admin, async (transaction) => {
+    const previous = await transaction.get(memberRef);
+    if (!previous.exists()) throw new Error("missing member");
+    transaction.update(memberRef, { schemaVersion: 2, province: "ลำปาง" });
+    return previous.data().province;
+  });
+  assert.equal(originalProvince, "กาญจนบุรี");
+  assert.equal((await getDoc(memberRef)).data().province, "ลำปาง");
   await assert.rejects(updateDoc(memberRef, { province: "จังหวัดที่ไม่มีในระบบ" }), { code: "permission-denied" });
   await assert.rejects(updateDoc(memberRef, { displayName: "เปลี่ยนชื่อโดยไม่มีเหตุผล" }), { code: "permission-denied" });
   await assert.rejects(updateDoc(doc(viewer, "dashboard_members", "viewer@example.com"), { province: "กาญจนบุรี" }), { code: "permission-denied" });
