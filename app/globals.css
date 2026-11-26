@@ -1451,3 +1451,60 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   background: var(--surface);
   font-size: 14px;
 }
+
+/* Each account's province is now an explicit, readable column in /admin. */
+.admin-access-list li {
+  grid-template-columns: 44px minmax(0,1fr) minmax(165px,.72fr) auto auto;
+  column-gap: 12px;
+}
+.admin-viewer-province { min-width: 0; }
+.admin-province-heading {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.admin-viewer-province .admin-province-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 0;
+}
+.admin-viewer-province .admin-province-label {
+  display: inline-block;
+  color: var(--brand-strong);
+  font-size: 15px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.admin-viewer-province .admin-province-label.missing { color: var(--danger); }
+.admin-province-inferred {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.admin-province-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 2px 0 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.admin-province-summary span { display: inline-flex; align-items: center; gap: 6px; }
+.admin-province-summary strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+@media (max-width: 1150px) {
+  .admin-access-list li { grid-template-columns: 42px minmax(0,1fr) auto; }
+  .admin-viewer-province { grid-column: 2 / -1; }
+  .admin-viewer-province .admin-province-control { flex-direction: row; align-items: baseline; gap: 6px 10px; }
+  .admin-viewer-badge { grid-column: 2; justify-self: start; }
+  .admin-access-list li > .admin-remove-button { grid-column: 3; justify-self: end; width: auto; }
+}
+@media (max-width: 520px) {
+  .admin-access-list li { grid-template-columns: 38px minmax(0,1fr); }
+  .admin-viewer-province { grid-column: 2; }
+  .admin-viewer-badge { grid-column: 2; }
+  .admin-access-list li > .admin-remove-button { grid-column: 2; justify-self: start; width: auto; }
+}
