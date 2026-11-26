@@ -18,6 +18,7 @@ const resultInsightsSource = await readFile(new URL("../components/result-insigh
 const benchmarkRepositorySource = await readFile(new URL("../lib/integrations/benchmark-repository.ts", import.meta.url), "utf8");
 const accessRolesSource = await readFile(new URL("../lib/access-roles.ts", import.meta.url), "utf8");
 const siteHeaderSource = await readFile(new URL("../components/site-header.tsx", import.meta.url), "utf8");
+const overviewDashboardSource = await readFile(new URL("../components/overview-dashboard.tsx", import.meta.url), "utf8");
 const globalStyles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 const tccLogo = await readFile(new URL("../public/images/tcc-office-logo.webp", import.meta.url));
 const thaiHealthLogo = await readFile(new URL("../public/images/thaihealth-logo.webp", import.meta.url));
@@ -68,11 +69,12 @@ test("Firebase Hosting รองรับ SPA route /dashboard และ /admin"
 });
 
 test("Firestore ให้เฉพาะผู้มีสิทธิ์อ่าน Dashboard และเปิด public create เท่านั้น", () => {
-  assert.match(rules, /function hasDashboardAccess\(\)/);
+  assert.match(rules, /function canReadProvince\(province\)/);
+  assert.match(rules, /function canReadAllProvinces\(\)/);
   assert.match(rules, /function isAdmin\(\)/);
   assert.match(rules, /dashboard_members\/\$\(currentEmail\(\)\)/);
   assert.doesNotMatch(rules, /dashboard_domains|currentDomain/);
-  assert.match(rules, /allow read: if hasDashboardAccess\(\);/);
+  assert.match(rules, /allow read: if canReadProvince\(resource\.data\.province\);/);
   assert.match(rules, /allow create: if submissionId\.size\(\) == 36 && acceptingSubmissions\(request\.resource\.data\.topicId\) && validSubmission\(\);/);
   assert.match(rules, /match \/submissions\/\{submissionId\}[\s\S]*allow update: if false;[\s\S]*allow delete: if isAdmin\(\);/);
   assert.match(rules, /match \/benchmarks\/\{benchmarkId\}[\s\S]*allow read: if true;/);
@@ -92,14 +94,14 @@ test("Dashboard บังคับ Sign-In และจำกัดข้อม�
   assert.match(protectedAreaSource, /Safari หรือ Chrome/);
   assert.match(protectedAreaSource, /GoogleAuthProvider/);
   assert.match(rules, /match \/submission_assessors\/\{submissionId\}/);
-  assert.match(rules, /function hasPrivateDashboardAccess\(\)/);
-  assert.match(rules, /allow read: if hasPrivateDashboardAccess\(\);/);
+  assert.match(rules, /function isAdmin\(\)/);
+  assert.match(rules, /match \/submission_assessors\/\{submissionId\} \{[\s\S]*?allow read: if isAdmin\(\);/);
   assert.match(rules, /validPrivateAssessor\(submissionId\)/);
   assert.match(rules, /data\.assessorPhone\.size\(\) <= 30/);
   assert.match(rules, /getAfter\(\/databases\/\$\(database\)\/documents\/submissions\/\$\(submissionId\)\)\.data\.createdAt == request\.time/);
 });
 
-test("Admin เจ้าของโครงการจัดการ Viewer รายอีเมลเพียงระดับเดียว", () => {
+test("Super Admin จัดการสิทธิ์ส่วนกลางและเจ้าหน้าที่จังหวัดแบบรายอีเมล", () => {
   assert.match(adminSource, /จัดการระบบและสิทธิ์ Dashboard/);
   assert.match(adminSource, /addDashboardViewer/);
   assert.match(adminSource, /removeDashboardViewer/);
@@ -115,7 +117,8 @@ test("Admin เจ้าของโครงการจัดการ Viewer 
   assert.match(rules, /surachat\.dev1@gmail\.com/);
   assert.match(rules, /nuonnaka@gmail\.com/);
   assert.match(rules, /busssafety69@gmail\.com/);
-  assert.match(rules, /allow create, update: if isAdmin\(\) && validMemberPolicy\(email\);/);
+  assert.match(rules, /allow create: if isAdmin\(\) && validMemberPolicy\(email\)/);
+  assert.match(rules, /allow update: if isAdmin\(\) && validMemberPolicy\(email\)/);
   assert.match(rules, /allow list: if isAdmin\(\);/);
   assert.doesNotMatch(rules, /dashboard_admins|dashboard_domains|isSuperAdmin/);
 });
@@ -148,10 +151,23 @@ test("Admin ลบแบบประเมินหนึ่งชุดหร�
 });
 
 test("เมนูสาธารณะแสดงเฉพาะแบบประเมินและ Dashboard", () => {
-  assert.match(siteHeaderSource, /href="\/">แบบประเมิน<\/Link>/);
-  assert.match(siteHeaderSource, /href="\/dashboard\/overview">Dashboard<\/Link>/);
+  assert.match(siteHeaderSource, /href="\/">แบบประเมิน<\/a>/);
+  assert.match(siteHeaderSource, /href="\/dashboard\/overview">Dashboard<\/a>/);
   assert.doesNotMatch(siteHeaderSource, /href="\/admin"/);
-  assert.match(protectedAreaSource, /จัดการผู้มีสิทธิ์<\/Link>/);
+  assert.match(protectedAreaSource, /จัดการผู้มีสิทธิ์<\/a>/);
+});
+
+test("การนำทางสำหรับเจ้าหน้าที่บน Firebase SPA ใช้ลิงก์จริงและเริ่ม Route ใหม่", () => {
+  // The public overview is hosted as Vite SPA, not Next App Router.
+  // A Next Link may prevent the browser from fully reloading the route.
+  assert.match(overviewDashboardSource, /<a href="\/dashboard" aria-label="เข้าสู่หน้าสำหรับเจ้าหน้าที่">สำหรับเจ้าหน้าที่<\/a>/);
+  assert.doesNotMatch(overviewDashboardSource, /<Link href="\/dashboard">/);
+  assert.doesNotMatch(overviewDashboardSource, /import Link from "next\/link"/);
+  assert.doesNotMatch(siteHeaderSource, /import Link from "next\/link"/);
+  assert.doesNotMatch(protectedAreaSource, /import Link from "next\/link"/);
+  assert.match(protectedAreaSource, /\.catch\(\(authError\) => \{/);
+  assert.match(protectedAreaSource, /setLoading\(false\)/);
+  assert.match(accessRepositorySource, /if \(isAdminEmail\(email\)\) \{[\s\S]*role: "super_admin"/);
 });
 
 test("คำชี้แจงข้อ 3 ระบุเจตนารมณ์ด้านการพัฒนาและจัดสรรทรัพยากร", () => {
