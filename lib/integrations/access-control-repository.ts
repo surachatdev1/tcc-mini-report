@@ -1,5 +1,5 @@
 import type { User } from "firebase/auth";
-import { isAdminEmail, resolveMemberProvince, type SystemRole } from "@/lib/access-roles";
+import { inferProvinceFromOrganization, isAdminEmail, resolveMemberProvince, type SystemRole } from "@/lib/access-roles";
 import { provinces } from "@/lib/assessment-data";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/integrations/firebase-client";
 
@@ -145,4 +145,45 @@ export async function updateDashboardViewerProvince(email: string, province: str
   if (!db) throw new Error("ไม่สามารถเชื่อมต่อ Firestore ได้");
   const { doc, updateDoc } = await import("firebase/firestore");
   await updateDoc(doc(db, "dashboard_members", normalized), { schemaVersion: 2, province });
+}
+
+/**
+ * Persist provinces for pre-existing, active viewer accounts whose organisation
+ * name is an exact, unambiguous provincial label. Admin-only and idempotent:
+ * the transaction re-reads every member to avoid overwriting a province assigned
+ * by another Admin between the list snapshot and the update.
+ *
+ * Unmatched names are NEVER assigned a province by guesswork.
+ */
+export async function migrateLegacyDashboardViewerProvinces(emails: string[]) {
+  await currentAdminEmail();
+  const db = await getFirebaseDb();
+  if (!db) throw new Error("ไม่สามารถเชื่อมต่อ Firestore ได้");
+  const { doc, runTransaction } = await import("firebase/firestore");
+  const uniqueEmails = [...new Set(emails.map(normalizeEmail))].filter(Boolean);
+  let updated = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const email of uniqueEmails) {
+    if (isAdminEmail(email)) { skipped++; continue; }
+    try {
+      const didUpdate = await runTransaction(db, async (transaction) => {
+        const memberRef = doc(db, "dashboard_members", email);
+        const snapshot = await transaction.get(memberRef);
+        if (!snapshot.exists()) return false;
+        const data = snapshot.data();
+        if (data.active !== true || Object.prototype.hasOwnProperty.call(data, "province")) return false;
+        const province = inferProvinceFromOrganization(data.displayName, provinces);
+        if (!province || data.email !== email) return false;
+        transaction.update(memberRef, { schemaVersion: 2, province });
+        return true;
+      });
+      if (didUpdate) updated++;
+      else skipped++;
+    } catch {
+      failed++;
+    }
+  }
+  return { examined: uniqueEmails.length, updated, skipped, failed };
 }
