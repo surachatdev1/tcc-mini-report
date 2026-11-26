@@ -266,7 +266,7 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
     <>
       <div className="dashboard-utility-wrap">
         <nav className="dashboard-session-actions" aria-label="เมนูผู้ใช้งาน">
-          {area === "dashboard" ? <><Link href="/dashboard/overview">Dashboard ภาพรวม</Link><Link href="/dashboard">ค้นหาผลประเมิน</Link></> : null}
+          {area === "dashboard" ? <>{access?.admin ? <Link href="/dashboard/overview">Dashboard ภาพรวมสาธารณะ</Link> : null}<Link href="/dashboard">{access?.province ? `ผลประเมินจังหวัด${access.province}` : "ค้นหาผลประเมิน"}</Link></> : null}
           {area === "dashboard" && access?.admin ? <Link href="/admin">จัดการผู้มีสิทธิ์</Link> : null}
           {area === "admin" ? <Link href="/dashboard">ดู Dashboard</Link> : null}
           {area === "dashboard" && access?.admin ? (
