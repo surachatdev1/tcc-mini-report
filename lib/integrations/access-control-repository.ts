@@ -63,8 +63,8 @@ export async function getDashboardAccess(user: User): Promise<DashboardAccess> {
     return { role: "none", admin: false, member: false, emailVerified: false, province: null };
   }
 
-  // Admin สองบัญชีกำหนดถาวรใน Rules เพื่อป้องกันระบบถูกล็อกเอาต์ทั้งหมด
-  // ส่วน Viewer ต้องมี policy ที่ตรงกับอีเมลของตนเองใน dashboard_members
+  // Admin กำหนดถาวรตามรายชื่อใน access-roles.ts และ Firestore Rules
+  // Viewer ต้องมี policy active พร้อมจังหวัดที่ถูกต้องหรืออนุมานจากชื่อหน่วยงานเดิมได้ตรงตัว
   const admin = isAdminEmail(email);
   const db = await getFirebaseDb();
   if (!db) throw new Error("ไม่สามารถเชื่อมต่อ Firestore เพื่อตรวจสอบสิทธิ์ได้");
