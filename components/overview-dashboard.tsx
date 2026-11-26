@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Firebase serves the existing local WebP logos. */
 import { schoolCountNote } from "@/lib/school-identity";
 import "./overview-dashboard.css";
-import Link from "next/link";
+// Firebase Hosting uses a standalone Vite SPA: native links trigger full route initialization.
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { agencyTypes, getTopic, provinces, type TopicId } from "@/lib/assessment-data";
 import { affiliationLabels } from "@/lib/dashboard-filters";
@@ -132,7 +132,7 @@ export function OverviewDashboard() {
           </section>
         </div>
       </>}
-      <footer className="td-footer"><span>{result.manifest ? `ข้อมูลสรุปเผยแพร่เมื่อ ${dateLabel(result.manifest.updatedAt)}` : "แสดงเฉพาะข้อมูลสรุปของโครงการ"}<br />แผนที่: <a href="https://github.com/apisit/thailand.json" target="_blank" rel="noreferrer">apisit/thailand.json · MIT</a></span><div className="td-footer-actions">{result.source === "live" && <button type="button" className="td-clear" disabled={exporting || pending || !summary.assessments || waiting} onClick={exportExcel}>{exporting ? "กำลังส่งออก…" : `ส่งออกผลค้นหา (${number(summary.assessments)} ชุด)`}</button>}<Link href="/">ทำแบบประเมิน</Link><Link href="/dashboard">สำหรับเจ้าหน้าที่</Link></div></footer>{exportMessage && <p className="td-export-status" role="status">{exportMessage}</p>}
+      <footer className="td-footer"><span>{result.manifest ? `ข้อมูลสรุปเผยแพร่เมื่อ ${dateLabel(result.manifest.updatedAt)}` : "แสดงเฉพาะข้อมูลสรุปของโครงการ"}<br />แผนที่: <a href="https://github.com/apisit/thailand.json" target="_blank" rel="noreferrer">apisit/thailand.json · MIT</a></span><div className="td-footer-actions">{result.source === "live" && <button type="button" className="td-clear" disabled={exporting || pending || !summary.assessments || waiting} onClick={exportExcel}>{exporting ? "กำลังส่งออก…" : `ส่งออกผลค้นหา (${number(summary.assessments)} ชุด)`}</button>}<a href="/">ทำแบบประเมิน</a><a href="/dashboard" aria-label="เข้าสู่หน้าสำหรับเจ้าหน้าที่">สำหรับเจ้าหน้าที่</a></div></footer>{exportMessage && <p className="td-export-status" role="status">{exportMessage}</p>}
       {detail && searchReady && <OverviewDetailDialog cells={result.cells} applied={applied} selection={detail} questionLabels={questionLabels} onClose={() => setDetail(null)} />}
     </main>
   </div></div>;
