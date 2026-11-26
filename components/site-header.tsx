@@ -1,11 +1,11 @@
 /* eslint-disable @next/next/no-img-element -- Firebase Hosting serves this pre-optimized local WebP directly. */
-import Link from "next/link";
+// Native links are required for full route reloads on Firebase Hosting (Vite SPA).
 
 export function SiteHeader({ active }: { active: "assessment" | "dashboard" | "admin" }) {
   return (
     <header className="app-header">
       <div className="header-inner">
-        <Link
+        <a
           className="brand-block brand-link"
           href="/"
           aria-label="สภาองค์กรของผู้บริโภค และสำนักงานกองทุนสนับสนุนการสร้างเสริมสุขภาพ กลับหน้าแบบประเมิน"
@@ -36,10 +36,10 @@ export function SiteHeader({ active }: { active: "assessment" | "dashboard" | "a
             <p className="brand-title">ระบบประเมินการเดินทางที่ปลอดภัยของเด็กนักเรียน</p>
             <p className="brand-subtitle">สำรวจความพร้อม เห็นช่องว่าง และนำไปพัฒนา</p>
           </div>
-        </Link>
+        </a>
         <nav className="main-nav" aria-label="เมนูหลัก">
-          <Link aria-current={active === "assessment" ? "page" : undefined} href="/">แบบประเมิน</Link>
-          <Link aria-current={active === "dashboard" ? "page" : undefined} href="/dashboard/overview">Dashboard</Link>
+          <a aria-current={active === "assessment" ? "page" : undefined} href="/">แบบประเมิน</a>
+          <a aria-current={active === "dashboard" ? "page" : undefined} href="/dashboard/overview">Dashboard</a>
         </nav>
       </div>
     </header>
