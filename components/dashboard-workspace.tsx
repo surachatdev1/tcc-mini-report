@@ -60,6 +60,7 @@ export function DashboardWorkspace() {
   const [source, setSource] = useState<"loading" | DashboardResult["source"]>("loading");
   const [loadError, setLoadError] = useState("");
   const [personalDataVisible, setPersonalDataVisible] = useState(false);
+  const [accessProvince, setAccessProvince] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [draftFilters, setDraftFilters] = useState<DashboardFilters>(emptyDashboardFilters);
   const [filters, setFilters] = useState<DashboardFilters>(emptyDashboardFilters);
@@ -114,6 +115,7 @@ export function DashboardWorkspace() {
       setSource(payload.source);
       setLoadError(payload.error ?? "");
       setPersonalDataVisible(payload.personalDataVisible);
+      setAccessProvince(payload.accessProvince ?? null);
     }).then((stop) => {
       if (active) unsubscribe = stop;
       else stop();
@@ -121,6 +123,7 @@ export function DashboardWorkspace() {
       if (!active) return;
       setRecords([]);
       setPersonalDataVisible(false);
+      setAccessProvince(null);
       setSource("unavailable");
       setLoadError("เชื่อมต่อข้อมูล Dashboard ไม่สำเร็จ");
     });
@@ -202,7 +205,7 @@ export function DashboardWorkspace() {
           filters.dateFrom && `ตั้งแต่: ${filters.dateFrom}`,
           filters.dateTo && `ถึง: ${filters.dateTo}`,
         ].filter(Boolean).join(" · "),
-        provinceLabel: province === "all" ? "ทุกจังหวัด" : province,
+        provinceLabel: accessProvince ?? (province === "all" ? "ทุกจังหวัด" : province),
         topicLabel: topicOptions.find((option) => option.id === topicId)?.label ?? "ทุกแบบประเมิน",
       });
       setExportState("done");
@@ -226,6 +229,7 @@ export function DashboardWorkspace() {
       </div>
 
       <section className="dashboard-note" aria-label="ขอบเขตข้อมูล">
+        {accessProvince ? <p><strong>สิทธิ์เจ้าหน้าที่จังหวัด{accessProvince}:</strong> แสดงและส่งออกเฉพาะผลประเมินในจังหวัดที่ได้รับมอบหมาย</p> : null}
         <strong>การใช้ผลประเมิน:</strong> คะแนนใช้สะท้อนช่องว่างเพื่อจัดทำแผนพัฒนา ไม่ใช้ลงโทษหรือตัดงบประมาณ
         และยังไม่แสดง “อัตราการส่งครบ” จนกว่าจะมีรายชื่อหน่วยงานเป้าหมายประจำรอบประเมิน
       </section>
@@ -315,7 +319,7 @@ export function DashboardWorkspace() {
           setPage(1); setExportMessage("");
         }}>
           <div className="advanced-search-grid">
-            <label className="field"><span>จังหวัด</span><select value={draftFilters.province} onChange={event => updateFilter("province", event.target.value)}><option value="all">ทุกจังหวัด</option>{provinces.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
+            <label className="field"><span>จังหวัด</span><select value={accessProvince ?? draftFilters.province} disabled={Boolean(accessProvince)} onChange={event => updateFilter("province", event.target.value)}>{!accessProvince && <option value="all">ทุกจังหวัด</option>}{(accessProvince ? [accessProvince] : provinces).map(name => <option key={name} value={name}>{name}</option>)}</select></label>
             <label className="field"><span>โรงเรียน / หน่วยงาน</span><input type="search" list="dashboard-institutions" value={draftFilters.institution} onChange={event => updateFilter("institution", event.target.value)} placeholder="ค้นหาชื่อ พื้นที่ หรือรหัสโรงเรียน" /></label>
             <label className="field"><span>ประเภทแบบประเมิน</span><select value={draftFilters.topicId} onChange={event => updateFilter("topicId", event.target.value as DashboardFilters["topicId"])}>{topicOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
             <label className="field"><span>วันที่ประเมิน ตั้งแต่</span><input type="date" value={draftFilters.dateFrom} onChange={event => updateFilter("dateFrom", event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "date-filter-error" : undefined} /></label>
