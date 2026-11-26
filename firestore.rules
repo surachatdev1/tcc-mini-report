@@ -499,7 +499,8 @@ service cloud.firestore {
     }
 
     match /dashboard_members/{email} {
-      allow get: if hasVerifiedEmail() && email == currentEmail();
+      // Admin needs per-document get for transaction-safe legacy migration.
+      allow get: if isAdmin() || (hasVerifiedEmail() && email == currentEmail());
       allow list: if isAdmin();
       allow create: if isAdmin() && validMemberPolicy(email)
         && request.resource.data.createdAt == request.time
