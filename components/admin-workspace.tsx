@@ -327,6 +327,29 @@ export function AdminWorkspace() {
     }
   }
 
+  async function persistLegacyViewerProvinces() {
+    const legacy = viewers.filter((entry) => entry.provinceSource === "inferred" && entry.province);
+    if (!legacy.length) return;
+    if (!window.confirm(`บันทึกจังหวัดที่ตรวจพบจากชื่อหน่วยงานให้ผู้มีสิทธิ์เดิม ${legacy.length} บัญชีหรือไม่`)) return;
+    setBusy(true); setError(""); setStatus("");
+    let success = 0;
+    try {
+      for (const entry of legacy) {
+        if (!entry.province) continue;
+        try {
+          await updateDashboardViewerProvince(entry.email, entry.province);
+          success++;
+        } catch {
+          // Continue and report partial failures without leaking account details.
+        }
+      }
+      setStatus(`บันทึกจังหวัดให้บัญชีเดิมสำเร็จ ${success} จาก ${legacy.length} บัญชี`);
+      if (success !== legacy.length) setError("บางบัญชีบันทึกไม่สำเร็จ กรุณาตรวจสอบรายชื่อและลองอีกครั้ง");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function removeViewer(entry: AccessEntry) {
     if (!window.confirm(`ยืนยันลบสิทธิ์ของ ${entry.name || entry.email} หรือไม่`)) return;
     setBusy(true);
@@ -428,6 +451,12 @@ export function AdminWorkspace() {
             </label>
           </div>
 
+          {viewers.some((entry) => entry.provinceSource === "inferred" && entry.province) ? (
+            <button type="button" className="btn btn-secondary" disabled={busy}
+              onClick={() => void persistLegacyViewerProvinces()}>
+              บันทึกจังหวัดจากชื่อหน่วยงานเดิม ({viewers.filter((entry) => entry.provinceSource === "inferred" && entry.province).length} บัญชี)
+            </button>
+          ) : null}
           {loading ? <p className="admin-empty-state" role="status">กำลังโหลดรายชื่อ…</p> : null}
           {!loading && viewers.length === 0 ? <div className="admin-empty-state admin-empty-card"><strong>ยังไม่มีผู้ได้รับสิทธิ์</strong><span>เพิ่มอีเมลจากแบบฟอร์มด้านซ้ายเพื่อเริ่มต้น</span></div> : null}
           {!loading && viewers.length > 0 && filteredViewers.length === 0 ? <div className="admin-empty-state admin-empty-card"><strong>ไม่พบรายการที่ค้นหา</strong><span>ลองตรวจการสะกดหรือค้นหาด้วยบางส่วนของอีเมล</span></div> : null}
