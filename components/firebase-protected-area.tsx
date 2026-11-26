@@ -249,7 +249,9 @@ export function FirebaseProtectedArea({ area, children }: ProtectedAreaProps) {
           <h1 id="access-denied-title">บัญชีนี้ยังไม่มีสิทธิ์</h1>
           <p className="dashboard-login-description">
             {user.emailVerified
-              ? `กรุณาให้ผู้ดูแลเพิ่ม ${user.email ?? "อีเมลนี้"} ในหน้าจัดการสิทธิ์`
+              ? access?.provinceAssignmentRequired
+                ? "บัญชีนี้มีรายชื่อผู้ได้รับสิทธิ์แล้ว แต่ยังไม่พบจังหวัดที่รับผิดชอบ กรุณาให้ Admin กำหนดจังหวัดในหน้าจัดการสิทธิ์"
+                : `กรุณาให้ผู้ดูแลเพิ่ม ${user.email ?? "อีเมลนี้"} ในหน้าจัดการสิทธิ์`
               : "กรุณาเปิดลิงก์ยืนยันอีเมลที่ระบบส่งให้ แล้วออกจากระบบและเข้าสู่ระบบใหม่"}
           </p>
           {error ? <p className="auth-error" role="alert">{error}</p> : null}
