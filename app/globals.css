@@ -1416,3 +1416,38 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
 .combobox-option strong, .combobox-option span, .school-selection strong, .school-selection span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .combobox-option { min-height: 64px; }
 .institution-location { display: block; font-size: .8125rem; line-height: 1.5; color: #526b75; margin-top: .3rem; }
+
+/* Low-impact province assignment within existing Dashboard access management. */
+.admin-province-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 6px;
+}
+.admin-viewer-detail .admin-province-label {
+  display: inline-block;
+  color: var(--brand-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-viewer-detail .admin-province-label.missing { color: var(--danger); }
+.admin-province-control button {
+  border: 0;
+  background: transparent;
+  color: var(--brand-strong);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  padding: 2px 0;
+}
+.admin-province-control button:hover { color: var(--brand); }
+.admin-province-control select {
+  min-height: 38px;
+  max-width: 250px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px 9px;
+  background: var(--surface);
+  font-size: 14px;
+}
