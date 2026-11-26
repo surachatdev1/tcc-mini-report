@@ -1508,3 +1508,18 @@ th { background: var(--surface-soft); color: var(--muted); font-size: 15px; }
   .admin-viewer-badge { grid-column: 2; }
   .admin-access-list li > .admin-remove-button { grid-column: 2; justify-self: start; width: auto; }
 }
+
+/* Explicit central-vs-province role labels in user management. */
+.admin-viewer-role {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.admin-viewer-province .admin-province-control select {
+  max-width: 100%;
+}
+.admin-viewer-province .admin-province-control small {
+  font-size: 12px;
+}
