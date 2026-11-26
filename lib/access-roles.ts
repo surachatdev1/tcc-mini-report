@@ -68,7 +68,9 @@ export function resolveDashboardRole(
       return { role: "admin", province: null };
     }
     if (member.role === "province_viewer") {
-      const province = resolveMemberProvince(member, allowedProvinces);
+      const province = typeof member.province === "string" && allowedProvinces.includes(member.province)
+        ? member.province
+        : null;
       return province ? { role: "province_viewer", province } : { role: "none", province: null };
     }
     return { role: "none", province: null };
